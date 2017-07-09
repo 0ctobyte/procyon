@@ -1,0 +1,3 @@
+# Tell GitHub that this project is a SystemVerilog project rather than TCL
+* linguist-vendored
+*.sv linguist-vendored=false
