@@ -3,165 +3,193 @@
 // Every cycle a ready entry at the tail of the FIFO is committed to the register file
 // This enforces instructions to complete in program order
 
+import types::*;
+
 module reorder_buffer #(
-    parameter DATA_WIDTH         = 32,
-    parameter ADDR_WIDTH         = 32,
-    parameter REGFILE_DEPTH      = 32,
-    parameter TAG_WIDTH          = 6,
+    parameter DATA_WIDTH     = 32,
+    parameter ADDR_WIDTH     = 32,
+    parameter ROB_DEPTH      = 64,
+    parameter REG_ADDR_WIDTH = 5,
 
-    localparam REG_ADDR_WIDTH    = $clog2(REGFILE_DEPTH),
-    localparam NUM_ROB_ENTRIES   = 1 << (TAG_WIDTH-1)
+    localparam TAG_WIDTH     = $clog2(ROB_DEPTH)
 ) (
-    input  wire                         clk,
-    input  wire                         n_rst,
-    
+    input logic                   clk,
+    input logic                   n_rst,
+
+    // Exception signal, if asserted, will cause pipelines to flush in other modules in the processor
+    // The branch signal and iaddr are used by the Fetch unit to jump to the exception/branch address
+    output logic                  o_exc,
+    output logic                  o_branch,
+    output logic [ADDR_WIDTH-1:0] o_iaddr,
+
     // Common Data Bus interface
-    input  wire [TAG_WIDTH-1:0]         i_cdb_tag,
-    input  wire [DATA_WIDTH-1:0]        i_cdb_data,
-    input  wire                         i_cdb_exc, // Exception or branch mispredict 
-    input  wire                         i_cdb_en,
+    cdb_if.sink                   cdb,
 
-    // Enqueue new entry request by Mapper/Dispatcher
-    input  wire                         i_rob_enqueue_en,
-    input  wire                         i_rob_enqueue_rdy,
-    input  wire [1:0]                   i_rob_enqueue_op,
-    input  wire [ADDR_WIDTH-1:0]        i_rob_enqueue_iaddr,
-    input  wire [DATA_WIDTH-1:0]        i_rob_enqueue_data,
-    input  wire [REG_ADDR_WIDTH-1:0]    i_rob_enqueue_rD,
-    output wire [TAG_WIDTH-1:0]         o_rob_enqueue_tag,
-    output wire                         o_rob_enqueue_stall,
+    // Dispatcher <-> ROB interface to enqueue a new instruction
+    rob_dispatch_if.sink          rob_dispatch, 
 
-    // Output data/rdy for source tags requested by Mapper/Dispatcher
-    input  wire [TAG_WIDTH-1:0]         i_map_tag  [0:1],
-    output wire [DATA_WIDTH-1:0]        o_map_data [0:1],
-    output wire                         o_map_rdy  [0:1],
+    // Interface to register map to update destination register for retired instruction
+    regmap_dest_wr_if.source      dest_wr,
 
-    // ROB outputs to register map and to fetch unit indicating branch
-    // Exception signal is trigger to other units to flush their pipelines
-    output wire                         o_rob_exc,
-    output wire                         o_rob_br, 
-    output wire [DATA_WIDTH-1:0]        o_rob_data,  // This will contain branch address if o_rob_br is asserted
-    output wire [REG_ADDR_WIDTH-1:0]    o_rob_rD,
-    output wire                         o_rob_rD_wr_en
+    // Interface to register map to update tag information of the destination register of the
+    // newly enqueued instruction
+    regmap_tag_wr_if.source       tag_wr,
+
+    // Interface to register map to lookeup src register data/tags/rdy for newly enqueued instructions
+    regmap_lookup_if.source       regmap_lookup [0:1]
 );
 
-    localparam INT_OP = 2'b00, BR_OP = 2'b01, LD_OP = 2'b10, STR_OP = 2'b11;
-    
-    // Create entry buffer RAMs
-    reg                      rob_rdy        [0:NUM_ROB_ENTRIES-1]; // Ready to commit?
-    reg                      rob_exc        [0:NUM_ROB_ENTRIES-1]; // Exception or Branch mispredict
-    reg [1:0]                rob_op         [0:NUM_ROB_ENTRIES-1]; // load, store, branch or integer op 
-    reg [ADDR_WIDTH-1:0]     rob_iaddr      [0:NUM_ROB_ENTRIES-1];
-    reg [DATA_WIDTH-1:0]     rob_data       [0:NUM_ROB_ENTRIES-1];
-    reg [REG_ADDR_WIDTH-1:0] rob_rD         [0:NUM_ROB_ENTRIES-1];
+    // ROB entry consists of the following:
+    // rdy:    Is the data valid/ready?
+    // exc:    Did the instruction cause an exception?
+    // branch: Did the instruction cause a branch? 
+    // op:     What operation is the instruction doing?
+    // iaddr:  Address of the instruction (for branches and to rollback on exception)
+    // data:   The data for the destination register
+    // rdest:  The destination register 
+    typedef struct packed {
+        logic                      rdy;
+        logic                      exc;
+        logic                      branch;
+        rob_op_t                   op;
+        logic [ADDR_WIDTH-1:0]     iaddr;
+        logic [DATA_WIDTH-1:0]     data;
+        logic [REG_ADDR_WIDTH-1:0] rdest;
+    } rob_entries_t;
 
-    // ROB head and tail counters. We enqueue at head and dequeue at tail
-    // These are intentionally 1-MSB larger than the # of bits needed to store the buffer address so that they may wrap around
-    // Also allows for easier full/empty detection
-    reg [TAG_WIDTH-1:0] rob_head, rob_tail;
+    typedef struct {
+        // It's convenient to add an extra bit for the head and tail pointers so that they may wrap around and allow for easier queue full/empty detection
+        logic [TAG_WIDTH:0]   head;
+        logic [TAG_WIDTH:0]   tail;
+        logic [TAG_WIDTH-1:0] head_addr;
+        logic [TAG_WIDTH-1:0] tail_addr;
+        logic                 full;
+        logic                 empty;
+        rob_entries_t         entries [0:ROB_DEPTH-1];
+    } rob_t;
+    rob_t rob;
 
-    // Head and Tail pointers into the ROB Queue
-    wire [TAG_WIDTH-2:0] rob_head_addr, rob_tail_addr;
+    logic exc_taken;
+    logic branch_taken;
 
-    // ROB full/empty signals
-    wire rob_full, rob_empty;
+    logic rob_dispatch_en;
+    logic rob_retire_en;
 
-    // ROB enqueue enable, dequeue enable
-    wire rob_enqueue_en;
-    wire rob_dequeue_en;
+    assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
+    assign rob_retire_en   = rob.entries[rob.tail_addr].rdy && ~rob.empty;
 
-    // CDB tag convert to valid ROB addresses
-    wire [TAG_WIDTH-2:0] cdb_tag_addr;
+    // If the instruction to be retired generated an exception or branch and it is ready then
+    // assert the exc or br signal
+    assign exc_taken    = rob.entries[rob.tail_addr].rdy && rob.entries[rob.tail_addr].exc;
+    assign branch_taken = rob.entries[rob.tail_addr].rdy && rob.entries[rob.tail_addr].branch;
+    assign o_exc        = exc_taken;
+    assign o_branch     = branch_taken;
 
-    // i_map_tag to ROB address
-    wire [TAG_WIDTH-2:0] map_tag_addr [0:1];
+    assign o_iaddr      = rob.entries[rob.tail_addr].iaddr;
 
-    wire cdb_bypass [0:1];
+    assign rob.head_addr = rob.head[TAG_WIDTH-1:0];
+    assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0]; 
+    assign rob.full      = ({~rob.head[TAG_WIDTH], rob.head[TAG_WIDTH-1:0]} == rob.tail);
+    assign rob.empty     = (rob.head == rob.tail);
 
-    // Discard MSB for ROB addresses
-    assign rob_head_addr = rob_head[TAG_WIDTH-2:0];
-    assign rob_tail_addr = rob_tail[TAG_WIDTH-2:0];
+    // Assign outputs to regmap
+    assign dest_wr.data  = rob.entries[rob.tail_addr].data;
+    assign dest_wr.rdest = rob.entries[rob.tail_addr].rdest;
+    assign dest_wr.wr_en = rob_retire_en && ~rob.entries[rob.tail_addr].exc && ~rob.entries[rob.tail_addr].branch;
 
-    // Because of the symmetry of overflowing the binary head/tail counters we know the queue is empty if rob_head==rob_tail
-    // and the queue is full if rob_head == rob_tail iff the MSB of rob_head is inverted (because the MSB indicates that the counter
-    // has "wrapped around")
-    assign rob_full  = ({~rob_head[TAG_WIDTH-1], rob_head[TAG_WIDTH-2:0]} == rob_tail);
-    assign rob_empty = (rob_head == rob_tail);
+    assign tag_wr.tag    = rob.head_addr;
+    assign tag_wr.rdest  = rob_dispatch.rdest;
+    assign tag_wr.wr_en  = rob_dispatch_en;
 
-    // Prevent manipulating the ROB incorrectly if rob_full or rob_empty
-    assign rob_enqueue_en = (~rob_full && i_rob_enqueue_en);
-    assign rob_dequeue_en = (~rob_empty && rob_rdy[rob_tail_addr]);
+    genvar i;
+    generate
+    for (i = 0; i < 2; i++) begin
+        assign regmap_lookup[i].rsrc = rob_dispatch.rsrc[i];
+    end
+    endgenerate 
 
-    // Discard MSB to generate real ROB addr
-    assign cdb_tag_addr    = i_cdb_tag[TAG_WIDTH-2:0];
-
-    // Bypass rob entry output to Mapper/Dispatcher if CDB has the value
-    assign cdb_bypass[0] = (i_cdb_en && i_cdb_tag == i_map_tag[0]);
-    assign cdb_bypass[1] = (i_cdb_en && i_cdb_tag == i_map_tag[1]);
-
-    // Assign outputs to Mapper/Dispatcher
+    // Assign outputs to dispatcher
     // Stall if the ROB is full
-    assign o_rob_enqueue_tag   = rob_head; 
-    assign o_rob_enqueue_stall = rob_full;
-    
-    for (genvar i = 0; i < 2; i++) begin
-        // Discard MSB to generate real ROB addr
-        assign map_tag_addr[i] = i_map_tag[i][TAG_WIDTH-2:0];
+    assign rob_dispatch.stall = rob.full;
+    assign rob_dispatch.tag   = rob.head_addr;
 
-        // Bypass rob entry output to Mapper/Dispatcher if CDB has the value
-        assign cdb_bypass[i] = (i_cdb_en && i_cdb_tag == i_map_tag[i]);
-
-        // Assign output to Mapper/Dispatcher for source inputs
-        // bypass with CDB data if necessary
-        assign o_map_data[i] = (cdb_bypass[i]) ? i_cdb_data : rob_data[map_tag_addr[i]];
-        assign o_map_rdy[i]  = (cdb_bypass[i]) ? 'b1 : rob_rdy[map_tag_addr[i]];
-    end
-
-    // Assign outputs to register file and fetch unit as well as exception signal (for flushing)
-    assign o_rob_exc      = rob_rdy[rob_tail_addr] && rob_exc[rob_tail_addr];
-    assign o_rob_br       = rob_rdy[rob_tail_addr] && rob_exc[rob_tail_addr] && rob_op[rob_tail_addr] == BR_OP;
-    assign o_rob_data     = rob_data[rob_tail_addr];
-    assign o_rob_rD       = rob_rD[rob_tail_addr];
-    assign o_rob_rD_wr_en = rob_rdy[rob_tail_addr];
-
-    // Update head pointer
-    always_ff @(posedge clk, negedge n_rst) begin : ROB_HEAD_Q
-        if (~n_rst) begin
-            rob_head <= 'b0;
-        end else if (rob_enqueue_en) begin
-            rob_head <= rob_head + 1;
+    // Getting the right source register tags/data is tricky
+    // If the register map has ready data then that must be used
+    // Otherwise the ROB entry corresponding to the tag in the register map for the
+    // source register is looked up and the data, if available, is retrieved from that 
+    // entry. If it's not available then the instruction must wait for the tag to be broadcast
+    // on the CDB. Now if there is something available on the CDB in the same cycle and it
+    // matches the tag from the register map, then that value must be used over the ROB data.
+    generate
+    for (i = 0; i < 2; i++) begin
+        always_comb begin
+            case ({regmap_lookup[i].rdy, (cdb.en && (cdb.tag == regmap_lookup[i].tag))})
+                2'b11: begin
+                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                end
+                2'b10: begin
+                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                end
+                2'b01: begin
+                    rob_dispatch.src_data[i] = cdb.data;
+                    rob_dispatch.src_tag[i]  = cdb.tag;
+                    rob_dispatch.src_rdy[i]  = 'b1;
+                end
+                2'b00: begin
+                    rob_dispatch.src_data[i] = rob.entries[regmap_lookup[i].tag].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = rob.entries[regmap_lookup[i].tag].rdy;
+                end
+            endcase
         end
     end
+    endgenerate
 
-    // Update tail pointer
-    always_ff @(posedge clk, negedge n_rst) begin : ROB_TAIL_Q
-        if (~n_rst) begin
-            rob_tail <= 'b0;
-        end else if (rob_dequeue_en) begin
-            rob_tail <= rob_tail + 1;
-        end
-    end
-
-    // Add entry to head
+    // Now update the ROB entry with the newly dispatched instruction
+    // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
-        if (rob_enqueue_en) begin
-            rob_rdy[rob_head_addr]   <= i_rob_enqueue_rdy;
-            rob_exc[rob_head_addr]   <= 'b0;
-            rob_op[rob_head_addr]    <= i_rob_enqueue_op;
-            rob_iaddr[rob_head_addr] <= i_rob_enqueue_iaddr;
-            rob_data[rob_head_addr]  <= i_rob_enqueue_data;
-            rob_rD[rob_head_addr]    <= i_rob_enqueue_rD;
+        if (rob_dispatch_en) begin
+            rob.entries[rob.head_addr].rdy    = rob_dispatch.rdy;
+            rob.entries[rob.head_addr].exc    = 'b0;
+            rob.entries[rob.head_addr].branch = 'b0;
+            rob.entries[rob.head_addr].op     = rob_dispatch.op;
+            rob.entries[rob.head_addr].iaddr  = rob_dispatch.iaddr;
+            rob.entries[rob.head_addr].data   = rob_dispatch.data;
+            rob.entries[rob.head_addr].rdest  = rob_dispatch.rdest;
+        end else if (cdb.en) begin
+            rob.entries[cdb.tag].rdy          = 'b1;
+            rob.entries[cdb.tag].exc          = cdb.exc;
+            rob.entries[cdb.tag].branch       = cdb.branch;
+            rob.entries[cdb.tag].data         = cdb.data;
+        end
+    end 
+
+    // Increment the head pointer if the dispatcher signals a new instruction to be enqueued
+    // and the ROB is not full. Reset if branch/exc taken
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            rob.head <= 'b0;
+        end else if (branch_taken || exc_taken) begin
+            rob.head <= 'b0;
+        end else if (rob_dispatch_en) begin
+            rob.head <= rob.head + 1'b1;
         end
     end
 
-    // Update entry specified by CDB tag
-    // Move the entry to ready state
-    always_ff @(posedge clk) begin
-        if (i_cdb_en) begin
-            rob_rdy[cdb_tag_addr]  <= 'b1;
-            rob_exc[cdb_tag_addr]  <= i_cdb_exc;
-            rob_data[cdb_tag_addr] <= i_cdb_data;
-        end 
+    // Increment the tail pointer if the instruction to be retired is ready and the ROB is not
+    // empty (of course this should never be the case). Reset if branch/exc taken
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            rob.tail <= 'b0;
+        end else if (branch_taken || exc_taken) begin
+            rob.tail <= 'b0;
+        end else if (rob_retire_en) begin
+            rob.tail <= rob.tail + 1'b1;
+        end
     end
 
 endmodule

@@ -1,103 +1,107 @@
 // Register Map with tag information for register renaming
 
 module register_map #(
-    parameter DATA_WIDTH         = 32,
-    parameter REGFILE_DEPTH      = 32,
-    parameter TAG_WIDTH          = 6,
+    parameter DATA_WIDTH      = 32,
+    parameter REGMAP_DEPTH    = 32,
+    parameter TAG_WIDTH       = 6,
 
-    localparam REG_ADDR_WIDTH    = $clog2(REGFILE_DEPTH)
+    localparam REG_ADDR_WIDTH = $clog2(REGMAP_DEPTH)
 ) (
-    input  wire                         clk,
-    input  wire                         n_rst,
+    input logic            clk,
+    input logic            n_rst,
 
-    // Update destinaton register request by ROB
-    input  wire [REG_ADDR_WIDTH-1:0]    i_rD_rob,
-    input  wire [DATA_WIDTH-1:0]        i_rD_rob_data,
-    input  wire                         i_rD_rob_wr_en,
+    // Flush signal -> Set all ready bits (basically invalidate tags)
+    input logic            i_flush,
 
-    // Update tag request by Mapper/Dispatcher
-    input  wire [REG_ADDR_WIDTH-1:0]    i_rD_map,
-    input  wire [DATA_WIDTH-1:0]        i_rD_map_tag,
-    input  wire                         i_rD_map_wr_en,
+    // Destination register update interface
+    regmap_dest_wr_if.sink dest_wr,
 
-    // Soure registers requested by Mapper/Dispatcher
-    input  wire [REG_ADDR_WIDTH-1:0]    i_rsrc      [0:1],
-    output wire [DATA_WIDTH-1:0]        o_rsrc_data [0:1],
-    output wire [TAG_WIDTH-1:0]         o_rsrc_tag  [0:1],
-    output wire                         o_rsrc_rdy  [0:1]
+    // Tag update interface
+    regmap_tag_wr_if.sink  tag_wr,
+
+    // Lookup source operand tag/data/rdy
+    regmap_lookup_if.sink  regmap_lookup [0:1]
 );
 
-    // Each RF entry has a value, tag and ready bit
-    reg [DATA_WIDTH-1:0] rf_data [0:REGFILE_DEPTH-1];
-    reg [TAG_WIDTH-1:0]  rf_tag  [0:REGFILE_DEPTH-1];
-    reg                  rf_rdy  [0:REGFILE_DEPTH-1];
+    // Each Register Map entry will have a data value, tag and ready bit
+    // The data value is updated when the ROB writes back to the destination register of a retired instruction
+    // The tag is updated for the destination register whenever the ROB enqueues a new instruction
+    // The ready bit is set when the ROB retires and writes back to that register or cleared when the instruction is enqueued in the ROB
+    typedef struct packed {
+        logic [DATA_WIDTH-1:0] data;
+        logic [TAG_WIDTH-1:0]  tag;
+        logic                  rdy;
+    } regmap_t;
 
-    // Internal write enable
-    wire rD_rob_wr_en;
-    wire rD_map_wr_en;
+    // Register r0 is special and should never be changed
+    regmap_t regmap [REGMAP_DEPTH-1:0];
 
-    // Output rA and rB values. These are muxed with the RF table entries and the incoming rD values if rD == i_rA/i_rB
-    wire                  rA_override, rB_override;
-    wire [DATA_WIDTH-1:0] rA_data, rB_data;
-    wire [TAG_WIDTH-1:0]  rA_tag, rB_tag;
-    wire                  rA_rdy, rB_rdy;
+    logic dest_wr_en;
+    logic tag_wr_en;
 
-    // Ignore i_rD_rob_wr_en if i_rD_rob == 0 since x0 is not a writable register
-    // Ignore i_rD_map_wr_en if i_rD_map == 0 since x0 is not a writable register
-    assign rD_rob_wr_en = i_rD_rob_wr_en && (i_rD_rob != 'b0);
-    assign rD_map_wr_en = i_rD_map_wr_en && (i_rD_map != 'b0);
+    // We don't want to touch register r0 since it should always contain zero and cannot be changed
+    // If any instruction tries to write to r0, it effectively means that instruction is throwing away the result
+    assign dest_wr_en = dest_wr.wr_en && (dest_wr.rdest != 'b0);
+    assign tag_wr_en  = tag_wr.wr_en && (tag_wr.rdest != 'b0);
 
-    // Override rA_data, rA_tag, rA_rdy if rD == i_rA
-    // Override rB_data, rB_tag, rB_rdy if rD == i_rB
-    assign rA_override = rD_rob_wr_en && (i_rD_rob == i_rsrc[0]);
-    assign rB_override = rD_rob_wr_en && (i_rD_rob == i_rsrc[1]);
+    // The ROB will lookup tags/data for the source operands of the newly dispatched instruction
+    genvar i;
+    generate
+    for (i = 0; i < 2; i++) begin
+        assign regmap_lookup[i].rdy  = regmap[regmap_lookup[i].rsrc].rdy; 
+        assign regmap_lookup[i].data = regmap[regmap_lookup[i].rsrc].data; 
+        assign regmap_lookup[i].tag  = regmap[regmap_lookup[i].rsrc].tag; 
+    end
+    endgenerate
 
-    // Pick up the rD value instead of what is in the register file if rD matches i_rA
-    // if i_rA == 0 then assign 0;
-    assign rA_data = (i_rsrc[0] == 'b0) ? 'b0 : (rA_override) ? i_rD_rob_data : rf_data[i_rsrc[0]];
-    assign rA_tag = (rA_override) ? 'b0 : rf_tag[i_rsrc[0]];
-    assign rA_rdy = (rA_override) ? 'b1 : rf_rdy[i_rsrc[0]];
-
-    // Pick up the rD value instead of what is in the register file if rD matches i_rB
-    // if i_rB == 0 then assign 0;
-    assign rB_data = (i_rsrc[1] == 'b0) ? 'b0 : (rB_override) ? i_rD_rob_data : rf_data[i_rsrc[1]];
-    assign rB_tag = (rB_override) ? 'b0 : rf_tag[i_rsrc[1]];
-    assign rB_rdy = (rB_override) ? 'b1 : rf_rdy[i_rsrc[1]];
-
-    // Assign outputs
-    assign {o_rsrc_rdy[0], o_rsrc_tag[0], o_rsrc_data[0]} = {rA_rdy, rA_tag, rA_data};
-    assign {o_rsrc_rdy[1], o_rsrc_tag[1], o_rsrc_data[1]} = {rB_rdy, rB_tag, rB_data};
-
-    // Only the ROB updates the register value
-    // This will have unknown values at reset, up to software to set register file to known values
-    always_ff @(posedge clk) begin : RF_VAL_Q
-        if (rD_rob_wr_en) begin
-            rf_data[i_rD_rob] <= i_rD_rob_data;
+    // The tags correspond to the ROB entry that will produce the value for that register
+    // This is looked up for the source registers by each new instruction that is dispatched 
+    // We don't care about the reset values for the data/tags for these registers so these
+    // flops should be inferred as rams by the synthesizer
+    always_ff @(posedge clk) begin
+        if (tag_wr_en) begin
+            regmap[tag_wr.rdest].tag <= tag_wr.tag;
         end
     end
 
-    // Only the Mapper/Dispatcher updates the tags
-    // This will have unknown values at reset
-    always_ff @(posedge clk) begin : RF_TAG_Q
-        if (rD_map_wr_en) begin
-            rf_tag[i_rD_map] <= i_rD_map_tag;
+    // The ROB updates the value of the destination register of the next retired instruction
+    always_ff @(posedge clk) begin
+        if (dest_wr_en) begin
+            regmap[dest_wr.rdest].data <= dest_wr.data;
         end
     end
 
-    // The ready bit needs to be inferred as a flip-flop arrays rather than block RAM
-    // because they need to be reset to a known value
-    // The tricky case is when both the ROB and Mapper/Dispatcher attempts to modify the
-    // same destination register on the same cycle. In this case, the Mapper/Dispatcher takes
-    // priority and must clear the ready bit because any younger instructions issued must wait
-    // for the value provided by the tag rather than the ROB committed value
-    always_ff @(posedge clk, negedge n_rst) begin : RF_RDY_Q
+    // The ready bit should be inferred as flip flops since they need to be reset to a value of 1
+    always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
-            rf_rdy <= '{default:'b1};
-        end else if (rD_map_wr_en) begin
-            rf_rdy[i_rD_map] <= 'b0;
-        end else if (rD_rob_wr_en) begin
-            rf_rdy[i_rD_rob] <= 'b1;
+            for (int i = 1; i < REGMAP_DEPTH; i++) begin
+                regmap[i].rdy <= 'b1;
+            end
+        end else if (i_flush) begin
+            // If an exception/branch occurs then we need to throw away all the tags as those tags belong to instructions
+            // that are now flushed and so won't produce the data. Luckily the register map already holds the latest
+            // correct data for each register before the exception occurred and so all we need to do is set the ready bits
+            for (int i = 1; i < REGMAP_DEPTH; i++) begin
+                regmap[i].rdy <= 'b1;
+            end
+        end else if (tag_wr_en) begin
+            // Tag updates take priority over retired instructions
+            // The value from the retired instruction doesn't matter if the same register will be updated
+            // by a next instruction dispatched
+            regmap[tag_wr.rdest].rdy <= 'b0;
+        end else if (dest_wr_en) begin
+            // When an instruction is retired, the destination register value is valid and the ready bit can be set
+            regmap[dest_wr.rdest].rdy <= 'b1;
         end
     end
 
+    // r0 should have correct values on reset
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            regmap[0].data = 'b0;
+            regmap[0].tag  = 'b0;
+            regmap[0].rdy  = 'b1;
+        end
+    end
+            
 endmodule
