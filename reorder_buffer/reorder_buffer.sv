@@ -67,7 +67,6 @@ module reorder_buffer #(
     } rob_t;
     rob_t rob;
 
-    logic exc_taken;
     logic branch_taken;
 
     logic rob_dispatch_en;
