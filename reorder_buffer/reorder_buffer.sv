@@ -76,28 +76,28 @@ module reorder_buffer #(
     logic rob_retire_en;
 
     assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
-    assign rob_retire_en   = rob.entries[rob.tail_addr].rdy && ~rob.empty;
+    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
 
     // If the instruction to be retired generated an exception or branch and it is ready then
     // assert the exc or br signal
-    assign exc_taken    = rob.entries[rob.tail_addr].rdy && rob.entries[rob.tail_addr].exc;
-    assign branch_taken = rob.entries[rob.tail_addr].rdy && rob.entries[rob.tail_addr].branch;
+    assign exc_taken    = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].exc;
+    assign branch_taken = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
     assign o_exc        = exc_taken;
     assign o_branch     = branch_taken;
 
-    assign o_iaddr      = rob.entries[rob.tail_addr].iaddr;
+    assign o_iaddr      = rob.entries[rob.head_addr].iaddr;
 
-    assign rob.head_addr = rob.head[TAG_WIDTH-1:0];
-    assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0]; 
-    assign rob.full      = ({~rob.head[TAG_WIDTH], rob.head[TAG_WIDTH-1:0]} == rob.tail);
-    assign rob.empty     = (rob.head == rob.tail);
+    assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0];
+    assign rob.head_addr = rob.head[TAG_WIDTH-1:0]; 
+    assign rob.full      = ({~rob.tail[TAG_WIDTH], rob.tail[TAG_WIDTH-1:0]} == rob.head);
+    assign rob.empty     = (rob.tail == rob.head);
 
     // Assign outputs to regmap
-    assign dest_wr.data  = rob.entries[rob.tail_addr].data;
-    assign dest_wr.rdest = rob.entries[rob.tail_addr].rdest;
-    assign dest_wr.wr_en = rob_retire_en && ~rob.entries[rob.tail_addr].exc && ~rob.entries[rob.tail_addr].branch;
+    assign dest_wr.data  = rob.entries[rob.head_addr].data;
+    assign dest_wr.rdest = rob.entries[rob.head_addr].rdest;
+    assign dest_wr.wr_en = rob_retire_en && ~rob.entries[rob.head_addr].exc && ~rob.entries[rob.head_addr].branch;
 
-    assign tag_wr.tag    = rob.head_addr;
+    assign tag_wr.tag    = rob.tail_addr;
     assign tag_wr.rdest  = rob_dispatch.rdest;
     assign tag_wr.wr_en  = rob_dispatch_en;
 
@@ -111,7 +111,7 @@ module reorder_buffer #(
     // Assign outputs to dispatcher
     // Stall if the ROB is full
     assign rob_dispatch.stall = rob.full;
-    assign rob_dispatch.tag   = rob.head_addr;
+    assign rob_dispatch.tag   = rob.tail_addr;
 
     // Getting the right source register tags/data is tricky
     // If the register map has ready data then that must be used
@@ -153,13 +153,13 @@ module reorder_buffer #(
     // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
         if (rob_dispatch_en) begin
-            rob.entries[rob.head_addr].rdy    = rob_dispatch.rdy;
-            rob.entries[rob.head_addr].exc    = 'b0;
-            rob.entries[rob.head_addr].branch = 'b0;
-            rob.entries[rob.head_addr].op     = rob_dispatch.op;
-            rob.entries[rob.head_addr].iaddr  = rob_dispatch.iaddr;
-            rob.entries[rob.head_addr].data   = rob_dispatch.data;
-            rob.entries[rob.head_addr].rdest  = rob_dispatch.rdest;
+            rob.entries[rob.tail_addr].rdy    = rob_dispatch.rdy;
+            rob.entries[rob.tail_addr].exc    = 'b0;
+            rob.entries[rob.tail_addr].branch = 'b0;
+            rob.entries[rob.tail_addr].op     = rob_dispatch.op;
+            rob.entries[rob.tail_addr].iaddr  = rob_dispatch.iaddr;
+            rob.entries[rob.tail_addr].data   = rob_dispatch.data;
+            rob.entries[rob.tail_addr].rdest  = rob_dispatch.rdest;
         end else if (cdb.en) begin
             rob.entries[cdb.tag].rdy          = 'b1;
             rob.entries[cdb.tag].exc          = cdb.exc;
@@ -168,27 +168,27 @@ module reorder_buffer #(
         end
     end 
 
-    // Increment the head pointer if the dispatcher signals a new instruction to be enqueued
+    // Increment the tail pointer if the dispatcher signals a new instruction to be enqueued
     // and the ROB is not full. Reset if branch/exc taken
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
-            rob.head <= 'b0;
+            rob.tail <= 'b0;
         end else if (branch_taken || exc_taken) begin
-            rob.head <= 'b0;
+            rob.tail <= 'b0;
         end else if (rob_dispatch_en) begin
-            rob.head <= rob.head + 1'b1;
+            rob.tail <= rob.tail + 1'b1;
         end
     end
 
-    // Increment the tail pointer if the instruction to be retired is ready and the ROB is not
+    // Increment the head pointer if the instruction to be retired is ready and the ROB is not
     // empty (of course this should never be the case). Reset if branch/exc taken
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
-            rob.tail <= 'b0;
+            rob.head <= 'b0;
         end else if (branch_taken || exc_taken) begin
-            rob.tail <= 'b0;
+            rob.head <= 'b0;
         end else if (rob_retire_en) begin
-            rob.tail <= rob.tail + 1'b1;
+            rob.head <= rob.head + 1'b1;
         end
     end
 
