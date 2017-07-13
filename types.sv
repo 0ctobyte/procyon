@@ -15,28 +15,29 @@ import types::*;
 
 // Common Data Bus interface
 interface cdb_if #(
+    parameter ADDR_WIDTH = 32,
     parameter DATA_WIDTH = 32,
     parameter TAG_WIDTH  = 6
 ) ();
    
+    logic [ADDR_WIDTH-1:0] addr;
     logic [DATA_WIDTH-1:0] data;
     logic [TAG_WIDTH-1:0]  tag;
-    logic                  exc;
     logic                  branch;
     logic                  en; 
 
     modport source (
+        output  addr,
         output  data,
         output  tag,
-        output  exc,
         output  branch,
         output  en
     );
 
     modport sink (
+        input  addr,
         input  data,
         input  tag,
-        input  exc,
         input  branch,
         input  en
     );
@@ -57,6 +58,7 @@ interface rob_dispatch_if #(
     logic                      rdy;
     rob_op_t                   op;
     logic [ADDR_WIDTH-1:0]     iaddr;
+    logic [ADDR_WIDTH-1:0]     addr;
     logic [DATA_WIDTH-1:0]     data;
     logic [REG_ADDR_WIDTH-1:0] rdest;
     logic [TAG_WIDTH-1:0]      tag;
@@ -73,6 +75,7 @@ interface rob_dispatch_if #(
         output rdy,
         output op,
         output iaddr,
+        output addr,
         output data,
         output rdest,
         output rsrc,
@@ -88,6 +91,7 @@ interface rob_dispatch_if #(
         input  rdy,
         input  op,
         input  iaddr,
+        input  addr,
         input  data,
         input  rdest,
         input  rsrc,

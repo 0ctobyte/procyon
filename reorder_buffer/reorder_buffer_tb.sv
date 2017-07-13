@@ -14,7 +14,7 @@ module reorder_buffer_tb;
 
     logic o_exc;
     logic o_branch;
-    logic [`ADDR_WIDTH-1:0] o_iaddr;
+    logic [`ADDR_WIDTH-1:0] o_branch_addr;
 
     always begin
         #10 clk = ~clk;
@@ -25,15 +25,16 @@ module reorder_buffer_tb;
         n_rst = 'b0;
 
         cdb.en = 'b0;
-        cdb.exc = 'b0;
         cdb.branch = 'b0;
         cdb.tag = 'b0;
         cdb.data = 'b0;
+        cdb.addr = 'b0;
         rob_dispatch.en = 'b0;
         rob_dispatch.rdy = 'b0;
         rob_dispatch.op = INT;
         rob_dispatch.iaddr = 'b0;
         rob_dispatch.data = 'b0;
+        rob_dispatch.addr = 'b0;
         rob_dispatch.rdest = 'b0;
         rob_dispatch.rsrc[0] = 'b0;
         rob_dispatch.rsrc[1] = 'b0;
@@ -42,6 +43,7 @@ module reorder_buffer_tb;
     end
 
     cdb_if #(
+        .ADDR_WIDTH(`ADDR_WIDTH),
         .DATA_WIDTH(`DATA_WIDTH),
         .TAG_WIDTH(`TAG_WIDTH)
     ) cdb ();
@@ -77,9 +79,8 @@ module reorder_buffer_tb;
     ) regmap (
         .clk(clk),
         .n_rst(n_rst),
-        .o_exc(o_exc),
         .o_branch(o_branch),
-        .o_iaddr(o_iaddr),
+        .o_branch_addr(o_branch_addr),
         .cdb(cdb),
         .rob_dispatch(rob_dispatch),
         .dest_wr(dest_wr),

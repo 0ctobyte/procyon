@@ -16,11 +16,9 @@ module reorder_buffer #(
     input logic                   clk,
     input logic                   n_rst,
 
-    // Exception signal, if asserted, will cause pipelines to flush in other modules in the processor
-    // The branch signal and iaddr are used by the Fetch unit to jump to the exception/branch address
-    output logic                  o_exc,
+    // The branch signal and iaddr are used by the Fetch unit to jump to the branch address
     output logic                  o_branch,
-    output logic [ADDR_WIDTH-1:0] o_iaddr,
+    output logic [ADDR_WIDTH-1:0] o_branch_addr,
 
     // Common Data Bus interface
     cdb_if.sink                   cdb,
@@ -41,18 +39,18 @@ module reorder_buffer #(
 
     // ROB entry consists of the following:
     // rdy:    Is the data valid/ready?
-    // exc:    Did the instruction cause an exception?
     // branch: Did the instruction cause a branch? 
     // op:     What operation is the instruction doing?
     // iaddr:  Address of the instruction (for branches and to rollback on exception)
+    // addr:   Destination address for store or branch 
     // data:   The data for the destination register
     // rdest:  The destination register 
     typedef struct packed {
         logic                      rdy;
-        logic                      exc;
         logic                      branch;
         rob_op_t                   op;
         logic [ADDR_WIDTH-1:0]     iaddr;
+        logic [ADDR_WIDTH-1:0]     addr;
         logic [DATA_WIDTH-1:0]     data;
         logic [REG_ADDR_WIDTH-1:0] rdest;
     } rob_entries_t;
@@ -76,16 +74,12 @@ module reorder_buffer #(
     logic rob_retire_en;
 
     assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
-    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
+    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty && ~rob.entries[rob.head_addr].branch;
 
-    // If the instruction to be retired generated an exception or branch and it is ready then
-    // assert the exc or br signal
-    assign exc_taken    = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].exc;
-    assign branch_taken = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
-    assign o_exc        = exc_taken;
-    assign o_branch     = branch_taken;
-
-    assign o_iaddr      = rob.entries[rob.head_addr].iaddr;
+    // If the instruction to be retired generated a branch and it is ready then assert the branch signal
+    assign branch_taken  = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
+    assign o_branch      = branch_taken;
+    assign o_branch_addr = rob.entries[rob.head_addr].addr;
 
     assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0];
     assign rob.head_addr = rob.head[TAG_WIDTH-1:0]; 
@@ -95,7 +89,7 @@ module reorder_buffer #(
     // Assign outputs to regmap
     assign dest_wr.data  = rob.entries[rob.head_addr].data;
     assign dest_wr.rdest = rob.entries[rob.head_addr].rdest;
-    assign dest_wr.wr_en = rob_retire_en && ~rob.entries[rob.head_addr].exc && ~rob.entries[rob.head_addr].branch;
+    assign dest_wr.wr_en = rob_retire_en;
 
     assign tag_wr.tag    = rob.tail_addr;
     assign tag_wr.rdest  = rob_dispatch.rdest;
@@ -154,26 +148,26 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         if (rob_dispatch_en) begin
             rob.entries[rob.tail_addr].rdy    = rob_dispatch.rdy;
-            rob.entries[rob.tail_addr].exc    = 'b0;
             rob.entries[rob.tail_addr].branch = 'b0;
             rob.entries[rob.tail_addr].op     = rob_dispatch.op;
             rob.entries[rob.tail_addr].iaddr  = rob_dispatch.iaddr;
+            rob.entries[rob.tail_addr].addr   = rob_dispatch.addr;
             rob.entries[rob.tail_addr].data   = rob_dispatch.data;
             rob.entries[rob.tail_addr].rdest  = rob_dispatch.rdest;
         end else if (cdb.en) begin
             rob.entries[cdb.tag].rdy          = 'b1;
-            rob.entries[cdb.tag].exc          = cdb.exc;
             rob.entries[cdb.tag].branch       = cdb.branch;
             rob.entries[cdb.tag].data         = cdb.data;
+            rob.entries[cdb.tag].addr         = cdb.addr;
         end
     end 
 
     // Increment the tail pointer if the dispatcher signals a new instruction to be enqueued
-    // and the ROB is not full. Reset if branch/exc taken
+    // and the ROB is not full. Reset if branch taken
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
             rob.tail <= 'b0;
-        end else if (branch_taken || exc_taken) begin
+        end else if (branch_taken) begin
             rob.tail <= 'b0;
         end else if (rob_dispatch_en) begin
             rob.tail <= rob.tail + 1'b1;
@@ -181,11 +175,11 @@ module reorder_buffer #(
     end
 
     // Increment the head pointer if the instruction to be retired is ready and the ROB is not
-    // empty (of course this should never be the case). Reset if branch/exc taken
+    // empty (of course this should never be the case). Reset if branch taken
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
             rob.head <= 'b0;
-        end else if (branch_taken || exc_taken) begin
+        end else if (branch_taken) begin
             rob.head <= 'b0;
         end else if (rob_retire_en) begin
             rob.head <= rob.head + 1'b1;
