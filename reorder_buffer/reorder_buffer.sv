@@ -118,24 +118,24 @@ module reorder_buffer #(
         always_comb begin
             case ({regmap_lookup[i].rdy, (cdb.en && (cdb.tag == regmap_lookup[i].tag))})
                 2'b11: begin
-                    rob_dispatch.src_data[i] <= regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  <= regmap_lookup[i].rdy;
+                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
                 end
                 2'b10: begin
-                    rob_dispatch.src_data[i] <= regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  <= regmap_lookup[i].rdy;
+                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
                 end
                 2'b01: begin
-                    rob_dispatch.src_data[i] <= cdb.data;
-                    rob_dispatch.src_tag[i]  <= cdb.tag;
-                    rob_dispatch.src_rdy[i]  <= 'b1;
+                    rob_dispatch.src_data[i] = cdb.data;
+                    rob_dispatch.src_tag[i]  = cdb.tag;
+                    rob_dispatch.src_rdy[i]  = 'b1;
                 end
                 2'b00: begin
-                    rob_dispatch.src_data[i] <= rob.entries[regmap_lookup[i].tag].data;
-                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  <= rob.entries[regmap_lookup[i].tag].rdy;
+                    rob_dispatch.src_data[i] = rob.entries[regmap_lookup[i].tag].data;
+                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  = rob.entries[regmap_lookup[i].tag].rdy;
                 end
             endcase
         end
@@ -146,18 +146,18 @@ module reorder_buffer #(
     // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
         if (rob_dispatch_en) begin
-            rob.entries[rob.tail_addr].rdy    = rob_dispatch.rdy;
-            rob.entries[rob.tail_addr].branch = 'b0;
-            rob.entries[rob.tail_addr].op     = rob_dispatch.op;
-            rob.entries[rob.tail_addr].iaddr  = rob_dispatch.iaddr;
-            rob.entries[rob.tail_addr].addr   = rob_dispatch.addr;
-            rob.entries[rob.tail_addr].data   = rob_dispatch.data;
-            rob.entries[rob.tail_addr].rdest  = rob_dispatch.rdest;
+            rob.entries[rob.tail_addr].rdy    <= rob_dispatch.rdy;
+            rob.entries[rob.tail_addr].branch <= 'b0;
+            rob.entries[rob.tail_addr].op     <= rob_dispatch.op;
+            rob.entries[rob.tail_addr].iaddr  <= rob_dispatch.iaddr;
+            rob.entries[rob.tail_addr].addr   <= rob_dispatch.addr;
+            rob.entries[rob.tail_addr].data   <= rob_dispatch.data;
+            rob.entries[rob.tail_addr].rdest  <= rob_dispatch.rdest;
         end else if (cdb.en) begin
-            rob.entries[cdb.tag].rdy          = 'b1;
-            rob.entries[cdb.tag].branch       = cdb.branch;
-            rob.entries[cdb.tag].data         = cdb.data;
-            rob.entries[cdb.tag].addr         = cdb.addr;
+            rob.entries[cdb.tag].rdy          <= 'b1;
+            rob.entries[cdb.tag].branch       <= cdb.branch;
+            rob.entries[cdb.tag].data         <= cdb.data;
+            rob.entries[cdb.tag].addr         <= cdb.addr;
         end
     end 
 
