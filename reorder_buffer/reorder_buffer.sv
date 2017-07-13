@@ -119,24 +119,24 @@ module reorder_buffer #(
         always_comb begin
             case ({regmap_lookup[i].rdy, (cdb.en && (cdb.tag == regmap_lookup[i].tag))})
                 2'b11: begin
-                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                    rob_dispatch.src_data[i] <= regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  <= regmap_lookup[i].rdy;
                 end
                 2'b10: begin
-                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                    rob_dispatch.src_data[i] <= regmap_lookup[i].data;
+                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  <= regmap_lookup[i].rdy;
                 end
                 2'b01: begin
-                    rob_dispatch.src_data[i] = cdb.data;
-                    rob_dispatch.src_tag[i]  = cdb.tag;
-                    rob_dispatch.src_rdy[i]  = 'b1;
+                    rob_dispatch.src_data[i] <= cdb.data;
+                    rob_dispatch.src_tag[i]  <= cdb.tag;
+                    rob_dispatch.src_rdy[i]  <= 'b1;
                 end
                 2'b00: begin
-                    rob_dispatch.src_data[i] = rob.entries[regmap_lookup[i].tag].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = rob.entries[regmap_lookup[i].tag].rdy;
+                    rob_dispatch.src_data[i] <= rob.entries[regmap_lookup[i].tag].data;
+                    rob_dispatch.src_tag[i]  <= regmap_lookup[i].tag;
+                    rob_dispatch.src_rdy[i]  <= rob.entries[regmap_lookup[i].tag].rdy;
                 end
             endcase
         end
