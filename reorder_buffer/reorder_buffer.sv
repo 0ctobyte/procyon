@@ -42,7 +42,7 @@ module reorder_buffer #(
     // branch: Did the instruction cause a branch? 
     // op:     What operation is the instruction doing?
     // iaddr:  Address of the instruction (for branches and to rollback on exception)
-    // addr:   Destination address for store or branch 
+    // addr:   Destination address for branch 
     // data:   The data for the destination register
     // rdest:  The destination register 
     typedef struct packed {
@@ -73,7 +73,7 @@ module reorder_buffer #(
     logic rob_retire_en;
 
     assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
-    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty && ~rob.entries[rob.head_addr].branch;
+    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
 
     // If the instruction to be retired generated a branch and it is ready then assert the branch signal
     assign branch_taken  = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
