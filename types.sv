@@ -273,3 +273,46 @@ interface regmap_lookup_if #(
     );
 
 endinterface
+
+interface rs_dispatch_if #(
+    parameter DATA_WIDTH     = 32,
+    parameter ADDR_WIDTH     = 32,
+    parameter TAG_WIDTH      = 6,
+    parameter REG_ADDR_WIDTH = 5
+) ();
+
+    opcode_t               opcode;
+    logic [ADDR_WIDTH-1:0] iaddr;
+    logic [DATA_WIDTH-1:0] insn;
+    logic [TAG_WIDTH-1:0]  src_tag  [0:1];
+    logic [DATA_WIDTH-1:0] src_data [0:1];
+    logic                  src_rdy  [0:1];
+    logic [TAG_WIDTH-1:0]  tag;
+    logic                  en;
+    logic                  stall;
+
+    modport source (
+        output opcode,
+        output iaddr,
+        output insn,
+        output src_tag,
+        output src_data,
+        output src_rdy,
+        output tag,
+        output en,
+        input  stall
+    );
+
+    modport sink (
+        input  opcode,
+        input  iaddr,
+        input  insn,
+        input  src_tag,
+        input  src_data,
+        input  src_rdy,
+        input  tag,
+        input  en,
+        output stall
+    );
+
+endinterface
