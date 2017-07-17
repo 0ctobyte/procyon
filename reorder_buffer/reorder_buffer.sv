@@ -9,9 +9,7 @@ module reorder_buffer #(
     parameter DATA_WIDTH     = 32,
     parameter ADDR_WIDTH     = 32,
     parameter ROB_DEPTH      = 64,
-    parameter REG_ADDR_WIDTH = 5,
-
-    localparam TAG_WIDTH     = $clog2(ROB_DEPTH)
+    parameter REG_ADDR_WIDTH = 5
 ) (
     input logic                   clk,
     input logic                   n_rst,
@@ -36,6 +34,8 @@ module reorder_buffer #(
     // Interface to register map to lookeup src register data/tags/rdy for newly enqueued instructions
     regmap_lookup_if.source       regmap_lookup [0:1]
 );
+
+    localparam TAG_WIDTH     = $clog2(ROB_DEPTH)
 
     // ROB entry consists of the following:
     // rdy:    Is the data valid/ready?

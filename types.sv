@@ -3,15 +3,106 @@
 package types;
 
     typedef enum logic [1:0] {
-        INT = 2'b00,
-        BR  = 2'b01,
-        LD  = 2'b10,
-        STR = 2'b11
+        ROB_OP_INT = 2'b00,
+        ROB_OP_BR  = 2'b01,
+        ROB_OP_LD  = 2'b10,
+        ROB_OP_STR = 2'b11
     } rob_op_t;
+
+    typedef enum logic [6:0] {
+        OPCODE_OPIMM  = 7'b0010011,
+        OPCODE_LUI    = 7'b0110111,
+        OPCODE_AUIPC  = 7'b0010111,
+        OPCODE_OP     = 7'b0110011,
+        OPCODE_JAL    = 7'b1101111,
+        OPCODE_JALR   = 7'b1100111,
+        OPCODE_BRANCH = 7'b1100011,
+        OPCODE_LOAD   = 7'b0000011,
+        OPCODE_STORE  = 7'b0100011
+    } opcode_t;
 
 endpackage
 
 import types::*;
+
+// FIFO interface
+interface fifo_wr_if #(
+    parameter DATA_WIDTH = 8
+) ();
+
+    logic                  wr_en;
+    logic [DATA_WIDTH-1:0] data_in;
+    logic                  full;
+
+    modport fifo (
+        input  wr_en,
+        input  data_in,
+        output full
+    );
+
+    modport sys (
+        output wr_en,
+        output data_in,
+        input  full
+    );
+
+endinterface
+
+interface fifo_rd_if #(
+    parameter DATA_WIDTH = 8
+) ();
+
+    logic                  rd_en;
+    logic [DATA_WIDTH-1:0] data_out;
+    logic                  empty;
+
+    modport fifo (
+        input  rd_en,
+        output data_out,
+        output empty
+    );
+
+    modport sys (
+        output rd_en,
+        input  data_out,
+        input  empty
+    );
+
+endinterface
+
+// Dual-Port RAM interface
+interface dp_ram_if #(
+    parameter DATA_WIDTH = 8,
+    parameter RAM_DEPTH  = 8
+) ();
+
+    logic                         wr_en;
+    logic [$clog2(RAM_DEPTH)-1:0] wr_addr;
+    logic [DATA_WIDTH-1:0]        data_in;
+
+    logic                         rd_en;
+    logic [$clog2(RAM_DEPTH)-1:0] rd_addr;
+    logic [DATA_WIDTH-1:0]        data_out;
+
+    modport ram (
+        input  wr_en,
+        input  wr_addr,
+        input  data_in,
+        input  rd_en,
+        input  rd_addr,
+        output data_out
+    );
+
+    modport sys (
+        output wr_en,
+        output wr_addr,
+        output data_in,
+        output rd_en,
+        output rd_addr,
+        input  data_out
+    );
+
+endinterface
 
 // Common Data Bus interface
 interface cdb_if #(
