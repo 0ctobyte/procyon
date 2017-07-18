@@ -57,7 +57,7 @@ module reorder_buffer #(
         logic [ADDR_WIDTH-1:0]     addr;
         logic [DATA_WIDTH-1:0]     data;
         logic [REG_ADDR_WIDTH-1:0] rdest;
-    } rob_entries_t;
+    } rob_entry_t;
 
     typedef struct {
         // It's convenient to add an extra bit for the head and tail pointers so that they may wrap around and allow for easier queue full/empty detection
@@ -67,7 +67,7 @@ module reorder_buffer #(
         logic [TAG_WIDTH-1:0] tail_addr;
         logic                 full;
         logic                 empty;
-        rob_entries_t         entries [0:ROB_DEPTH-1];
+        rob_entry_t           entries [0:ROB_DEPTH-1];
     } rob_t;
     rob_t rob;
 
