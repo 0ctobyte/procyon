@@ -117,9 +117,8 @@ module reorder_buffer #(
     // entry. If it's not available then the instruction must wait for the tag to be broadcast
     // on the CDB. Now if there is something available on the CDB in the same cycle and it
     // matches the tag from the register map, then that value must be used over the ROB data.
-    generate
-    for (i = 0; i < 2; i++) begin
-        always_comb begin
+    always_comb begin
+        for (int i = 0; i < 2; i++) begin
             case ({regmap_lookup.rdy[i], (cdb.en && (cdb.tag == regmap_lookup.tag[i]))})
                 2'b11: begin
                     rob_lookup.src_data[i] = regmap_lookup.data[i];
@@ -144,7 +143,6 @@ module reorder_buffer #(
             endcase
         end
     end
-    endgenerate
 
     // Now update the ROB entry with the newly dispatched instruction
     // Or with the data broadcast over the CDB
