@@ -22,7 +22,7 @@ module dispatch_tb;
     logic [`ADDR_WIDTH-1:0] o_redirect_addr;
 
     // Clock generation
-    initial clk = 'b0;
+    initial clk = 'b1;
     always #10 clk = ~clk;
 
     initial begin
@@ -41,12 +41,20 @@ module dispatch_tb;
             rob.rob.entries[i] = '{rdy: 'b0, redirect: 'b0, op: ROB_OP_INT, iaddr: 'b0, addr: 'b0, data: 'b0, rdest: 'b0};
         end
 
+        for (int i = 0; i < `REGMAP_DEPTH; i++) begin
+            register_map_inst.regmap[i] = '{rdy: 'b0, tag: 'b0, data: 'b0};
+        end
+
+
         #20 n_rst = 'b1;
 
         insn_fifo_wr.data_in = {32'b0, `NOOP};
         insn_fifo_wr.wr_en   = 'b1;
 
+        #20 insn_fifo_wr.data_in = {32'h4, 32'habc00093};
+
         #20 insn_fifo_wr.wr_en = 'b0;
+
     end
 
     // Interfaces

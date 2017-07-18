@@ -19,7 +19,7 @@ vsim $PROJECT.$TOP_LEVEL_ENTITY
 
 restart -force -nowave
 
-add wave -r *
+add wave -r * /register_map_inst/regmap
 
 run 100ns
 
