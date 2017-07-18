@@ -1,7 +1,15 @@
+// Dispatch module
+// Takes an instruction from the instruction queue and performs the following functions
+// 1) Allocates an entry in the ROB for the instruction and renames the destination register
+// 2) Renames source operands by looking up the source operands in the register map & ROB
+// 3) Allocates entry in the reservation station for the instruction
+
+import types::*;
 
 module dispatch #(
-    parameter DATA_WIDTH = 32,
-    parameter ADDR_WIDTH = 32
+    parameter DATA_WIDTH     = 32,
+    parameter ADDR_WIDTH     = 32,
+    parameter REG_ADDR_WIDTH = 5
 ) (
     input  logic           clk,
     input  logic           n_rst,
@@ -53,7 +61,7 @@ module dispatch #(
     assign rs_dispatch.insn   = noop ? 32'h00000013 : insn;
     assign rs_dispatch.tag    = rob_dispatch.tag; 
 
-    genvar i
+    genvar i;
     generate
     for (i = 0; i < 2; i++) begin
         assign rob_dispatch.rsrc[i]    = noop ? 'b0 : rsrc[i];
@@ -121,7 +129,7 @@ module dispatch #(
             end
             OPCODE_JALR: begin
                 rs_dispatch.opcode     = OPCODE_JALR;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src[0];
+                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
@@ -132,8 +140,8 @@ module dispatch #(
             end
             OPCODE_BRANCH: begin
                 rs_dispatch.opcode     = OPCODE_BRANCH;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src[0];
-                rs_dispatch.src_rdy[1] = rob_dispatch.src[1];
+                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[1] = rob_dispatch.src_rdy[1];
 
                 rob_dispatch.rdy       = 'b0;
                 rob_dispatch.op        = ROB_OP_BR;
@@ -143,7 +151,7 @@ module dispatch #(
             end
             OPCODE_LOAD: begin
                 rs_dispatch.opcode     = OPCODE_LOAD;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src[0];
+                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
@@ -154,8 +162,8 @@ module dispatch #(
             end
             OPCODE_STORE: begin
                 rs_dispatch.opcode     = OPCODE_STORE;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src[0];
-                rs_dispatch.src_rdy[1] = rob_dispatch.src[1];
+                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[1] = rob_dispatch.src_rdy[1];
 
                 rob_dispatch.rdy       = 'b0;
                 rob_dispatch.op        = ROB_OP_STR;
@@ -165,7 +173,7 @@ module dispatch #(
             end
             default: begin
                 rs_dispatch.opcode     = OPCODE_OPIMM;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src[0];
+                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
