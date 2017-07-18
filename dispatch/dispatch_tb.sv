@@ -8,6 +8,8 @@
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 
+`define NOOP 32'h00000013 // ADDI X0, X0, #0
+
 import types::*;
 
 module dispatch_tb;
@@ -40,15 +42,20 @@ module dispatch_tb;
         end
 
         #20 n_rst = 'b1;
+
+        insn_fifo_wr.data_in = {32'b0, `NOOP};
+        insn_fifo_wr.wr_en   = 'b1;
+
+        #20 insn_fifo_wr.wr_en = 'b0;
     end
 
     // Interfaces
     fifo_wr_if #(
-        .DATA_WIDTH(`DATA_WIDTH)
+        .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH)
     ) insn_fifo_wr ();
 
     fifo_rd_if #(
-        .DATA_WIDTH(`DATA_WIDTH)
+        .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH)
     ) insn_fifo_rd ();
 
     cdb_if #(
