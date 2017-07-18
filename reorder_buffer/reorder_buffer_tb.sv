@@ -12,9 +12,8 @@ module reorder_buffer_tb;
     logic clk;
     logic n_rst;
 
-    logic o_exc;
-    logic o_branch;
-    logic [`ADDR_WIDTH-1:0] o_branch_addr;
+    logic o_redirect;
+    logic [`ADDR_WIDTH-1:0] o_redirect_addr;
 
     always begin
         #10 clk = ~clk;
@@ -25,19 +24,18 @@ module reorder_buffer_tb;
         n_rst = 'b0;
 
         cdb.en = 'b0;
-        cdb.branch = 'b0;
+        cdb.redirect = 'b0;
         cdb.tag = 'b0;
         cdb.data = 'b0;
         cdb.addr = 'b0;
         rob_dispatch.en = 'b0;
         rob_dispatch.rdy = 'b0;
-        rob_dispatch.op = INT;
+        rob_dispatch.op = ROB_OP_INT;
         rob_dispatch.iaddr = 'b0;
         rob_dispatch.data = 'b0;
-        rob_dispatch.addr = 'b0;
         rob_dispatch.rdest = 'b0;
-        rob_dispatch.rsrc[0] = 'b0;
-        rob_dispatch.rsrc[1] = 'b0;
+        rob_lookup.rsrc[0] = 'b0;
+        rob_lookup.rsrc[1] = 'b0;
         
         #10 n_rst = 'b1;
     end
@@ -55,6 +53,12 @@ module reorder_buffer_tb;
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
     ) rob_dispatch ();
 
+    rob_lookup_if #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .TAG_WIDTH(`TAG_WIDTH),
+        .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
+    ) rob_lookup ();
+
     regmap_dest_wr_if #(
         .DATA_WIDTH(`DATA_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
@@ -69,7 +73,7 @@ module reorder_buffer_tb;
         .DATA_WIDTH(`DATA_WIDTH),
         .TAG_WIDTH(`TAG_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
-    ) regmap_lookup [0:1] ();
+    ) regmap_lookup ();
 
     reorder_buffer #(
         .DATA_WIDTH(`DATA_WIDTH),
@@ -79,10 +83,11 @@ module reorder_buffer_tb;
     ) regmap (
         .clk(clk),
         .n_rst(n_rst),
-        .o_branch(o_branch),
-        .o_branch_addr(o_branch_addr),
+        .o_redirect(o_redirect),
+        .o_redirect_addr(o_redirect_addr),
         .cdb(cdb),
         .rob_dispatch(rob_dispatch),
+        .rob_lookup(rob_lookup),
         .dest_wr(dest_wr),
         .tag_wr(tag_wr),
         .regmap_lookup(regmap_lookup)

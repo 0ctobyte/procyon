@@ -1,7 +1,7 @@
 # ModelSim TCL Simulation Script
 
 set PROJECT dispatch
-set FILES {../types.sv dispatch.sv dispatch_tb.sv ../dp_ram/dp_ram.sv ../sync_fifo/sync_fifo.sv}
+set FILES {../types.sv dispatch.sv dispatch_tb.sv ../dp_ram/dp_ram.sv ../sync_fifo/sync_fifo.sv ../reorder_buffer/reorder_buffer.sv ../register_map/register_map.sv}
 set TOP_LEVEL_ENTITY dispatch_tb
 
 # Create a project if it doesn't exist

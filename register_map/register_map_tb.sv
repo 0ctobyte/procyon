@@ -26,8 +26,8 @@ module register_map_tb;
         tag_wr.tag = 'b0;
         tag_wr.rdest = 'b0;
         tag_wr.wr_en = 'b0;
-        regmap_lookup[0].rsrc = 'b0;
-        regmap_lookup[1].rsrc = 'b0;
+        regmap_lookup.rsrc[0] = 'b0;
+        regmap_lookup.rsrc[1] = 'b0;
 
         #10 n_rst = 'b1;
     end
@@ -46,7 +46,7 @@ module register_map_tb;
         .DATA_WIDTH(`DATA_WIDTH),
         .TAG_WIDTH(`TAG_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
-    ) regmap_lookup [0:1] ();
+    ) regmap_lookup ();
 
     register_map #(
         .DATA_WIDTH(`DATA_WIDTH),

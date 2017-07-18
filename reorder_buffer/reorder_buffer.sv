@@ -14,15 +14,19 @@ module reorder_buffer #(
     input logic                   clk,
     input logic                   n_rst,
 
-    // The branch signal and iaddr are used by the Fetch unit to jump to the branch address
-    output logic                  o_branch,
-    output logic [ADDR_WIDTH-1:0] o_branch_addr,
+    // The redirect signal and iaddr are used by the Fetch unit to jump to the redirect address
+    // Used for branches, exception etc.
+    output logic                  o_redirect,
+    output logic [ADDR_WIDTH-1:0] o_redirect_addr,
 
     // Common Data Bus interface
     cdb_if.sink                   cdb,
 
     // Dispatcher <-> ROB interface to enqueue a new instruction
     rob_dispatch_if.sink          rob_dispatch, 
+
+    // Dispatcher <-> ROB interface to lookup data/tags for source operands of newly enqueued instruction
+    rob_lookup_if.sink            rob_lookup, 
 
     // Interface to register map to update destination register for retired instruction
     regmap_dest_wr_if.source      dest_wr,
@@ -32,10 +36,10 @@ module reorder_buffer #(
     regmap_tag_wr_if.source       tag_wr,
 
     // Interface to register map to lookeup src register data/tags/rdy for newly enqueued instructions
-    regmap_lookup_if.source       regmap_lookup [0:1]
+    regmap_lookup_if.source       regmap_lookup
 );
 
-    localparam TAG_WIDTH     = $clog2(ROB_DEPTH)
+    localparam TAG_WIDTH     = $clog2(ROB_DEPTH);
 
     // ROB entry consists of the following:
     // rdy:    Is the data valid/ready?
@@ -67,7 +71,7 @@ module reorder_buffer #(
     } rob_t;
     rob_t rob;
 
-    logic branch_taken;
+    logic redirect;
 
     logic rob_dispatch_en;
     logic rob_retire_en;
@@ -75,10 +79,10 @@ module reorder_buffer #(
     assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
     assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
 
-    // If the instruction to be retired generated a branch and it is ready then assert the branch signal
-    assign branch_taken  = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
-    assign o_branch      = branch_taken;
-    assign o_branch_addr = rob.entries[rob.head_addr].addr;
+    // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
+    assign redirect        = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
+    assign o_redirect      = redirect;
+    assign o_redirect_addr = rob.entries[rob.head_addr].addr;
 
     assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0];
     assign rob.head_addr = rob.head[TAG_WIDTH-1:0]; 
@@ -97,7 +101,7 @@ module reorder_buffer #(
     genvar i;
     generate
     for (i = 0; i < 2; i++) begin
-        assign regmap_lookup[i].rsrc = rob_dispatch.rsrc[i];
+        assign regmap_lookup.rsrc[i] = rob_lookup.rsrc[i];
     end
     endgenerate 
 
@@ -116,26 +120,26 @@ module reorder_buffer #(
     generate
     for (i = 0; i < 2; i++) begin
         always_comb begin
-            case ({regmap_lookup[i].rdy, (cdb.en && (cdb.tag == regmap_lookup[i].tag))})
+            case ({regmap_lookup.rdy[i], (cdb.en && (cdb.tag == regmap_lookup.tag[i]))})
                 2'b11: begin
-                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                    rob_lookup.src_data[i] = regmap_lookup.data[i];
+                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
+                    rob_lookup.src_rdy[i]  = regmap_lookup.rdy[i];
                 end
                 2'b10: begin
-                    rob_dispatch.src_data[i] = regmap_lookup[i].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = regmap_lookup[i].rdy;
+                    rob_lookup.src_data[i] = regmap_lookup.data[i];
+                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
+                    rob_lookup.src_rdy[i]  = regmap_lookup.rdy[i];
                 end
                 2'b01: begin
-                    rob_dispatch.src_data[i] = cdb.data;
-                    rob_dispatch.src_tag[i]  = cdb.tag;
-                    rob_dispatch.src_rdy[i]  = 'b1;
+                    rob_lookup.src_data[i] = cdb.data;
+                    rob_lookup.src_tag[i]  = cdb.tag;
+                    rob_lookup.src_rdy[i]  = 'b1;
                 end
                 2'b00: begin
-                    rob_dispatch.src_data[i] = rob.entries[regmap_lookup[i].tag].data;
-                    rob_dispatch.src_tag[i]  = regmap_lookup[i].tag;
-                    rob_dispatch.src_rdy[i]  = rob.entries[regmap_lookup[i].tag].rdy;
+                    rob_lookup.src_data[i] = rob.entries[regmap_lookup.tag[i]].data;
+                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
+                    rob_lookup.src_rdy[i]  = rob.entries[regmap_lookup.tag[i]].rdy;
                 end
             endcase
         end
@@ -155,18 +159,18 @@ module reorder_buffer #(
             rob.entries[rob.tail_addr].rdest  <= rob_dispatch.rdest;
         end else if (cdb.en) begin
             rob.entries[cdb.tag].rdy          <= 'b1;
-            rob.entries[cdb.tag].branch       <= cdb.branch;
+            rob.entries[cdb.tag].branch       <= cdb.redirect;
             rob.entries[cdb.tag].data         <= cdb.data;
             rob.entries[cdb.tag].addr         <= cdb.addr;
         end
     end 
 
     // Increment the tail pointer if the dispatcher signals a new instruction to be enqueued
-    // and the ROB is not full. Reset if branch taken
+    // and the ROB is not full. Reset if redirect asserted
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
             rob.tail <= 'b0;
-        end else if (branch_taken) begin
+        end else if (redirect) begin
             rob.tail <= 'b0;
         end else if (rob_dispatch_en) begin
             rob.tail <= rob.tail + 1'b1;
@@ -174,11 +178,11 @@ module reorder_buffer #(
     end
 
     // Increment the head pointer if the instruction to be retired is ready and the ROB is not
-    // empty (of course this should never be the case). Reset if branch taken
+    // empty (of course this should never be the case). Reset if redirect asserted
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
             rob.head <= 'b0;
-        end else if (branch_taken) begin
+        end else if (redirect) begin
             rob.head <= 'b0;
         end else if (rob_retire_en) begin
             rob.head <= rob.head + 1'b1;

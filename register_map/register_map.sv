@@ -20,7 +20,7 @@ module register_map #(
     regmap_tag_wr_if.sink  tag_wr,
 
     // Lookup source operand tag/data/rdy
-    regmap_lookup_if.sink  regmap_lookup [0:1]
+    regmap_lookup_if.sink  regmap_lookup
 );
 
     // Each Register Map entry will have a data value, tag and ready bit
@@ -48,9 +48,9 @@ module register_map #(
     genvar i;
     generate
     for (i = 0; i < 2; i++) begin
-        assign regmap_lookup[i].rdy  = regmap[regmap_lookup[i].rsrc].rdy; 
-        assign regmap_lookup[i].data = regmap[regmap_lookup[i].rsrc].data; 
-        assign regmap_lookup[i].tag  = regmap[regmap_lookup[i].rsrc].tag; 
+        assign regmap_lookup.rdy[i]  = regmap[regmap_lookup.rsrc[i]].rdy; 
+        assign regmap_lookup.data[i] = regmap[regmap_lookup.rsrc[i]].data; 
+        assign regmap_lookup.tag[i]  = regmap[regmap_lookup.rsrc[i]].tag; 
     end
     endgenerate
 

@@ -21,7 +21,8 @@ module dispatch #(
     rs_dispatch_if.source  rs_dispatch,
 
     // ROB interface
-    rob_dispatch_if.source rob_dispatch
+    rob_dispatch_if.source rob_dispatch,
+    rob_lookup_if.source   rob_lookup
 );
 
     logic [DATA_WIDTH-1:0]     insn;
@@ -64,9 +65,9 @@ module dispatch #(
     genvar i;
     generate
     for (i = 0; i < 2; i++) begin
-        assign rob_dispatch.rsrc[i]    = noop ? 'b0 : rsrc[i];
-        assign rs_dispatch.src_tag[i]  = rob_dispatch.src_tag[i];
-        assign rs_dispatch.src_data[i] = rob_dispatch.src_data[i];
+        assign rob_lookup.rsrc[i]    = noop ? 'b0 : rsrc[i];
+        assign rs_dispatch.src_tag[i]  = rob_lookup.src_tag[i];
+        assign rs_dispatch.src_data[i] = rob_lookup.src_data[i];
     end
     endgenerate
 
@@ -74,7 +75,7 @@ module dispatch #(
         case (opcode)
             OPCODE_OPIMM: begin
                 rs_dispatch.opcode     = OPCODE_OPIMM;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
@@ -107,8 +108,8 @@ module dispatch #(
             end
             OPCODE_OP: begin
                 rs_dispatch.opcode     = OPCODE_OP;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_dispatch.src_rdy[1];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
+                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
 
                 rob_dispatch.rdy       = 'b0;
                 rob_dispatch.op        = ROB_OP_INT;
@@ -129,7 +130,7 @@ module dispatch #(
             end
             OPCODE_JALR: begin
                 rs_dispatch.opcode     = OPCODE_JALR;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
@@ -140,8 +141,8 @@ module dispatch #(
             end
             OPCODE_BRANCH: begin
                 rs_dispatch.opcode     = OPCODE_BRANCH;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_dispatch.src_rdy[1];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
+                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
 
                 rob_dispatch.rdy       = 'b0;
                 rob_dispatch.op        = ROB_OP_BR;
@@ -151,7 +152,7 @@ module dispatch #(
             end
             OPCODE_LOAD: begin
                 rs_dispatch.opcode     = OPCODE_LOAD;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;
@@ -162,8 +163,8 @@ module dispatch #(
             end
             OPCODE_STORE: begin
                 rs_dispatch.opcode     = OPCODE_STORE;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_dispatch.src_rdy[1];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
+                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
 
                 rob_dispatch.rdy       = 'b0;
                 rob_dispatch.op        = ROB_OP_STR;
@@ -173,7 +174,7 @@ module dispatch #(
             end
             default: begin
                 rs_dispatch.opcode     = OPCODE_OPIMM;
-                rs_dispatch.src_rdy[0] = rob_dispatch.src_rdy[0];
+                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
                 rs_dispatch.src_rdy[1] = 'b1;
 
                 rob_dispatch.rdy       = 'b0;

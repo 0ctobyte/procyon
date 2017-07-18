@@ -111,32 +111,31 @@ interface cdb_if #(
     parameter TAG_WIDTH  = 6
 ) ();
    
-    logic [ADDR_WIDTH-1:0] addr;
     logic [DATA_WIDTH-1:0] data;
+    logic [ADDR_WIDTH-1:0] addr;
     logic [TAG_WIDTH-1:0]  tag;
-    logic                  branch;
+    logic                  redirect;
     logic                  en; 
 
     modport source (
-        output  addr,
         output  data,
+        output  addr,
         output  tag,
-        output  branch,
+        output  redirect,
         output  en
     );
 
     modport sink (
-        input  addr,
         input  data,
+        input  addr,
         input  tag,
-        input  branch,
+        input  redirect,
         input  en
     );
 
 endinterface
 
 // Interface between the ROB and dispatcher to enqueue a new instruction
-// and lookup tags/data for source operands
 interface rob_dispatch_if #(
     parameter ADDR_WIDTH     = 32,
     parameter DATA_WIDTH     = 32,
@@ -155,12 +154,6 @@ interface rob_dispatch_if #(
     logic [TAG_WIDTH-1:0]      tag;
     logic                      stall;
 
-    // Lookup source operands
-    logic [REG_ADDR_WIDTH-1:0] rsrc     [0:1];
-    logic [DATA_WIDTH-1:0]     src_data [0:1];
-    logic [TAG_WIDTH-1:0]      src_tag  [0:1];
-    logic                      src_rdy  [0:1];
-
     modport source (
         output en,
         output rdy,
@@ -169,10 +162,6 @@ interface rob_dispatch_if #(
         output addr,
         output data,
         output rdest,
-        output rsrc,
-        input  src_data,
-        input  src_tag,
-        input  src_rdy,
         input  tag,
         input  stall
     );
@@ -185,12 +174,37 @@ interface rob_dispatch_if #(
         input  addr,
         input  data,
         input  rdest,
+        output tag,
+        output stall
+    );
+
+endinterface
+
+// Interface between ROB and dispatcher to lookup tags/data for source operands
+interface rob_lookup_if #(
+    parameter DATA_WIDTH     = 32,
+    parameter TAG_WIDTH      = 6,
+    parameter REG_ADDR_WIDTH = 5
+) ();
+
+    // Lookup source operands
+    logic [REG_ADDR_WIDTH-1:0] rsrc     [0:1];
+    logic [DATA_WIDTH-1:0]     src_data [0:1];
+    logic [TAG_WIDTH-1:0]      src_tag  [0:1];
+    logic                      src_rdy  [0:1];
+
+    modport source (
+        output rsrc,
+        input  src_data,
+        input  src_tag,
+        input  src_rdy
+    );
+
+    modport sink (
         input  rsrc,
         output src_data,
         output src_tag,
-        output src_rdy,
-        output tag,
-        output stall
+        output src_rdy
     );
 
 endinterface
@@ -253,10 +267,10 @@ interface regmap_lookup_if #(
     parameter REG_ADDR_WIDTH = 5
 ) ();
 
-    logic [REG_ADDR_WIDTH-1:0] rsrc;
-    logic [DATA_WIDTH-1:0]     data;
-    logic [TAG_WIDTH-1:0]      tag;
-    logic                      rdy;
+    logic [REG_ADDR_WIDTH-1:0] rsrc [0:1];
+    logic [DATA_WIDTH-1:0]     data [0:1];
+    logic [TAG_WIDTH-1:0]      tag  [0:1];
+    logic                      rdy  [0:1];
 
     modport source (
         output rsrc,
