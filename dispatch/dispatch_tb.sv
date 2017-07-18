@@ -8,6 +8,8 @@
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 
+import types::*;
+
 module dispatch_tb;
 
     logic clk;
@@ -32,6 +34,10 @@ module dispatch_tb;
         cdb.addr = 'b0;
         cdb.tag = 'b0;
         cdb.redirect = 'b0;
+
+        for (int i = 0; i < `ROB_DEPTH; i++) begin
+            rob.rob.entries[i] = '{rdy: 'b0, redirect: 'b0, op: ROB_OP_INT, iaddr: 'b0, addr: 'b0, data: 'b0, rdest: 'b0};
+        end
 
         #20 n_rst = 'b1;
     end

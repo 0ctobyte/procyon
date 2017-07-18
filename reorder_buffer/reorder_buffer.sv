@@ -42,16 +42,16 @@ module reorder_buffer #(
     localparam TAG_WIDTH     = $clog2(ROB_DEPTH);
 
     // ROB entry consists of the following:
-    // rdy:    Is the data valid/ready?
-    // branch: Did the instruction cause a branch? 
-    // op:     What operation is the instruction doing?
-    // iaddr:  Address of the instruction (for branches and to rollback on exception)
-    // addr:   Destination address for branch 
-    // data:   The data for the destination register
-    // rdest:  The destination register 
+    // rdy:      Is the data valid/ready?
+    // redirect: Did the instruction cause a PC redirect to another address? 
+    // op:       What operation is the instruction doing?
+    // iaddr:    Address of the instruction (for branches and to rollback on exception)
+    // addr:     Destination address for branch 
+    // data:     The data for the destination register
+    // rdest:    The destination register 
     typedef struct packed {
         logic                      rdy;
-        logic                      branch;
+        logic                      redirect;
         rob_op_t                   op;
         logic [ADDR_WIDTH-1:0]     iaddr;
         logic [ADDR_WIDTH-1:0]     addr;
@@ -80,7 +80,7 @@ module reorder_buffer #(
     assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
 
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
-    assign redirect        = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].branch;
+    assign redirect        = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].redirect;
     assign o_redirect      = redirect;
     assign o_redirect_addr = rob.entries[rob.head_addr].addr;
 
@@ -148,18 +148,18 @@ module reorder_buffer #(
     // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
         if (rob_dispatch_en) begin
-            rob.entries[rob.tail_addr].rdy    <= rob_dispatch.rdy;
-            rob.entries[rob.tail_addr].branch <= 'b0;
-            rob.entries[rob.tail_addr].op     <= rob_dispatch.op;
-            rob.entries[rob.tail_addr].iaddr  <= rob_dispatch.iaddr;
-            rob.entries[rob.tail_addr].addr   <= rob_dispatch.addr;
-            rob.entries[rob.tail_addr].data   <= rob_dispatch.data;
-            rob.entries[rob.tail_addr].rdest  <= rob_dispatch.rdest;
+            rob.entries[rob.tail_addr].rdy      <= rob_dispatch.rdy;
+            rob.entries[rob.tail_addr].redirect <= 'b0;
+            rob.entries[rob.tail_addr].op       <= rob_dispatch.op;
+            rob.entries[rob.tail_addr].iaddr    <= rob_dispatch.iaddr;
+            rob.entries[rob.tail_addr].addr     <= rob_dispatch.addr;
+            rob.entries[rob.tail_addr].data     <= rob_dispatch.data;
+            rob.entries[rob.tail_addr].rdest    <= rob_dispatch.rdest;
         end else if (cdb.en) begin
-            rob.entries[cdb.tag].rdy          <= 'b1;
-            rob.entries[cdb.tag].branch       <= cdb.redirect;
-            rob.entries[cdb.tag].data         <= cdb.data;
-            rob.entries[cdb.tag].addr         <= cdb.addr;
+            rob.entries[cdb.tag].rdy            <= 'b1;
+            rob.entries[cdb.tag].redirect       <= cdb.redirect;
+            rob.entries[cdb.tag].data           <= cdb.data;
+            rob.entries[cdb.tag].addr           <= cdb.addr;
         end
     end 
 
