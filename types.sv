@@ -330,3 +330,36 @@ interface rs_dispatch_if #(
     );
 
 endinterface
+
+interface rs_funit_if #(
+    parameter DATA_WIDTH = 32,
+    parameter ADDR_WIDTH = 32,
+    parameter TAG_WIDTH  = 6
+) ();
+
+    opcode_t               opcode;
+    logic [ADDR_WIDTH-1:0] iaddr;
+    logic [DATA_WIDTH-1:0] insn;
+    logic [DATA_WIDTH-1:0] src_a;
+    logic [DATA_WIDTH-1:0] src_b;
+    logic [TAG-WIDTH-1:0]  tag;
+
+    modport source (
+        output opcode,
+        output iaddr,
+        output insn,
+        output src_a,
+        output src_b,
+        output tag
+    );
+    
+    modport sink (
+        input  opcode,
+        input  iaddr,
+        input  insn,
+        input  src_a,
+        input  src_b,
+        input  tag
+    );
+
+endinterface
