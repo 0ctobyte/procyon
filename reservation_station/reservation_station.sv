@@ -20,7 +20,7 @@ module reservation_station #(
     rs_funit_if.source  rs_funit
 );
 
-    typedef struct packed {
+    typedef struct {
         logic [$clog2(RS_DEPTH)-1:0] age;
         opcode_t                     opcode;
         logic [ADDR_WIDTH-1:0]       iaddr;
@@ -32,14 +32,14 @@ module reservation_station #(
         logic                        empty;
     } rs_slot_t;
 
-    typedef struct packed {
+    typedef struct {
         logic                full;
         logic [RS_DEPTH-1:0] empty;
         logic [RS_DEPTH-1:0] issue_ready;
         logic [RS_DEPTH-1:0] issue_select;
         logic [RS_DEPTH-1:0] dispatch_select;
         logic [RS_DEPTH-1:0] age_matrix [0:RS_DEPTH-1];
-        rs_slot_t            slots [RS_DEPTH-1:0];
+        rs_slot_t            slots [0:RS_DEPTH-1];
     } rs_t;
 
     rs_t rs;
@@ -58,9 +58,9 @@ module reservation_station #(
     for (i = 0; i < RS_DEPTH; i++) begin
         for (j = 0; j < RS_DEPTH; j++) begin
             if (i == j)
-                assign age_matrix[i][j] = 'b1;
+                assign rs.age_matrix[i][j] = 'b1;
             else
-                assign age_matrix[i][j] = rs.slots[i].age > rs.slots[j].age;
+                assign rs.age_matrix[i][j] = rs.slots[i].age > rs.slots[j].age;
         end
     end
 
@@ -75,13 +75,13 @@ module reservation_station #(
         // complement of the issue_ready vector is to discard age comparisons
         // with slots that aren't ready to issue
         assign rs.issue_select[i]    = &(rs.age_matrix[i] | ~rs.issue_ready) & rs.issue_ready[i];
-
-        // This will produce a one-hot vector of the slot that will be used
-        // to store the dispatched instruction
-        assign rs.dispatch_select[i] = rs.empty & ~(rs.empty - 'b1);
     end
     endgenerate
     
+    // This will produce a one-hot vector of the slot that will be used
+    // to store the dispatched instruction
+    assign rs.dispatch_select = rs.empty & ~(rs.empty - 'b1);
+
     // The reservation station is full if there are no empty slots
     // Assert the stall signal in this situation
     assign rs.full           = ~|(rs.empty);

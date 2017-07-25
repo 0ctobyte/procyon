@@ -7,6 +7,7 @@
 
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
+`define RS_DEPTH 8
 
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
@@ -28,7 +29,6 @@ module reservation_station_tb;
     initial begin
         n_rst = 'b0;
         i_flush = 'b0;
-        rs_dispatch.stall = 'b0;
         insn_fifo_wr.wr_en = 'b0;
         insn_fifo_wr.data_in = 'b0;
         cdb.en = 'b0;
@@ -45,6 +45,9 @@ module reservation_station_tb;
             register_map_inst.regmap[i] = '{rdy: 'b0, tag: 'b0, data: 'b0};
         end
 
+        for (int i = 0; i < `RS_DEPTH; i++) begin
+            rs_inst.rs.slots[i] = '{age: 'b0, opcode: OPCODE_OPIMM, iaddr: 'b0, insn: 32'h00000013, src_rdy: '{'b0, 'b0}, src_data: '{'b0, 'b0}, src_tag: '{'b0, 'b0}, dst_tag: 'b0};
+        end
 
         #20 n_rst = 'b1;
 
@@ -108,6 +111,13 @@ module reservation_station_tb;
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
     ) rob_lookup ();
 
+    rs_funit_if #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ADDR_WIDTH(`ADDR_WIDTH),
+        .TAG_WIDTH(`TAG_WIDTH)
+    ) rs_funit ();
+
+    // Module Instances
     sync_fifo #(
         .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
         .FIFO_DEPTH(8)
@@ -119,7 +129,6 @@ module reservation_station_tb;
         .if_fifo_rd(insn_fifo_rd)
     );
 
-    // Module Instances
     dispatch #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
@@ -162,6 +171,19 @@ module reservation_station_tb;
         .dest_wr(regmap_dest_wr),
         .tag_wr(regmap_tag_wr),
         .regmap_lookup(regmap_lookup)
+    );
+
+    reservation_station #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ADDR_WIDTH(`ADDR_WIDTH),
+        .TAG_WIDTH(`TAG_WIDTH),
+        .RS_DEPTH(`RS_DEPTH)
+    ) rs_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_flush(i_flush),
+        .rs_dispatch(rs_dispatch),
+        .rs_funit(rs_funit)
     );
 
 endmodule

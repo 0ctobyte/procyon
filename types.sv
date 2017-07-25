@@ -342,7 +342,7 @@ interface rs_funit_if #(
     logic [DATA_WIDTH-1:0] insn;
     logic [DATA_WIDTH-1:0] src_a;
     logic [DATA_WIDTH-1:0] src_b;
-    logic [TAG-WIDTH-1:0]  tag;
+    logic [TAG_WIDTH-1:0]  tag;
 
     modport source (
         output opcode,
