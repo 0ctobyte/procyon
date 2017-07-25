@@ -301,7 +301,7 @@ interface rs_dispatch_if #(
     logic [TAG_WIDTH-1:0]  src_tag  [0:1];
     logic [DATA_WIDTH-1:0] src_data [0:1];
     logic                  src_rdy  [0:1];
-    logic [TAG_WIDTH-1:0]  tag;
+    logic [TAG_WIDTH-1:0]  dst_tag;
     logic                  en;
     logic                  stall;
 
@@ -312,7 +312,7 @@ interface rs_dispatch_if #(
         output src_tag,
         output src_data,
         output src_rdy,
-        output tag,
+        output dst_tag,
         output en,
         input  stall
     );
@@ -324,7 +324,7 @@ interface rs_dispatch_if #(
         input  src_tag,
         input  src_data,
         input  src_rdy,
-        input  tag,
+        input  dst_tag,
         input  en,
         output stall
     );

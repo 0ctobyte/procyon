@@ -58,9 +58,9 @@ module dispatch #(
     assign rob_dispatch.addr  = 'b0;
     assign rob_dispatch.data  = 'b0; 
 
-    assign rs_dispatch.iaddr  = iaddr;
-    assign rs_dispatch.insn   = noop ? 32'h00000013 : insn;
-    assign rs_dispatch.tag    = rob_dispatch.tag; 
+    assign rs_dispatch.iaddr      = iaddr;
+    assign rs_dispatch.insn       = noop ? 32'h00000013 : insn;
+    assign rs_dispatch.dst_tag    = rob_dispatch.tag; 
 
     genvar i;
     generate
