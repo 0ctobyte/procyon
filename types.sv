@@ -21,6 +21,23 @@ package types;
         OPCODE_STORE  = 7'b0100011
     } opcode_t;
 
+    typedef enum logic [3:0] {
+        ALU_FUNC_ADD  = 4'b0000,
+        ALU_FUNC_SUB  = 4'b0001,
+        ALU_FUNC_AND  = 4'b0010,
+        ALU_FUNC_OR   = 4'b0011,
+        ALU_FUNC_XOR  = 4'b0100,
+        ALU_FUNC_SLL  = 4'b0101,
+        ALU_FUNC_SRL  = 4'b0110,
+        ALU_FUNC_SRA  = 4'b0111,
+        ALU_FUNC_EQ   = 4'b1000,
+        ALU_FUNC_NE   = 4'b1001,
+        ALU_FUNC_LT   = 4'b1010,
+        ALU_FUNC_LTU  = 4'b1011,
+        ALU_FUNC_GE   = 4'b1100,
+        ALU_FUNC_GEU  = 4'b1101
+    ) alu_func_t;
+
 endpackage
 
 import types::*;
