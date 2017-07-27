@@ -88,7 +88,7 @@ module reservation_station #(
     assign rs_dispatch.stall = rs.full;
 
     assign dispatching = ^(rs.dispatch_select) && rs_dispatch.en;
-    assign issuing     = ^(rs.issue_select);
+    assign issuing     = ^(rs.issue_select) && ~rs_funit.stall;
 
     // Assign functional unit output
     assign rs_funit.opcode = rs.slots[issue_slot].opcode;
@@ -121,7 +121,7 @@ module reservation_station #(
                 rs.slots[i].empty <= 'b1;
             end else if (i_flush) begin
                 rs.slots[i].empty <= 'b1;
-            end else if (rs.issue_select[i]) begin
+            end else if (issuing && rs.issue_select[i]) begin
                 rs.slots[i].empty <= 'b1;
             end else if (dispatching && rs.dispatch_select[i]) begin
                 rs.slots[i].empty <= 'b0;

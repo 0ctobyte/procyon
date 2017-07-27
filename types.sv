@@ -36,7 +36,7 @@ package types;
         ALU_FUNC_LTU  = 4'b1011,
         ALU_FUNC_GE   = 4'b1100,
         ALU_FUNC_GEU  = 4'b1101
-    ) alu_func_t;
+    } alu_func_t;
 
 endpackage
 
@@ -128,11 +128,11 @@ interface cdb_if #(
     parameter TAG_WIDTH  = 6
 ) ();
    
-    logic [DATA_WIDTH-1:0] data;
-    logic [ADDR_WIDTH-1:0] addr;
-    logic [TAG_WIDTH-1:0]  tag;
-    logic                  redirect;
-    logic                  en; 
+    tri [DATA_WIDTH-1:0] data;
+    tri [ADDR_WIDTH-1:0] addr;
+    tri [TAG_WIDTH-1:0]  tag;
+    tri                  redirect;
+    tri                  en; 
 
     modport source (
         output  data,
@@ -361,6 +361,7 @@ interface rs_funit_if #(
     logic [DATA_WIDTH-1:0] src_b;
     logic [TAG_WIDTH-1:0]  tag;
     logic                  valid;
+    logic                  stall;
 
     modport source (
         output opcode,
@@ -369,7 +370,8 @@ interface rs_funit_if #(
         output src_a,
         output src_b,
         output tag,
-        output valid
+        output valid,
+        input  stall
     );
     
     modport sink (
@@ -379,7 +381,25 @@ interface rs_funit_if #(
         input  src_a,
         input  src_b,
         input  tag,
-        input  valid
+        input  valid,
+        output stall
+    );
+
+endinterface
+
+interface arbiter_if ();
+
+    logic req;
+    logic gnt;
+
+    modport source (
+        output req,
+        input  gnt
+    );
+
+    modport sink (
+        input  req,
+        output gnt
     );
 
 endinterface

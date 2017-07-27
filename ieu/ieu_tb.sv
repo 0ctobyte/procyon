@@ -8,12 +8,13 @@
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 `define RS_DEPTH 8
+`define IEU_FIFO_DEPTH 8
 
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
 import types::*;
 
-module reservation_station_tb;
+module ieu_tb;
 
     logic clk;
     logic n_rst;
@@ -21,6 +22,14 @@ module reservation_station_tb;
     logic i_flush;
     logic o_redirect;
     logic [`ADDR_WIDTH-1:0] o_redirect_addr;
+
+    assign arb.gnt = arb.req;
+
+    assign cdb.en       = arb.gnt ? 'bz : 'b0;
+    assign cdb.data     = arb.gnt ? 'bz : 'b0;
+    assign cdb.addr     = arb.gnt ? 'bz : 'b0;
+    assign cdb.tag      = arb.gnt ? 'bz : 'b0;
+    assign cdb.redirect = arb.gnt ? 'bz : 'b0;
 
     // Clock generation
     initial clk = 'b1;
@@ -31,12 +40,6 @@ module reservation_station_tb;
         i_flush = 'b0;
         insn_fifo_wr.wr_en = 'b0;
         insn_fifo_wr.data_in = 'b0;
-        cdb.en = 'b0;
-        cdb.data = 'b0;
-        cdb.addr = 'b0;
-        cdb.tag = 'b0;
-        cdb.redirect = 'b0;
-        rs_funit.stall = 'b0;
 
         for (int i = 0; i < `ROB_DEPTH; i++) begin
             rob.rob.entries[i] = '{rdy: 'b0, redirect: 'b0, op: ROB_OP_INT, iaddr: 'b0, addr: 'b0, data: 'b0, rdest: 'b0};
@@ -118,6 +121,8 @@ module reservation_station_tb;
         .TAG_WIDTH(`TAG_WIDTH)
     ) rs_funit ();
 
+    arbiter_if arb ();
+
     // Module Instances
     sync_fifo #(
         .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
@@ -185,6 +190,20 @@ module reservation_station_tb;
         .i_flush(i_flush),
         .rs_dispatch(rs_dispatch),
         .rs_funit(rs_funit)
+    );
+
+    ieu #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ADDR_WIDTH(`ADDR_WIDTH),
+        .TAG_WIDTH(`TAG_WIDTH),
+        .IEU_FIFO_DEPTH(`IEU_FIFO_DEPTH)
+    ) ieu_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_flush(i_flush),
+        .cdb(cdb),
+        .rs_funit(rs_funit),
+        .arb(arb)
     );
 
 endmodule
