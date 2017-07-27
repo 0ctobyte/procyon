@@ -91,12 +91,13 @@ module reservation_station #(
     assign issuing     = ^(rs.issue_select);
 
     // Assign functional unit output
-    assign rs_funit.opcode = issuing ? rs.slots[issue_slot].opcode      : OPCODE_OPIMM;
-    assign rs_funit.iaddr  = issuing ? rs.slots[issue_slot].iaddr       : 'b0;
-    assign rs_funit.insn   = issuing ? rs.slots[issue_slot].insn        : 32'h00000013;
-    assign rs_funit.src_a  = issuing ? rs.slots[issue_slot].src_data[0] : 'b0;
-    assign rs_funit.src_b  = issuing ? rs.slots[issue_slot].src_data[1] : 'b0;
-    assign rs_funit.tag    = issuing ? rs.slots[issue_slot].dst_tag     : 'b0;
+    assign rs_funit.opcode = rs.slots[issue_slot].opcode;
+    assign rs_funit.iaddr  = rs.slots[issue_slot].iaddr;
+    assign rs_funit.insn   = rs.slots[issue_slot].insn;
+    assign rs_funit.src_a  = rs.slots[issue_slot].src_data[0];
+    assign rs_funit.src_b  = rs.slots[issue_slot].src_data[1];
+    assign rs_funit.tag    = rs.slots[issue_slot].dst_tag;
+    assign rs_funit.valid  = issuing;
 
     // Convert one-hot issue_select vector to binary RS slot #
     always_comb begin

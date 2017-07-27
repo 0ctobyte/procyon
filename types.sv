@@ -343,6 +343,7 @@ interface rs_funit_if #(
     logic [DATA_WIDTH-1:0] src_a;
     logic [DATA_WIDTH-1:0] src_b;
     logic [TAG_WIDTH-1:0]  tag;
+    logic                  valid;
 
     modport source (
         output opcode,
@@ -350,7 +351,8 @@ interface rs_funit_if #(
         output insn,
         output src_a,
         output src_b,
-        output tag
+        output tag,
+        output valid
     );
     
     modport sink (
@@ -359,7 +361,8 @@ interface rs_funit_if #(
         input  insn,
         input  src_a,
         input  src_b,
-        input  tag
+        input  tag,
+        input  valid
     );
 
 endinterface
