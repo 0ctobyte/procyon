@@ -50,138 +50,69 @@ module dispatch #(
     assign stall  = rob_dispatch.stall || rs_dispatch.stall;
     assign enable = ~stall && ~insn_fifo_rd.empty; 
 
-    assign insn_fifo_rd.rd_en = enable;
-    assign rs_dispatch.en     = enable;
-    assign rob_dispatch.en    = enable;
+    assign insn_fifo_rd.rd_en  = enable;
+    assign rs_dispatch.en      = enable;
+    assign rob_dispatch.en     = enable;
 
-    assign rob_dispatch.iaddr = iaddr;
-    assign rob_dispatch.addr  = 'b0;
-    assign rob_dispatch.data  = 'b0; 
+    assign rob_dispatch.iaddr  = iaddr;
+    assign rob_dispatch.addr   = 'b0;
+    assign rob_dispatch.data   = 'b0; 
 
-    assign rs_dispatch.iaddr      = iaddr;
-    assign rs_dispatch.insn       = noop ? 32'h00000013 : insn;
-    assign rs_dispatch.dst_tag    = rob_dispatch.tag; 
+    assign rs_dispatch.iaddr   = iaddr;
+    assign rs_dispatch.insn    = insn;
+    assign rs_dispatch.dst_tag = rob_dispatch.tag; 
 
     genvar i;
     generate
     for (i = 0; i < 2; i++) begin
-        assign rob_lookup.rsrc[i]    = noop ? 'b0 : rsrc[i];
+        assign rob_lookup.rsrc[i]      = rsrc[i];
         assign rs_dispatch.src_tag[i]  = rob_lookup.src_tag[i];
         assign rs_dispatch.src_data[i] = rob_lookup.src_data[i];
     end
     endgenerate
 
+    // Dispatch interface to reorder buffer and reservation stations
     always_comb begin
         case (opcode)
             OPCODE_OPIMM: begin
-                rs_dispatch.opcode     = OPCODE_OPIMM;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_INT;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_OPIMM, rob_lookup.src_rdy[0], 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_INT, rdest, 1'b0};
             end
             OPCODE_LUI: begin
-                rs_dispatch.opcode     = OPCODE_LUI;
-                rs_dispatch.src_rdy[0] = 'b1;
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_INT;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_LUI, 1'b1, 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_INT, rdest, 1'b0};
             end
             OPCODE_AUIPC: begin
-                rs_dispatch.opcode     = OPCODE_AUIPC;
-                rs_dispatch.src_rdy[0] = 'b1;
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_INT;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_AUIPC, 1'b1, 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_INT, rdest, 1'b0};
             end
             OPCODE_OP: begin
-                rs_dispatch.opcode     = OPCODE_OP;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_INT;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_OP, rob_lookup.src_rdy[0], rob_lookup.src_rdy[1]};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_INT, rdest, 1'b0};
             end
             OPCODE_JAL: begin
-                rs_dispatch.opcode     = OPCODE_JAL;
-                rs_dispatch.src_rdy[0] = 'b1;
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_BR;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_JAL, 1'b1, 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_BR, rdest, 1'b0};
             end
             OPCODE_JALR: begin
-                rs_dispatch.opcode     = OPCODE_JALR;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_BR;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_JALR, rob_lookup.src_rdy[0], 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_BR, rdest, 1'b0};
             end
             OPCODE_BRANCH: begin
-                rs_dispatch.opcode     = OPCODE_BRANCH;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_BR;
-                rob_dispatch.rdest     = 'b0;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_BRANCH, rob_lookup.src_rdy[0], rob_lookup.src_rdy[1]};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_BR, 1'b0, 1'b0};
             end
             OPCODE_LOAD: begin
-                rs_dispatch.opcode     = OPCODE_LOAD;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_LD;
-                rob_dispatch.rdest     = rdest;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_LOAD, rob_lookup.src_rdy[0], 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_LD, rdest, 1'b0};
             end
             OPCODE_STORE: begin
-                rs_dispatch.opcode     = OPCODE_STORE;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = rob_lookup.src_rdy[1];
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_STR;
-                rob_dispatch.rdest     = 'b0;
-
-                noop                   = 'b0;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_STORE, rob_lookup.src_rdy[0], rob_lookup.src_rdy[1]};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_STR, 1'b0, 1'b0};
             end
             default: begin
-                rs_dispatch.opcode     = OPCODE_OPIMM;
-                rs_dispatch.src_rdy[0] = rob_lookup.src_rdy[0];
-                rs_dispatch.src_rdy[1] = 'b1;
-
-                rob_dispatch.rdy       = 'b0;
-                rob_dispatch.op        = ROB_OP_INT;
-                rob_dispatch.rdest     = 'b0;
-
-                noop                   = 'b1;
+                {rs_dispatch.opcode, rs_dispatch.src_rdy[0],  rs_dispatch.src_rdy[1]} = {OPCODE_OPIMM, 1'b1, 1'b1};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}               = {ROB_OP_INT, 1'b0, 1'b0};
             end
         endcase
     end

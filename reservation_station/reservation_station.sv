@@ -168,11 +168,9 @@ module reservation_station #(
         for (int i = 0; i < RS_DEPTH; i++) begin
             for (int k = 0; k < 2; k++) begin
                 if (dispatching && rs.dispatch_select[i]) begin
-                    rs.slots[i].src_rdy[k]  <= rs_dispatch.src_rdy[k];
-                    rs.slots[i].src_data[k] <= rs_dispatch.src_data[k];
+                    {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {rs_dispatch.src_rdy[k], rs_dispatch.src_data[k]};
                 end else if (cdb.en && cdb.tag == rs.slots[i].src_tag[k]) begin
-                    rs.slots[i].src_rdy[k]  <= 'b1;
-                    rs.slots[i].src_data[k] <= cdb.data;
+                    {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {1'b1, cdb.data};
                 end
             end
         end

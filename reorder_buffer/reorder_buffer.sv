@@ -120,26 +120,10 @@ module reorder_buffer #(
     always_comb begin
         for (int i = 0; i < 2; i++) begin
             case ({regmap_lookup.rdy[i], (cdb.en && (cdb.tag == regmap_lookup.tag[i]))})
-                2'b11: begin
-                    rob_lookup.src_data[i] = regmap_lookup.data[i];
-                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
-                    rob_lookup.src_rdy[i]  = regmap_lookup.rdy[i];
-                end
-                2'b10: begin
-                    rob_lookup.src_data[i] = regmap_lookup.data[i];
-                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
-                    rob_lookup.src_rdy[i]  = regmap_lookup.rdy[i];
-                end
-                2'b01: begin
-                    rob_lookup.src_data[i] = cdb.data;
-                    rob_lookup.src_tag[i]  = cdb.tag;
-                    rob_lookup.src_rdy[i]  = 'b1;
-                end
-                2'b00: begin
-                    rob_lookup.src_data[i] = rob.entries[regmap_lookup.tag[i]].data;
-                    rob_lookup.src_tag[i]  = regmap_lookup.tag[i];
-                    rob_lookup.src_rdy[i]  = rob.entries[regmap_lookup.tag[i]].rdy;
-                end
+                2'b00: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {rob.entries[regmap_lookup.tag[i]].data, regmap_lookup.tag[i], rob.entries[regmap_lookup.tag[i]].rdy};
+                2'b01: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {cdb.data, cdb.tag, 1'b1};
+                2'b10: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {regmap_lookup.data[i], regmap_lookup.tag[i], regmap_lookup.rdy[i]};
+                2'b11: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {regmap_lookup.data[i], regmap_lookup.tag[i], regmap_lookup.rdy[i]};
             endcase
         end
     end
@@ -149,9 +133,7 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && i == rob.tail_addr) begin
-                rob.entries[i].op       <= rob_dispatch.op;
-                rob.entries[i].iaddr    <= rob_dispatch.iaddr;
-                rob.entries[i].rdest    <= rob_dispatch.rdest;
+                {rob.entries[i].op, rob.entries[i].iaddr, rob.entries[i].rdest} <= {rob_dispatch.op, rob_dispatch.iaddr, rob_dispatch.rdest};
             end
         end
     end
@@ -159,15 +141,9 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && i == rob.tail_addr) begin
-                rob.entries[i].rdy      <= rob_dispatch.rdy;
-                rob.entries[i].redirect <= 'b0;
-                rob.entries[i].addr     <= rob_dispatch.addr;
-                rob.entries[i].data     <= rob_dispatch.data;
+                {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {rob_dispatch.rdy, 1'b0, rob_dispatch.addr, rob_dispatch.data};
             end else if (cdb.en && i == cdb.tag) begin
-                rob.entries[i].rdy      <= 'b1;
-                rob.entries[i].redirect <= cdb.redirect;
-                rob.entries[i].data     <= cdb.data;
-                rob.entries[i].addr     <= cdb.addr;
+                {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b1, cdb.redirect, cdb.addr, cdb.data};
             end
         end
     end 
