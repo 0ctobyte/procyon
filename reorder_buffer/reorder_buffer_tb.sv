@@ -15,6 +15,12 @@ module reorder_buffer_tb;
     logic o_redirect;
     logic [`ADDR_WIDTH-1:0] o_redirect_addr;
 
+    assign cdb.en = 'b0;
+    assign cdb.redirect = 'b0;
+    assign cdb.tag = 'b0;
+    assign cdb.data = 'b0;
+    assign cdb.addr = 'b0;
+
     always begin
         #10 clk = ~clk;
     end
@@ -23,11 +29,6 @@ module reorder_buffer_tb;
         clk = 'b1;
         n_rst = 'b0;
 
-        cdb.en = 'b0;
-        cdb.redirect = 'b0;
-        cdb.tag = 'b0;
-        cdb.data = 'b0;
-        cdb.addr = 'b0;
         rob_dispatch.en = 'b0;
         rob_dispatch.rdy = 'b0;
         rob_dispatch.op = ROB_OP_INT;

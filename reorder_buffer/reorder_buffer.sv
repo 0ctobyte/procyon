@@ -147,19 +147,28 @@ module reorder_buffer #(
     // Now update the ROB entry with the newly dispatched instruction
     // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
-        if (rob_dispatch_en) begin
-            rob.entries[rob.tail_addr].rdy      <= rob_dispatch.rdy;
-            rob.entries[rob.tail_addr].redirect <= 'b0;
-            rob.entries[rob.tail_addr].op       <= rob_dispatch.op;
-            rob.entries[rob.tail_addr].iaddr    <= rob_dispatch.iaddr;
-            rob.entries[rob.tail_addr].addr     <= rob_dispatch.addr;
-            rob.entries[rob.tail_addr].data     <= rob_dispatch.data;
-            rob.entries[rob.tail_addr].rdest    <= rob_dispatch.rdest;
-        end else if (cdb.en) begin
-            rob.entries[cdb.tag].rdy            <= 'b1;
-            rob.entries[cdb.tag].redirect       <= cdb.redirect;
-            rob.entries[cdb.tag].data           <= cdb.data;
-            rob.entries[cdb.tag].addr           <= cdb.addr;
+        for (int i = 0; i < ROB_DEPTH; i++) begin
+            if (rob_dispatch_en && i == rob.tail_addr) begin
+                rob.entries[i].op       <= rob_dispatch.op;
+                rob.entries[i].iaddr    <= rob_dispatch.iaddr;
+                rob.entries[i].rdest    <= rob_dispatch.rdest;
+            end
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        for (int i = 0; i < ROB_DEPTH; i++) begin
+            if (rob_dispatch_en && i == rob.tail_addr) begin
+                rob.entries[i].rdy      <= rob_dispatch.rdy;
+                rob.entries[i].redirect <= 'b0;
+                rob.entries[i].addr     <= rob_dispatch.addr;
+                rob.entries[i].data     <= rob_dispatch.data;
+            end else if (cdb.en && i == cdb.tag) begin
+                rob.entries[i].rdy      <= 'b1;
+                rob.entries[i].redirect <= cdb.redirect;
+                rob.entries[i].data     <= cdb.data;
+                rob.entries[i].addr     <= cdb.addr;
+            end
         end
     end 
 
