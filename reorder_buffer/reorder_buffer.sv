@@ -75,6 +75,12 @@ module reorder_buffer #(
 
     logic rob_dispatch_en;
     logic rob_retire_en;
+    
+    logic [ROB_DEPTH-1:0] rob_dispatch_select;
+    logic [ROB_DEPTH-1:0] cdb_tag_select;
+    
+    assign rob_dispatch_select = 1 << rob.tail_addr;
+    assign cdb_tag_select      = 1 << cdb.tag;
 
     assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
     assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
@@ -132,7 +138,7 @@ module reorder_buffer #(
     // Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
-            if (rob_dispatch_en && i == rob.tail_addr) begin
+            if (rob_dispatch_en && rob_dispatch_select[i]) begin
                 {rob.entries[i].op, rob.entries[i].iaddr, rob.entries[i].rdest} <= {rob_dispatch.op, rob_dispatch.iaddr, rob_dispatch.rdest};
             end
         end
@@ -140,9 +146,9 @@ module reorder_buffer #(
 
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
-            if (rob_dispatch_en && i == rob.tail_addr) begin
+            if (rob_dispatch_en && rob_dispatch_select[i]) begin
                 {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {rob_dispatch.rdy, 1'b0, rob_dispatch.addr, rob_dispatch.data};
-            end else if (cdb.en && i == cdb.tag) begin
+            end else if (cdb.en && cdb_tag_select[i]) begin
                 {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b1, cdb.redirect, cdb.addr, cdb.data};
             end
         end
