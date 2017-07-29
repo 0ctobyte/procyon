@@ -23,7 +23,6 @@ module fetch_tb;
     logic clk;
     logic n_rst;
 
-    logic rob_flush;
     logic rob_redirect;
     logic [`ADDR_WIDTH-1:0] rob_redirect_addr;
 
@@ -55,7 +54,6 @@ module fetch_tb;
 
     initial begin
         n_rst = 'b0;
-        rob_flush = 'b0;
 
         for (int i = 0; i < `ROB_DEPTH; i++) begin
             rob.rob.entries[i] = '{rdy: 'b0, redirect: 'b0, op: ROB_OP_INT, iaddr: 'b0, addr: 'b0, data: 'b0, rdest: 'b0};
@@ -165,7 +163,7 @@ module fetch_tb;
     ) insn_fifo (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(rob_flush),
+        .i_flush(rob_redirect),
         .if_fifo_wr(insn_fifo_wr),
         .if_fifo_rd(insn_fifo_rd)
     );
@@ -174,7 +172,7 @@ module fetch_tb;
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
-    ) dut (
+    ) dispatch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .insn_fifo_rd(insn_fifo_rd),
@@ -190,7 +188,7 @@ module fetch_tb;
     ) register_map_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(rob_flush),
+        .i_flush(rob_redirect),
         .dest_wr(regmap_dest_wr),
         .tag_wr(regmap_tag_wr),
         .regmap_lookup(regmap_lookup)
@@ -222,7 +220,7 @@ module fetch_tb;
     ) rs_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(rob_flush),
+        .i_flush(rob_redirect),
         .rs_dispatch(rs_dispatch),
         .rs_funit(rs_funit)
     );
@@ -235,7 +233,7 @@ module fetch_tb;
     ) ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(rob_flush),
+        .i_flush(rob_redirect),
         .cdb(cdb),
         .rs_funit(rs_funit),
         .arb(arb)
