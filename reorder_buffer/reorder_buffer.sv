@@ -147,9 +147,24 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {rob_dispatch.rdy, 1'b0, rob_dispatch.addr, rob_dispatch.data};
+                {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b0, rob_dispatch.addr, rob_dispatch.data};
             end else if (cdb.en && cdb_tag_select[i]) begin
-                {rob.entries[i].rdy, rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b1, cdb.redirect, cdb.addr, cdb.data};
+                {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {cdb.redirect, cdb.addr, cdb.data};
+            end
+        end
+    end 
+
+    // Clear the ready bits on a flush or reset
+    always_ff @(posedge clk, negedge n_rst) begin
+        for (int i = 0; i < ROB_DEPTH; i++) begin
+            if (~n_rst) begin
+                rob.entries[i].rdy <= 1'b0;
+            end else if (redirect) begin
+                rob.entries[i].rdy <= 1'b0;
+            end else if (rob_dispatch_en && rob_dispatch_select[i]) begin
+                rob.entries[i].rdy <= rob_dispatch.rdy;
+            end else if (cdb.en && cdb_tag_select[i]) begin
+                rob.entries[i].rdy <= 1'b1;
             end
         end
     end 
