@@ -21,7 +21,7 @@ restart -force -nowave
 
 add wave -r * /register_map_inst/regmap
 
-run 1000ns
+run 2000ns
 
 view wave -undock
 wave zoom full

@@ -5,14 +5,14 @@
 `define TAG_WIDTH  6
 `define REG_ADDR_WIDTH 5
 
-`define ROM_DEPTH 64
+`define ROM_DEPTH 512
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 `define RS_DEPTH 8
 `define IEU_FIFO_DEPTH 8
 
 `define ROM_BASE_ADDR 32'h0
-`define ROM_FILE "test.txt"
+`define ROM_FILE "rv32ui-add.hex"
 
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
