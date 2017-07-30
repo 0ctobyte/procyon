@@ -1,4 +1,8 @@
-// Generic linear shifting reservation station
+// Reservation Station with age-matrix based out of order issue 
+// The reservation station will pick the oldest instruction that has all 
+// it's source operands ready for issue. New instructions allocated in the 
+// reservation station will be assigned an age of 0 which will increment/decrement
+// if other instructions are dispatched/issued.
 
 import types::*;
 
