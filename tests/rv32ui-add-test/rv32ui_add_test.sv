@@ -5,23 +5,40 @@
 `define TAG_WIDTH  6
 `define REG_ADDR_WIDTH 5
 
+`define ROM_DEPTH 512
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 `define RS_DEPTH 8
 `define IEU_FIFO_DEPTH 8
 
+`define ROM_BASE_ADDR 32'h0
+`define ROM_FILE "rv32ui-add.hex"
+
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
 import types::*;
 
-module ieu_tb;
+module rv32ui_add_test;
 
     logic clk;
     logic n_rst;
 
-    logic i_flush;
-    logic o_redirect;
-    logic [`ADDR_WIDTH-1:0] o_redirect_addr;
+    logic rob_redirect;
+    logic [`ADDR_WIDTH-1:0] rob_redirect_addr;
+
+    logic [`ADDR_WIDTH-1:0] fetch_pc;
+    logic                   fetch_en;
+    logic [`DATA_WIDTH-1:0] rom_data_out;
+    logic                   rom_data_valid;
+    logic [$clog2(`ROM_DEPTH)-1:0] rom_rd_addr;
+
+    always_comb begin
+        logic [`ADDR_WIDTH-1:0] t;
+        t = fetch_pc >> 2;
+        rom_rd_addr = t[$clog2(`ROM_DEPTH)-1:0];
+    end
+
+    assign rom_data_valid = fetch_en;
 
     assign arb.gnt = arb.req;
 
@@ -37,9 +54,6 @@ module ieu_tb;
 
     initial begin
         n_rst = 'b0;
-        i_flush = 'b0;
-        insn_fifo_wr.wr_en = 'b0;
-        insn_fifo_wr.data_in = 'b0;
 
         for (int i = 0; i < `ROB_DEPTH; i++) begin
             rob.rob.entries[i] = '{rdy: 'b0, redirect: 'b0, op: ROB_OP_INT, iaddr: 'b0, addr: 'b0, data: 'b0, rdest: 'b0};
@@ -54,14 +68,6 @@ module ieu_tb;
         end
 
         #20 n_rst = 'b1;
-
-        insn_fifo_wr.data_in = {32'b0, `NOOP};
-        insn_fifo_wr.wr_en   = 'b1;
-
-        #20 insn_fifo_wr.data_in = {32'h4, 32'habc00093};
-
-        #20 insn_fifo_wr.wr_en = 'b0;
-
     end
 
     // Interfaces
@@ -124,13 +130,40 @@ module ieu_tb;
     arbiter_if arb ();
 
     // Module Instances
+    rom #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ROM_DEPTH(`ROM_DEPTH),
+        .BASE_ADDR(`ROM_BASE_ADDR),
+        .ROM_FILE(`ROM_FILE)
+    ) boot_rom (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_rd_addr(rom_rd_addr),
+        .o_data_out(rom_data_out)
+    );
+
+    simple_fetch #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ADDR_WIDTH(`ADDR_WIDTH)
+    ) simple_fetch_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_redirect(rob_redirect),
+        .i_redirect_addr(rob_redirect_addr),
+        .i_insn(rom_data_out),
+        .i_data_valid(rom_data_valid),
+        .o_pc(fetch_pc),
+        .o_en(fetch_en),
+        .insn_fifo_wr(insn_fifo_wr)
+    );
+
     sync_fifo #(
         .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
         .FIFO_DEPTH(8)
     ) insn_fifo (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(i_flush),
+        .i_flush(rob_redirect),
         .if_fifo_wr(insn_fifo_wr),
         .if_fifo_rd(insn_fifo_rd)
     );
@@ -139,7 +172,7 @@ module ieu_tb;
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
-    ) dut (
+    ) dispatch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .insn_fifo_rd(insn_fifo_rd),
@@ -155,7 +188,7 @@ module ieu_tb;
     ) register_map_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(i_flush),
+        .i_flush(rob_redirect),
         .dest_wr(regmap_dest_wr),
         .tag_wr(regmap_tag_wr),
         .regmap_lookup(regmap_lookup)
@@ -169,8 +202,8 @@ module ieu_tb;
     ) rob (
         .clk(clk),
         .n_rst(n_rst),
-        .o_redirect(o_redirect),
-        .o_redirect_addr(o_redirect_addr),
+        .o_redirect(rob_redirect),
+        .o_redirect_addr(rob_redirect_addr),
         .cdb(cdb),
         .rob_dispatch(rob_dispatch),
         .rob_lookup(rob_lookup),
@@ -187,7 +220,7 @@ module ieu_tb;
     ) rs_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(i_flush),
+        .i_flush(rob_redirect),
         .rs_dispatch(rs_dispatch),
         .rs_funit(rs_funit)
     );
@@ -200,7 +233,7 @@ module ieu_tb;
     ) ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(i_flush),
+        .i_flush(rob_redirect),
         .cdb(cdb),
         .rs_funit(rs_funit),
         .arb(arb)

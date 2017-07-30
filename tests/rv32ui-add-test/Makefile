@@ -1,4 +1,4 @@
-PROJECT := dispatch
+PROJECT := rv32ui_add_test
 
 all: ${PROJECT}.tcl
 	vsim -do $<

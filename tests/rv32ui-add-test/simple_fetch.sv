@@ -1,6 +1,6 @@
 // Instruction fetch unit
 
-module fetch #(
+module simple_fetch #(
     parameter DATA_WIDTH = 32,
     parameter ADDR_WIDTH = 32
 ) (
