@@ -30,10 +30,14 @@ module ieu_ex #(
 
     logic [DATA_WIDTH-1:0] result;
 
+    // Extended src_a for arithmetic right shifts
+    logic [DATA_WIDTH*2-1:0]      e_src_a;
+
     // Signed src inputs
     logic signed [DATA_WIDTH-1:0] s_src_a;
     logic signed [DATA_WIDTH-1:0] s_src_b;
 
+    assign e_src_a = {{(DATA_WIDTH){i_src_a[DATA_WIDTH-1]}}, i_src_a};
     assign s_src_a = i_src_a;
     assign s_src_b = i_src_b;
 
@@ -54,7 +58,7 @@ module ieu_ex #(
             ALU_FUNC_XOR: result = i_src_a ^ i_src_b;
             ALU_FUNC_SLL: result = i_src_a << i_shamt;
             ALU_FUNC_SRL: result = i_src_a >> i_shamt;
-            ALU_FUNC_SRA: result = i_src_a >>> i_shamt;
+            ALU_FUNC_SRA: result = e_src_a >> i_shamt;
             ALU_FUNC_EQ:  result = i_src_a == i_src_b;
             ALU_FUNC_NE:  result = i_src_a != i_src_b;
             ALU_FUNC_LT:  result = s_src_a < s_src_b;
