@@ -1,0 +1,148 @@
+// instruction count:  132       
+// test2
+00ff10b7        // lui ra,0xff1
+f0008093        // addi ra,ra,-256 # ff0f00 <begin_signature+0xfeef00>
+f0f0cf13        // xori t5,ra,-241
+ff00feb7        // lui t4,0xff00f
+00fe8e93        // addi t4,t4,15 # ff00f00f <begin_signature+0xff00d00f>
+00200193        // li gp,2
+1ddf1663        // bne t5,t4,2e0 <fail>
+// test3
+0ff010b7        // lui ra,0xff01
+ff008093        // addi ra,ra,-16 # ff00ff0 <begin_signature+0xfefeff0>
+0f00cf13        // xori t5,ra,240
+0ff01eb7        // lui t4,0xff01
+f00e8e93        // addi t4,t4,-256 # ff00f00 <begin_signature+0xfefef00>
+00300193        // li gp,3
+1bdf1863        // bne t5,t4,2e0 <fail>
+// test4
+00ff10b7        // lui ra,0xff1
+8ff08093        // addi ra,ra,-1793 # ff08ff <begin_signature+0xfee8ff>
+70f0cf13        // xori t5,ra,1807
+00ff1eb7        // lui t4,0xff1
+ff0e8e93        // addi t4,t4,-16 # ff0ff0 <begin_signature+0xfeeff0>
+00400193        // li gp,4
+19df1a63        // bne t5,t4,2e0 <fail>
+// test5
+f00ff0b7        // lui ra,0xf00ff
+00f08093        // addi ra,ra,15 # f00ff00f <begin_signature+0xf00fd00f>
+0f00cf13        // xori t5,ra,240
+f00ffeb7        // lui t4,0xf00ff
+0ffe8e93        // addi t4,t4,255 # f00ff0ff <begin_signature+0xf00fd0ff>
+00500193        // li gp,5
+17df1c63        // bne t5,t4,2e0 <fail>
+// test6
+ff00f0b7        // lui ra,0xff00f
+70008093        // addi ra,ra,1792 # ff00f700 <begin_signature+0xff00d700>
+70f0c093        // xori ra,ra,1807
+ff00feb7        // lui t4,0xff00f
+00fe8e93        // addi t4,t4,15 # ff00f00f <begin_signature+0xff00d00f>
+00600193        // li gp,6
+15d09e63        // bne ra,t4,2e0 <fail>
+// test7
+00000213        // li tp,0
+0ff010b7        // lui ra,0xff01
+ff008093        // addi ra,ra,-16 # ff00ff0 <begin_signature+0xfefeff0>
+0f00cf13        // xori t5,ra,240
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,18c <test_7+0x4>
+0ff01eb7        // lui t4,0xff01
+f00e8e93        // addi t4,t4,-256 # ff00f00 <begin_signature+0xfefef00>
+00700193        // li gp,7
+13d31663        // bne t1,t4,2e0 <fail>
+// test8
+00000213        // li tp,0
+00ff10b7        // lui ra,0xff1
+8ff08093        // addi ra,ra,-1793 # ff08ff <begin_signature+0xfee8ff>
+70f0cf13        // xori t5,ra,1807
+00000013        // nop
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,1bc <test_8+0x4>
+00ff1eb7        // lui t4,0xff1
+ff0e8e93        // addi t4,t4,-16 # ff0ff0 <begin_signature+0xfeeff0>
+00800193        // li gp,8
+0fd31c63        // bne t1,t4,2e0 <fail>
+// test9
+00000213        // li tp,0
+f00ff0b7        // lui ra,0xf00ff
+00f08093        // addi ra,ra,15 # f00ff00f <begin_signature+0xf00fd00f>
+0f00cf13        // xori t5,ra,240
+00000013        // nop
+00000013        // nop
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5210e3        // bne tp,t0,1f0 <test_9+0x4>
+f00ffeb7        // lui t4,0xf00ff
+0ffe8e93        // addi t4,t4,255 # f00ff0ff <begin_signature+0xf00fd0ff>
+00900193        // li gp,9
+0dd31063        // bne t1,t4,2e0 <fail>
+// test10
+00000213        // li tp,0
+0ff010b7        // lui ra,0xff01
+ff008093        // addi ra,ra,-16 # ff00ff0 <begin_signature+0xfefeff0>
+0f00cf13        // xori t5,ra,240
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5216e3        // bne tp,t0,228 <test_10+0x4>
+0ff01eb7        // lui t4,0xff01
+f00e8e93        // addi t4,t4,-256 # ff00f00 <begin_signature+0xfefef00>
+00a00193        // li gp,10
+09df1a63        // bne t5,t4,2e0 <fail>
+// test11
+00000213        // li tp,0
+00ff10b7        // lui ra,0xff1
+fff08093        // addi ra,ra,-1 # ff0fff <begin_signature+0xfeefff>
+00000013        // nop
+00f0cf13        // xori t5,ra,15
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,254 <test_11+0x4>
+00ff1eb7        // lui t4,0xff1
+ff0e8e93        // addi t4,t4,-16 # ff0ff0 <begin_signature+0xfeeff0>
+00b00193        // li gp,11
+07df1263        // bne t5,t4,2e0 <fail>
+// test12
+00000213        // li tp,0
+f00ff0b7        // lui ra,0xf00ff
+00f08093        // addi ra,ra,15 # f00ff00f <begin_signature+0xf00fd00f>
+00000013        // nop
+00000013        // nop
+0f00cf13        // xori t5,ra,240
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,284 <test_12+0x4>
+f00ffeb7        // lui t4,0xf00ff
+0ffe8e93        // addi t4,t4,255 # f00ff0ff <begin_signature+0xf00fd0ff>
+00c00193        // li gp,12
+03df1863        // bne t5,t4,2e0 <fail>
+// test13
+0f004093        // xori ra,zero,240
+0f000e93        // li t4,240
+00d00193        // li gp,13
+03d09063        // bne ra,t4,2e0 <fail>
+// test14
+00ff00b7        // lui ra,0xff0
+0ff08093        // addi ra,ra,255 # ff00ff <begin_signature+0xfee0ff>
+70f0c013        // xori zero,ra,1807
+00000e93        // li t4,0
+00e00193        // li gp,14
+01d01463        // bne zero,t4,2e0 <fail>
+00301c63        // bne zero,gp,2f4 <pass>
+// FAIL
+ae500193        // li	gp,0xfffffae5
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+// PASS
+bd200193        // li	gp,0xfffffbd2
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+00000013        // nop

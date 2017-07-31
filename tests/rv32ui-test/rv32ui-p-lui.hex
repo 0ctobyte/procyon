@@ -1,0 +1,43 @@
+// instruction count:  35        
+// test2
+000000b7        // lui ra,0x0
+00000e93        // li t4,0
+00200193        // li gp,2
+05d09a63        // bne ra,t4,15c <fail>
+// test3
+fffff0b7        // lui ra,0xfffff
+4010d093        // srai ra,ra,0x1
+80000e93        // li t4,-2048
+00300193        // li gp,3
+05d09063        // bne ra,t4,15c <fail>
+// test4
+7ffff0b7        // lui ra,0x7ffff
+4140d093        // srai ra,ra,0x14
+7ff00e93        // li t4,2047
+00400193        // li gp,4
+03d09663        // bne ra,t4,15c <fail>
+// test5
+800000b7        // lui ra,0x80000
+4140d093        // srai ra,ra,0x14
+80000e93        // li t4,-2048
+00500193        // li gp,5
+01d09c63        // bne ra,t4,15c <fail>
+// test6
+80000037        // lui zero,0x80000
+00000e93        // li t4,0
+00600193        // li gp,6
+01d01463        // bne zero,t4,15c <fail>
+00301c63        // bne zero,gp,170 <pass>
+// FAIL
+ae500193        // li	gp,0xfffffae5
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+// PASS
+bd200193        // li	gp,0xfffffbd2
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+00000013        // nop

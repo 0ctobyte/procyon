@@ -1,0 +1,354 @@
+// instruction count:  315       
+// test2
+00000093        // li ra,0
+00000113        // li sp,0
+40208f33        // sub t5,ra,sp
+00000e93        // li t4,0
+00200193        // li gp,2
+4bdf1663        // bne t5,t4,5bc <fail>
+// test3
+00100093        // li ra,1
+00100113        // li sp,1
+40208f33        // sub t5,ra,sp
+00000e93        // li t4,0
+00300193        // li gp,3
+49df1a63        // bne t5,t4,5bc <fail>
+// test4
+00300093        // li ra,3
+00700113        // li sp,7
+40208f33        // sub t5,ra,sp
+ffc00e93        // li t4,-4
+00400193        // li gp,4
+47df1e63        // bne t5,t4,5bc <fail>
+// test5
+00000093        // li ra,0
+ffff8137        // lui sp,0xffff8
+40208f33        // sub t5,ra,sp
+00008eb7        // lui t4,0x8
+00500193        // li gp,5
+47df1263        // bne t5,t4,5bc <fail>
+// test6
+800000b7        // lui ra,0x80000
+00000113        // li sp,0
+40208f33        // sub t5,ra,sp
+80000eb7        // lui t4,0x80000
+00600193        // li gp,6
+45df1663        // bne t5,t4,5bc <fail>
+// test7
+800000b7        // lui ra,0x80000
+ffff8137        // lui sp,0xffff8
+40208f33        // sub t5,ra,sp
+80008eb7        // lui t4,0x80008
+00700193        // li gp,7
+43df1a63        // bne t5,t4,5bc <fail>
+// test8
+00000093        // li ra,0
+00008137        // lui sp,0x8
+fff10113        // addi sp,sp,-1 # 7fff <begin_signature+0x5fff>
+40208f33        // sub t5,ra,sp
+ffff8eb7        // lui t4,0xffff8
+001e8e93        // addi t4,t4,1 # ffff8001 <begin_signature+0xffff6001>
+00800193        // li gp,8
+41df1a63        // bne t5,t4,5bc <fail>
+// test9
+800000b7        // lui ra,0x80000
+fff08093        // addi ra,ra,-1 # 7fffffff <begin_signature+0x7fffdfff>
+00000113        // li sp,0
+40208f33        // sub t5,ra,sp
+80000eb7        // lui t4,0x80000
+fffe8e93        // addi t4,t4,-1 # 7fffffff <begin_signature+0x7fffdfff>
+00900193        // li gp,9
+3fdf1a63        // bne t5,t4,5bc <fail>
+// test10
+800000b7        // lui ra,0x80000
+fff08093        // addi ra,ra,-1 # 7fffffff <begin_signature+0x7fffdfff>
+00008137        // lui sp,0x8
+fff10113        // addi sp,sp,-1 # 7fff <begin_signature+0x5fff>
+40208f33        // sub t5,ra,sp
+7fff8eb7        // lui t4,0x7fff8
+00a00193        // li gp,10
+3ddf1a63        // bne t5,t4,5bc <fail>
+// test11
+800000b7        // lui ra,0x80000
+00008137        // lui sp,0x8
+fff10113        // addi sp,sp,-1 # 7fff <begin_signature+0x5fff>
+40208f33        // sub t5,ra,sp
+7fff8eb7        // lui t4,0x7fff8
+001e8e93        // addi t4,t4,1 # 7fff8001 <begin_signature+0x7fff6001>
+00b00193        // li gp,11
+3bdf1a63        // bne t5,t4,5bc <fail>
+// test12
+800000b7        // lui ra,0x80000
+fff08093        // addi ra,ra,-1 # 7fffffff <begin_signature+0x7fffdfff>
+ffff8137        // lui sp,0xffff8
+40208f33        // sub t5,ra,sp
+80008eb7        // lui t4,0x80008
+fffe8e93        // addi t4,t4,-1 # 80007fff <begin_signature+0x80005fff>
+00c00193        // li gp,12
+39df1a63        // bne t5,t4,5bc <fail>
+// test13
+00000093        // li ra,0
+fff00113        // li sp,-1
+40208f33        // sub t5,ra,sp
+00100e93        // li t4,1
+00d00193        // li gp,13
+37df1e63        // bne t5,t4,5bc <fail>
+// test14
+fff00093        // li ra,-1
+00100113        // li sp,1
+40208f33        // sub t5,ra,sp
+ffe00e93        // li t4,-2
+00e00193        // li gp,14
+37df1263        // bne t5,t4,5bc <fail>
+// test15
+fff00093        // li ra,-1
+fff00113        // li sp,-1
+40208f33        // sub t5,ra,sp
+00000e93        // li t4,0
+00f00193        // li gp,15
+35df1663        // bne t5,t4,5bc <fail>
+// test16
+00d00093        // li ra,13
+00b00113        // li sp,11
+402080b3        // sub ra,ra,sp
+00200e93        // li t4,2
+01000193        // li gp,16
+33d09a63        // bne ra,t4,5bc <fail>
+// test17
+00e00093        // li ra,14
+00b00113        // li sp,11
+40208133        // sub sp,ra,sp
+00300e93        // li t4,3
+01100193        // li gp,17
+31d11e63        // bne sp,t4,5bc <fail>
+// test18
+00d00093        // li ra,13
+401080b3        // sub ra,ra,ra
+00000e93        // li t4,0
+01200193        // li gp,18
+31d09463        // bne ra,t4,5bc <fail>
+// test19
+00000213        // li tp,0
+00d00093        // li ra,13
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,2bc <test_19+0x4>
+00200e93        // li t4,2
+01300193        // li gp,19
+2dd31e63        // bne t1,t4,5bc <fail>
+// test20
+00000213        // li tp,0
+00e00093        // li ra,14
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+00000013        // nop
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,2e8 <test_20+0x4>
+00300e93        // li t4,3
+01400193        // li gp,20
+2bd31663        // bne t1,t4,5bc <fail>
+// test21
+00000213        // li tp,0
+00f00093        // li ra,15
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+00000013        // nop
+00000013        // nop
+000f0313        // mv t1,t5
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5210e3        // bne tp,t0,318 <test_21+0x4>
+00400e93        // li t4,4
+01500193        // li gp,21
+27d31c63        // bne t1,t4,5bc <fail>
+// test22
+00000213        // li tp,0
+00d00093        // li ra,13
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5216e3        // bne tp,t0,34c <test_22+0x4>
+00200e93        // li t4,2
+01600193        // li gp,22
+25df1863        // bne t5,t4,5bc <fail>
+// test23
+00000213        // li tp,0
+00e00093        // li ra,14
+00b00113        // li sp,11
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,374 <test_23+0x4>
+00300e93        // li t4,3
+01700193        // li gp,23
+23df1263        // bne t5,t4,5bc <fail>
+// test24
+00000213        // li tp,0
+00f00093        // li ra,15
+00b00113        // li sp,11
+00000013        // nop
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,3a0 <test_24+0x4>
+00400e93        // li t4,4
+01800193        // li gp,24
+1fdf1a63        // bne t5,t4,5bc <fail>
+// test25
+00000213        // li tp,0
+00d00093        // li ra,13
+00000013        // nop
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,3d0 <test_25+0x4>
+00200e93        // li t4,2
+01900193        // li gp,25
+1ddf1463        // bne t5,t4,5bc <fail>
+// test26
+00000213        // li tp,0
+00e00093        // li ra,14
+00000013        // nop
+00b00113        // li sp,11
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,3fc <test_26+0x4>
+00300e93        // li t4,3
+01a00193        // li gp,26
+19df1c63        // bne t5,t4,5bc <fail>
+// test27
+00000213        // li tp,0
+00f00093        // li ra,15
+00000013        // nop
+00000013        // nop
+00b00113        // li sp,11
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,42c <test_27+0x4>
+00400e93        // li t4,4
+01b00193        // li gp,27
+17df1463        // bne t5,t4,5bc <fail>
+// test28
+00000213        // li tp,0
+00b00113        // li sp,11
+00d00093        // li ra,13
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5216e3        // bne tp,t0,45c <test_28+0x4>
+00200e93        // li t4,2
+01c00193        // li gp,28
+15df1063        // bne t5,t4,5bc <fail>
+// test29
+00000213        // li tp,0
+00b00113        // li sp,11
+00e00093        // li ra,14
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,484 <test_29+0x4>
+00300e93        // li t4,3
+01d00193        // li gp,29
+11df1a63        // bne t5,t4,5bc <fail>
+// test30
+00000213        // li tp,0
+00b00113        // li sp,11
+00f00093        // li ra,15
+00000013        // nop
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,4b0 <test_30+0x4>
+00400e93        // li t4,4
+01e00193        // li gp,30
+0fdf1263        // bne t5,t4,5bc <fail>
+// test31
+00000213        // li tp,0
+00b00113        // li sp,11
+00000013        // nop
+00d00093        // li ra,13
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5214e3        // bne tp,t0,4e0 <test_31+0x4>
+00200e93        // li t4,2
+01f00193        // li gp,31
+0bdf1c63        // bne t5,t4,5bc <fail>
+// test32
+00000213        // li tp,0
+00b00113        // li sp,11
+00000013        // nop
+00e00093        // li ra,14
+00000013        // nop
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,50c <test_32+0x4>
+00300e93        // li t4,3
+02000193        // li gp,32
+09df1463        // bne t5,t4,5bc <fail>
+// test33
+00000213        // li tp,0
+00b00113        // li sp,11
+00000013        // nop
+00000013        // nop
+00f00093        // li ra,15
+40208f33        // sub t5,ra,sp
+00120213        // addi tp,tp,1 # 1 <_start+0x1>
+00200293        // li t0,2
+fe5212e3        // bne tp,t0,53c <test_33+0x4>
+00400e93        // li t4,4
+02100193        // li gp,33
+05df1c63        // bne t5,t4,5bc <fail>
+// test34
+ff100093        // li ra,-15
+40100133        // neg sp,ra
+00f00e93        // li t4,15
+02200193        // li gp,34
+05d11263        // bne sp,t4,5bc <fail>
+// test35
+02000093        // li ra,32
+40008133        // sub sp,ra,zero
+02000e93        // li t4,32
+02300193        // li gp,35
+03d11863        // bne sp,t4,5bc <fail>
+// test36
+400000b3        // neg ra,zero
+00000e93        // li t4,0
+02400193        // li gp,36
+03d09063        // bne ra,t4,5bc <fail>
+// test37
+01000093        // li ra,16
+01e00113        // li sp,30
+40208033        // sub zero,ra,sp
+00000e93        // li t4,0
+02500193        // li gp,37
+01d01463        // bne zero,t4,5bc <fail>
+00301c63        // bne zero,gp,5d0 <pass>
+// FAIL
+ae500193        // li	gp,0xfffffae5
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+// PASS
+bd200193        // li	gp,0xfffffbd2
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+00000013        // nop
