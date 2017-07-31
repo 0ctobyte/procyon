@@ -1,0 +1,12 @@
+// test14
+fff00093        // li ra,-1
+00108f13        // addi t5,ra,1
+00000e93        // li t4,0
+00e00193        // li gp,14
+bd200193        // li	gp,0xfffffbd2
+00000063        // beq	zero,zero,0
+00000013        // nop
+00000013        // nop
+00000013        // nop
+00000013        // nop
+00000013        // nop

@@ -12,13 +12,14 @@
 `define IEU_FIFO_DEPTH 8
 
 `define ROM_BASE_ADDR 32'h0
-`define ROM_FILE "rv32ui-add.hex"
 
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
 import types::*;
 
-module rv32ui_add_test;
+module rv32ui_test_tb #(
+    parameter ROM_FILE = "rv32ui-p-add.hex"
+);
 
     logic clk;
     logic n_rst;
@@ -31,12 +32,6 @@ module rv32ui_add_test;
     logic [`DATA_WIDTH-1:0] rom_data_out;
     logic                   rom_data_valid;
     logic [$clog2(`ROM_DEPTH)-1:0] rom_rd_addr;
-
-    always_comb begin
-        logic [`ADDR_WIDTH-1:0] t;
-        t = fetch_pc >> 2;
-        rom_rd_addr = t[$clog2(`ROM_DEPTH)-1:0];
-    end
 
     assign rom_data_valid = fetch_en;
 
@@ -53,6 +48,8 @@ module rv32ui_add_test;
     always #10 clk = ~clk;
 
     initial begin
+        $display("Test File: %s\n", ROM_FILE);
+
         n_rst = 'b0;
 
         for (int i = 0; i < `ROB_DEPTH; i++) begin
@@ -68,6 +65,22 @@ module rv32ui_add_test;
         end
 
         #20 n_rst = 'b1;
+    end
+
+    always_comb begin
+        logic [`ADDR_WIDTH-1:0] t;
+        t = fetch_pc >> 2;
+        rom_rd_addr = t[$clog2(`ROM_DEPTH)-1:0];
+    end
+
+    always @(posedge clk) begin
+        if (register_map_inst.regmap[3].rdy && register_map_inst.regmap[3].data == 32'hfffffae5) begin
+            $display("---------FAIL---------\n");
+            $stop;
+        end else if (register_map_inst.regmap[3].rdy && register_map_inst.regmap[3].data == 32'hfffffbd2) begin
+            $display("---------PASS---------\n");
+            $stop;
+        end
     end
 
     // Interfaces
@@ -134,7 +147,7 @@ module rv32ui_add_test;
         .DATA_WIDTH(`DATA_WIDTH),
         .ROM_DEPTH(`ROM_DEPTH),
         .BASE_ADDR(`ROM_BASE_ADDR),
-        .ROM_FILE(`ROM_FILE)
+        .ROM_FILE(ROM_FILE)
     ) boot_rom (
         .clk(clk),
         .n_rst(n_rst),
