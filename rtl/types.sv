@@ -230,22 +230,26 @@ endinterface
 // on instruction retire
 interface regmap_dest_wr_if #(
     parameter DATA_WIDTH     = 32,
+    parameter TAG_WIDTH      = 6,
     parameter REG_ADDR_WIDTH = 5
 ) ();
 
     logic [DATA_WIDTH-1:0]     data;
     logic [REG_ADDR_WIDTH-1:0] rdest;
+    logic [TAG_WIDTH-1:0]      tag;
     logic                      wr_en;
 
     modport source (
         output data,
         output rdest,
+        output tag,
         output wr_en
     );
 
     modport sink (
         input  data,
         input  rdest,
+        input  tag,
         input  wr_en
     );
 

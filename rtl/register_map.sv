@@ -91,7 +91,9 @@ module register_map #(
             regmap[tag_wr.rdest].rdy <= 'b0;
         end else if (dest_wr_en) begin
             // When an instruction is retired, the destination register value is valid and the ready bit can be set
-            regmap[dest_wr.rdest].rdy <= 'b1;
+            // But only if the latest tag for the register matches the tag of the retiring instruction
+            // Otherwise the data is not ready because a newer instruction will provide it
+            regmap[dest_wr.rdest].rdy <= (dest_wr.tag == regmap[dest_wr.rdest].tag) ? 'b1 : 'b0;
         end
     end
 

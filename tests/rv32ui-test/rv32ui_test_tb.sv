@@ -100,6 +100,7 @@ module rv32ui_test_tb #(
 
     regmap_dest_wr_if #(
         .DATA_WIDTH(`DATA_WIDTH),
+        .TAG_WIDTH(`TAG_WIDTH),
         .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
     ) regmap_dest_wr ();
 

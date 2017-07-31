@@ -98,6 +98,7 @@ module reorder_buffer #(
     // Assign outputs to regmap
     assign dest_wr.data  = rob.entries[rob.head_addr].data;
     assign dest_wr.rdest = rob.entries[rob.head_addr].rdest;
+    assign dest_wr.tag   = rob.head_addr;
     assign dest_wr.wr_en = rob_retire_en;
 
     assign tag_wr.tag    = rob.tail_addr;
