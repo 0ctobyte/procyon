@@ -166,14 +166,16 @@ module reservation_station #(
         end
     end
 
-    // Grab data from the CDB for the source operands and set the ready bits
-    // to true
+    // Grab data from the CDB for the source operands and set the ready bits to true
+    // Don't mess with the src data if it's already "ready", regardless of what is being broadcast on the CDB!
+    // This really only applies to ops that use X0 register since the src tag for the X0 register is always 0
+    // which could possibly be a valid tag
     always_ff @(posedge clk) begin
         for (int i = 0; i < RS_DEPTH; i++) begin
             for (int k = 0; k < 2; k++) begin
                 if (dispatching && rs.dispatch_select[i]) begin
                     {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {rs_dispatch.src_rdy[k], rs_dispatch.src_data[k]};
-                end else if (cdb.en && cdb.tag == rs.slots[i].src_tag[k]) begin
+                end else if (~rs.slots[i].src_rdy[k] && cdb.en && cdb.tag == rs.slots[i].src_tag[k]) begin
                     {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {1'b1, cdb.data};
                 end
             end
