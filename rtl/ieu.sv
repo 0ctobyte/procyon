@@ -95,7 +95,6 @@ module ieu #(
         ieu_id_q.tag      <= ieu_id.tag;
         ieu_id_q.jmp      <= ieu_id.jmp;
         ieu_id_q.br       <= ieu_id.br;
-        ieu_id_q.valid    <= ieu_id.valid;
     end
 
     ieu_id #(

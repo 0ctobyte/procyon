@@ -235,6 +235,7 @@ module rv32ui_test_tb #(
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
+        .cdb(cdb),
         .rs_dispatch(rs_dispatch),
         .rs_funit(rs_funit)
     );

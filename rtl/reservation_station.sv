@@ -17,6 +17,9 @@ module reservation_station #(
 
     input  logic        i_flush,
 
+    // CDB
+    cdb_if.sink         cdb,
+
     // Dispatch interface
     rs_dispatch_if.sink rs_dispatch,
 
@@ -59,8 +62,8 @@ module reservation_station #(
     // Generate the age matrix. A reservation station slot's age must be
     // greater than all other reservation station slots that are also ready to
     // issue
-    for (i = 0; i < RS_DEPTH; i++) begin
-        for (j = 0; j < RS_DEPTH; j++) begin
+    for (i = 0; i < RS_DEPTH; i++) begin : ASSIGN_AGE_MATRIX_OUTER
+        for (j = 0; j < RS_DEPTH; j++) begin : ASSIGN_AGE_MATRIX_INNER
             if (i == j)
                 assign rs.age_matrix[i][j] = 'b1;
             else
@@ -68,7 +71,7 @@ module reservation_station #(
         end
     end
 
-    for (i = 0; i < RS_DEPTH; i++) begin
+    for (i = 0; i < RS_DEPTH; i++) begin : ASSIGN_RS_ISSUE_EMPTY_VECTORS
         assign rs.empty[i]           = rs.slots[i].empty;
 
         // An slot is ready to issue if it is not empty and has both it's
@@ -84,7 +87,7 @@ module reservation_station #(
     
     // This will produce a one-hot vector of the slot that will be used
     // to store the dispatched instruction
-    assign rs.dispatch_select = rs.empty & ~(rs.empty - 'b1);
+    assign rs.dispatch_select = rs.empty & ~(rs.empty - 1'b1);
 
     // The reservation station is full if there are no empty slots
     // Assert the stall signal in this situation

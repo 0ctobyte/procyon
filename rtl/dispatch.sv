@@ -63,7 +63,7 @@ module dispatch #(
 
     genvar i;
     generate
-    for (i = 0; i < 2; i++) begin
+    for (i = 0; i < 2; i++) begin : ASSIGN_RS_DISPATCH_SRCS
         assign rob_lookup.rsrc[i]      = rsrc[i];
         assign rs_dispatch.src_tag[i]  = rob_lookup.src_tag[i];
         assign rs_dispatch.src_data[i] = rob_lookup.src_data[i];

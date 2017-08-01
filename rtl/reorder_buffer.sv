@@ -107,7 +107,7 @@ module reorder_buffer #(
 
     genvar i;
     generate
-    for (i = 0; i < 2; i++) begin
+    for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_SRCS
         assign regmap_lookup.rsrc[i] = rob_lookup.rsrc[i];
     end
     endgenerate 
