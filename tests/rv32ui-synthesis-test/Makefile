@@ -12,7 +12,7 @@ DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := de2-115.pin.tcl
 
 # Directory where source files are located
-SRCS := ../../rtl/types.sv rv32ui_synthesis_test.sv simple_fetch.sv ../../rtl/ieu.sv ../../rtl/ieu_id.sv ../../rtl/ieu_ex.sv ../../rtl/reservation_station.sv ../../rtl/lib/dp_ram.sv ../../rtl/lib/sync_fifo.sv ../../rtl/dispatch.sv ../../rtl/reorder_buffer.sv ../../rtl/register_map.sv ../../rtl/lib/rom.sv seg7_decoder.sv edge_detector.sv synchronizer.sv
+SRCS := ../../rtl/types.sv rv32ui_synthesis_test.sv ../../rtl/fetch.sv ../../rtl/ieu.sv ../../rtl/ieu_id.sv ../../rtl/ieu_ex.sv ../../rtl/reservation_station.sv ../../rtl/lib/dp_ram.sv ../../rtl/lib/sync_fifo.sv ../../rtl/dispatch.sv ../../rtl/reorder_buffer.sv ../../rtl/register_map.sv ../../rtl/lib/rom.sv seg7_decoder.sv edge_detector.sv synchronizer.sv
 
 all: $(PROJECT).sof
 
