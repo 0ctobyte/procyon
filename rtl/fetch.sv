@@ -2,7 +2,7 @@
 
 import types::*;
 
-module simple_fetch #(
+module fetch #(
     parameter DATA_WIDTH = 32,
     parameter ADDR_WIDTH = 32
 ) (
