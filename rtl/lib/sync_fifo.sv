@@ -17,10 +17,15 @@ module sync_fifo #(
 );
 
     // RAM interface
-    dp_ram_if #(
+    dp_ram_rd_if #(
         .DATA_WIDTH(DATA_WIDTH),
         .RAM_DEPTH(FIFO_DEPTH)
-    ) if_dp_ram (); 
+    ) if_dp_ram_rd (); 
+
+    dp_ram_wr_if #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .RAM_DEPTH(FIFO_DEPTH)
+    ) if_dp_ram_wr (); 
 
     localparam LOG2_FIFO_DEPTH = $clog2(FIFO_DEPTH);
 
@@ -39,16 +44,16 @@ module sync_fifo #(
 
     // The FIFO memory read/write addresses don't include the MSB since that is only 
     // used to check for overflow (i.e. if_fifo.full) the FIFO entries not actually used to address
-    assign if_dp_ram.wr_addr = wr_addr[LOG2_FIFO_DEPTH-1:0];
-    assign if_dp_ram.rd_addr = rd_addr[LOG2_FIFO_DEPTH-1:0];
+    assign if_dp_ram_wr.addr = wr_addr[LOG2_FIFO_DEPTH-1:0];
+    assign if_dp_ram_rd.addr = rd_addr[LOG2_FIFO_DEPTH-1:0];
 
     // The logic is the same for the FIFO RAM enables and the wr/rd addr enables
-    assign if_dp_ram.wr_en = wr_addr_en;
-    assign if_dp_ram.rd_en = rd_addr_en;
+    assign if_dp_ram_wr.en = wr_addr_en;
+    assign if_dp_ram_rd.en = rd_addr_en;
 
     // wire up data signals between FIFO and RAM
-    assign if_dp_ram.data_in = if_fifo_wr.data_in;
-    assign if_fifo_rd.data_out  = if_dp_ram.data_out;
+    assign if_dp_ram_wr.data   = if_fifo_wr.data_in;
+    assign if_fifo_rd.data_out = if_dp_ram_rd.data;
 
     // Update the fifo full/empty signals
     assign if_fifo_wr.full  = ({~wr_addr[LOG2_FIFO_DEPTH], wr_addr[LOG2_FIFO_DEPTH-1:0]} == rd_addr);
@@ -84,7 +89,8 @@ module sync_fifo #(
     ) fifo_mem (
         .clk(clk), 
         .n_rst(n_rst), 
-        .if_dp_ram(if_dp_ram)
+        .if_dp_ram_rd(if_dp_ram_rd),
+        .if_dp_ram_wr(if_dp_ram_wr)
     ); 
      
 endmodule

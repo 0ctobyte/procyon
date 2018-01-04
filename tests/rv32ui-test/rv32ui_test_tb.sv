@@ -156,7 +156,7 @@ module rv32ui_test_tb #(
         .o_data_out(rom_data_out)
     );
 
-    simple_fetch #(
+    fetch #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH)
     ) simple_fetch_inst (

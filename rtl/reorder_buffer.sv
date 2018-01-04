@@ -1,6 +1,6 @@
 // Re-Order Buffer
-// Every cycle a new entry may be allocated at the head of the buffer
-// Every cycle a ready entry at the tail of the FIFO is committed to the register file
+// Every cycle a new entry may be allocated at the tail of the buffer
+// Every cycle a ready entry from the head of the FIFO is committed to the register file
 // This enforces instructions to complete in program order
 
 import types::*;

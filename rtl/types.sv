@@ -87,36 +87,50 @@ interface fifo_rd_if #(
 
 endinterface
 
-// Dual-Port RAM interface
-interface dp_ram_if #(
+// Dual-Port RAM read interface
+interface dp_ram_rd_if #(
     parameter DATA_WIDTH = 8,
     parameter RAM_DEPTH  = 8
 ) ();
 
-    logic                         wr_en;
-    logic [$clog2(RAM_DEPTH)-1:0] wr_addr;
-    logic [DATA_WIDTH-1:0]        data_in;
-
-    logic                         rd_en;
-    logic [$clog2(RAM_DEPTH)-1:0] rd_addr;
-    logic [DATA_WIDTH-1:0]        data_out;
+    logic                         en;
+    logic [$clog2(RAM_DEPTH)-1:0] addr;
+    logic [DATA_WIDTH-1:0]        data;
 
     modport ram (
-        input  wr_en,
-        input  wr_addr,
-        input  data_in,
-        input  rd_en,
-        input  rd_addr,
-        output data_out
+        input  en,
+        input  addr,
+        output data
     );
 
     modport sys (
-        output wr_en,
-        output wr_addr,
-        output data_in,
-        output rd_en,
-        output rd_addr,
-        input  data_out
+        output en,
+        output addr,
+        input  data
+    );
+
+endinterface
+
+// Dual-Port RAM write interface
+interface dp_ram_wr_if #(
+    parameter DATA_WIDTH = 8,
+    parameter RAM_DEPTH  = 8
+) ();
+
+    logic                         en;
+    logic [$clog2(RAM_DEPTH)-1:0] addr;
+    logic [DATA_WIDTH-1:0]        data;
+
+    modport ram (
+        input  en,
+        input  addr,
+        input  data
+    );
+
+    modport sys (
+        output en,
+        output addr,
+        output data
     );
 
 endinterface
