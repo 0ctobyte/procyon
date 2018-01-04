@@ -159,7 +159,7 @@ module rv32ui_test_tb #(
     fetch #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH)
-    ) simple_fetch_inst (
+    ) fetch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_redirect(rob_redirect),

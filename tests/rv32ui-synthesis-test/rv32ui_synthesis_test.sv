@@ -184,10 +184,10 @@ module rv32ui_synthesis_test #(
         .o_data_out(rom_data_out)
     );
 
-    simple_fetch #(
+    fetch #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH)
-    ) simple_fetch_inst (
+    ) fetch_inst (
         .clk(clk),
         .n_rst(SW[17]),
         .i_redirect(rob_redirect),
