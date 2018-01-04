@@ -107,7 +107,7 @@ module dispatch #(
             end
             OPCODE_STORE: begin
                 {rs_dispatch.opcode, rs_dispatch.src_rdy[0], rs_dispatch.src_rdy[1]} = {OPCODE_STORE, rob_lookup.src_rdy[0], rob_lookup.src_rdy[1]};
-                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}              = {ROB_OP_STR, {(REG_ADDR_WIDTH){1'b0}}, 1'b0};
+                {rob_dispatch.op, rob_dispatch.rdest, rob_dispatch.rdy}              = {ROB_OP_ST, {(REG_ADDR_WIDTH){1'b0}}, 1'b0};
             end
             default: begin
                 {rs_dispatch.opcode, rs_dispatch.src_rdy[0], rs_dispatch.src_rdy[1]} = {OPCODE_OPIMM, 1'b1, 1'b1};

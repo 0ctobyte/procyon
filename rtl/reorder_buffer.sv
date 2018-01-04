@@ -14,7 +14,7 @@ module reorder_buffer #(
     input logic                   clk,
     input logic                   n_rst,
 
-    // The redirect signal and iaddr are used by the Fetch unit to jump to the redirect address
+    // The redirect signal and addr/iaddr are used by the Fetch unit to jump to the redirect address
     // Used for branches, exception etc.
     output logic                  o_redirect,
     output logic [ADDR_WIDTH-1:0] o_redirect_addr,
@@ -43,9 +43,9 @@ module reorder_buffer #(
 
     // ROB entry consists of the following:
     // rdy:      Is the data valid/ready?
-    // redirect: Did the instruction cause a PC redirect to another address? 
+    // redirect: Asserted by branches or instructions that cause exceptions
     // op:       What operation is the instruction doing?
-    // iaddr:    Address of the instruction (for branches and to rollback on exception)
+    // iaddr:    Address of the instruction (to rollback on exception)
     // addr:     Destination address for branch 
     // data:     The data for the destination register
     // rdest:    The destination register 

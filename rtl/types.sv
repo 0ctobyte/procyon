@@ -6,7 +6,7 @@ package types;
         ROB_OP_INT = 2'b00,
         ROB_OP_BR  = 2'b01,
         ROB_OP_LD  = 2'b10,
-        ROB_OP_STR = 2'b11
+        ROB_OP_ST  = 2'b11
     } rob_op_t;
 
     typedef enum logic [6:0] {
