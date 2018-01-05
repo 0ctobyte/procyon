@@ -1,6 +1,8 @@
 // Store Queue
-// Every cycle a new store op may be allocated at the tail of the buffer
-// Every cycle a retired store may be popped from the head of the buffer
+// Every cycle a new store op may be allocated in the store queue when issued
+// from the reservation station
+// Every cycle a store may be deallocated from the store queue when retired
+// from the ROB
 // The purpose of the store queue is to keep track of store ops and commit
 // them to memory in program order and to detect mis-speculated loads in 
 // the load queue
