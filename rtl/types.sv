@@ -405,6 +405,97 @@ interface rs_funit_if #(
 
 endinterface
 
+interface stq_enqueue_if #(
+    parameter ADDR_WIDTH    = 32,
+    parameter STQ_TAG_WIDTH = 3,
+    parameter TAG_WIDTH     = 6
+) ();
+
+    logic en;
+    logic [TAG_WIDTH-1:0]     tag;
+    logic [ADDR_WIDTH-1:0]    addr;
+    logic [STQ_TAG_WIDTH-1:0] stq_tag;
+    logic full;
+
+    modport source (
+        output en,
+        output tag,
+        output addr,
+        input  stq_tag,
+        input  full
+    );
+
+    modport sink (
+        input  en,
+        input  tag,
+        input  addr,
+        output stq_tag,
+        output full
+    );
+
+endinterface
+
+interface stq_mem_if #(
+    parameter DATA_WIDTH    = 32,
+    parameter STQ_TAG_WIDTH = 3
+) ();
+
+    logic [DATA_WIDTH-1:0]    data;
+    logic [STQ_TAG_WIDTH-1:0] stq_tag;
+    logic                     en;
+
+    modport source (
+        output data,
+        output stq_tag,
+        output en
+    );
+
+    modport sink (
+        input data,
+        input stq_tag,
+        input en
+    );
+
+endinterface
+
+interface stq_retire_if #(
+    parameter TAG_WIDTH = 6
+) ();
+
+    logic [TAG_WIDTH-1:0] tag;
+    logic                 en; 
+
+    modport source (
+        output tag,
+        output en
+    );
+
+    modport sink (
+        input tag,
+        input en
+    );
+
+endinterface
+
+interface ldq_conflict_if #(
+    parameter ADDR_WIDTH = 32
+) ();
+
+    logic [ADDR_WIDTH-1:0] addr;
+    logic                  en;
+
+    modport source (
+        output addr,
+        output en
+    );
+
+    modport sink (
+        input addr,
+        input en
+    );
+
+endinterface
+
 interface arbiter_if ();
 
     logic req;
