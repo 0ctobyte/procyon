@@ -38,6 +38,17 @@ package types;
         ALU_FUNC_GEU  = 4'b1101
     } alu_func_t;
 
+    typedef enum logic [2:0] {
+        LSU_FUNC_LB   = 3'b000,
+        LSU_FUNC_LH   = 3'b001,
+        LSU_FUNC_LW   = 3'b010,
+        LSU_FUNC_LBU  = 3'b011,
+        LSU_FUNC_LHU  = 3'b100,
+        LSU_FUNC_SB   = 3'b101,
+        LSU_FUNC_SH   = 3'b110,
+        LSU_FUNC_SW   = 3'b111
+    } lsu_func_t;
+
 endpackage
 
 import types::*;
@@ -141,12 +152,12 @@ interface cdb_if #(
     parameter DATA_WIDTH = 32,
     parameter TAG_WIDTH  = 6
 ) ();
-   
+
     tri [DATA_WIDTH-1:0] data;
     tri [ADDR_WIDTH-1:0] addr;
     tri [TAG_WIDTH-1:0]  tag;
     tri                  redirect;
-    tri                  en; 
+    tri                  en;
 
     modport source (
         output  data,
@@ -166,6 +177,23 @@ interface cdb_if #(
 
 endinterface
 
+interface arbiter_if ();
+
+    logic req;
+    logic gnt;
+
+    modport source (
+        output req,
+        input  gnt
+    );
+
+    modport sink (
+        input  req,
+        output gnt
+    );
+
+endinterface
+
 // Interface between the ROB and dispatcher to enqueue a new instruction
 interface rob_dispatch_if #(
     parameter ADDR_WIDTH     = 32,
@@ -173,7 +201,7 @@ interface rob_dispatch_if #(
     parameter TAG_WIDTH      = 6,
     parameter REG_ADDR_WIDTH = 5
 ) ();
-    
+
     // Signals needed to enqueue new entry
     logic                      en;
     logic                      rdy;
@@ -294,7 +322,7 @@ interface regmap_tag_wr_if #(
 
 endinterface
 
-// Interface between ROB and register map to allow the ROB 
+// Interface between ROB and register map to allow the ROB
 // to look up tags and data and ready bits for the source operands of the next instruction
 interface regmap_lookup_if #(
     parameter DATA_WIDTH     = 32,
@@ -391,7 +419,7 @@ interface rs_funit_if #(
         output valid,
         input  stall
     );
-    
+
     modport sink (
         input  opcode,
         input  iaddr,
@@ -405,110 +433,46 @@ interface rs_funit_if #(
 
 endinterface
 
-interface stq_enqueue_if #(
-    parameter ADDR_WIDTH    = 32,
-    parameter STQ_TAG_WIDTH = 3,
-    parameter TAG_WIDTH     = 6
-) ();
-
-    logic en;
-    logic [TAG_WIDTH-1:0]     tag;
-    logic [ADDR_WIDTH-1:0]    addr;
-    logic [STQ_TAG_WIDTH-1:0] stq_tag;
-    logic full;
-
-    modport source (
-        output en,
-        output tag,
-        output addr,
-        input  stq_tag,
-        input  full
-    );
-
-    modport sink (
-        input  en,
-        input  tag,
-        input  addr,
-        output stq_tag,
-        output full
-    );
-
-endinterface
-
-interface stq_mem_if #(
-    parameter DATA_WIDTH    = 32,
-    parameter STQ_TAG_WIDTH = 3
-) ();
-
-    logic [DATA_WIDTH-1:0]    data;
-    logic [STQ_TAG_WIDTH-1:0] stq_tag;
-    logic                     en;
-
-    modport source (
-        output data,
-        output stq_tag,
-        output en
-    );
-
-    modport sink (
-        input data,
-        input stq_tag,
-        input en
-    );
-
-endinterface
-
-interface stq_retire_if #(
+interface sq_retire_if #(
     parameter TAG_WIDTH = 6
 ) ();
 
     logic [TAG_WIDTH-1:0] tag;
-    logic                 en; 
+    logic                 en;
+    logic                 stall;
 
     modport source (
         output tag,
-        output en
+        output en,
+        input  stall
     );
 
     modport sink (
-        input tag,
-        input en
+        input  tag,
+        input  en,
+        output stall
     );
 
 endinterface
 
-interface ldq_conflict_if #(
-    parameter ADDR_WIDTH = 32
+interface lq_retire_if #(
+    parameter TAG_WIDTH = 6
 ) ();
 
-    logic [ADDR_WIDTH-1:0] addr;
-    logic                  en;
+    logic [TAG_WIDTH-1:0] tag;
+    logic                 en;
+    logic                 mis_speculated;
 
     modport source (
-        output addr,
-        output en
+        output tag,
+        output en,
+        input  mis_speculated
     );
 
     modport sink (
-        input addr,
-        input en
-    );
-
-endinterface
-
-interface arbiter_if ();
-
-    logic req;
-    logic gnt;
-
-    modport source (
-        output req,
-        input  gnt
-    );
-
-    modport sink (
-        input  req,
-        output gnt
+        input  tag,
+        input  en,
+        output mis_speculated
     );
 
 endinterface
