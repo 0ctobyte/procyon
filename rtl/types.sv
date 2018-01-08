@@ -153,11 +153,11 @@ interface cdb_if #(
     parameter TAG_WIDTH  = 6
 ) ();
 
-    logic [DATA_WIDTH-1:0] data;
-    logic [ADDR_WIDTH-1:0] addr;
-    logic [TAG_WIDTH-1:0]  tag;
-    logic                  redirect;
-    logic                  en;
+    tri [DATA_WIDTH-1:0] data;
+    tri [ADDR_WIDTH-1:0] addr;
+    tri [TAG_WIDTH-1:0]  tag;
+    tri                  redirect;
+    tri                  en;
 
     modport source (
         output  data,
