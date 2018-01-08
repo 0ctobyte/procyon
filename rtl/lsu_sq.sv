@@ -31,7 +31,7 @@ module lsu_sq #(
     input  logic [DATA_WIDTH-1:0]                                         i_alloc_data,
     input  logic [TAG_WIDTH-1:0]                                          i_alloc_tag,
     input  logic [ADDR_WIDTH-1:0]                                         i_alloc_addr,
-    input  logic [3:0]                                                    i_alloc_lsu_func,
+    input  lsu_func_t                                                     i_alloc_lsu_func,
     input  logic                                                          i_alloc_en,
 
     // Retired stores need to look up in D$ and write data to D$ or allocate
@@ -45,7 +45,7 @@ module lsu_sq #(
     output logic [DC_INDEX_WIDTH+DC_WAY_WIDTH+DC_LINE_WIDTH-1:0]          o_sq_retire_dc_addr,
     output logic [DATA_WIDTH-1:0]                                         o_sq_retire_data,
     output logic [ADDR_WIDTH-1:0]                                         o_sq_retire_addr,
-    output logic [3:0]                                                    o_sq_retire_lsu_func,
+    output lsu_func_t                                                     o_sq_retire_lsu_func,
     output logic                                                          o_sq_retire_hit,
     output logic                                                          o_sq_retire_en,
 
