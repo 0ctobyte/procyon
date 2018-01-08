@@ -7,7 +7,7 @@ import types::*;
 module lsu_hit #(
     parameter ADDR_WIDTH      = 32,
     parameter TAG_WIDTH       = 6,
-    parameter DC_BLOCK_WIDTH  = 5,
+    parameter DC_LINE_WIDTH   = 5,
     parameter DC_INDEX_WIDTH  = 4,
     parameter DC_WAY_WIDTH    = 1,
     parameter DC_TAG_WIDTH    = 23
@@ -43,7 +43,7 @@ module lsu_hit #(
 );
 
     // Assign outputs to D$ for tag lookup
-    assign o_dc_index               = i_addr[DC_INDEX_WIDTH+DC_BLOCK_WIDTH-1:DC_BLOCK_WIDTH];
+    assign o_dc_index               = i_addr[DC_INDEX_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH];
     assign o_dc_tag                 = i_addr[ADDR_WIDTH-1:ADDR_WIDTH-DC_TAG_WIDTH];
 
     // Assign outputs to MSHQ
