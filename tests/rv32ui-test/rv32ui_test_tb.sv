@@ -35,6 +35,14 @@ module rv32ui_test_tb #(
 
     assign rom_data_valid = fetch_en;
 
+    assign arb.gnt = arb.req;
+
+    assign cdb.en       = arb.gnt ? 'bz : 'b0;
+    assign cdb.data     = arb.gnt ? 'bz : 'b0;
+    assign cdb.addr     = arb.gnt ? 'bz : 'b0;
+    assign cdb.tag      = arb.gnt ? 'bz : 'b0;
+    assign cdb.redirect = arb.gnt ? 'bz : 'b0;
+
     // Clock generation
     initial clk = 'b1;
     always #10 clk = ~clk;
@@ -132,6 +140,8 @@ module rv32ui_test_tb #(
         .ADDR_WIDTH(`ADDR_WIDTH),
         .TAG_WIDTH(`TAG_WIDTH)
     ) rs_funit ();
+
+    arbiter_if arb ();
 
     // Module Instances
     rom #(
@@ -240,7 +250,8 @@ module rv32ui_test_tb #(
         .n_rst(n_rst),
         .i_flush(rob_redirect),
         .cdb(cdb),
-        .rs_funit(rs_funit)
+        .rs_funit(rs_funit),
+        .arb(arb)
     );
 
 endmodule

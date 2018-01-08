@@ -32,9 +32,7 @@ module lsu_lq #(
     input  logic                             i_sq_retire_en,
 
     // ROB signal that a load has been retired
-    input  logic [TAG_WIDTH-1:0]             i_rob_retire_tag,
-    input  logic                             i_rob_retire_en,
-    output logic                             o_rob_retire_mis_speculated
+    lq_retire_if.sink                        lq_retire
 );
 
     // Each entry in the LQ contains the following
