@@ -32,7 +32,9 @@ module lsu_lq #(
     input  logic                             i_sq_retire_en,
 
     // ROB signal that a load has been retired
-    lq_retire_if.sink                        lq_retire
+    input  logic [TAG_WIDTH-1:0]             i_rob_retire_tag,
+    input  logic                             i_rob_retire_en,
+    output logic                             o_rob_retire_mis_speculated
 );
 
     // Each entry in the LQ contains the following
@@ -73,7 +75,7 @@ module lsu_lq #(
     // by generating a retire_select one-hot bit vector
     for (i = 0; i < LQ_DEPTH; i++) begin : ASSIGN_LQ_RETIRE_VECTORS
         // Only one valid slot should have the matching tag
-        assign lq.retire_select[i] = (lq.slots[i].tag == ldq_retire.tag) && lq.slots[i].valid;
+        assign lq.retire_select[i] = (lq.slots[i].tag == i_rob_retire_tag) && lq.slots[i].valid;
     end
 
     // Compare retired store address with all valid load addresses to detect mis-speculated loads
@@ -98,8 +100,8 @@ module lsu_lq #(
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    assign ldq_retire.mis_speculated   = lq.slots[retire_slot].mis_speculated;
-    assign retiring                    = ldq_retire.en;
+    assign o_rob_retire_mis_speculated = lq.slots[retire_slot].mis_speculated;
+    assign retiring                    = i_rob_retire_en;
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin
