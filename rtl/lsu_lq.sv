@@ -11,7 +11,7 @@ import types::*;
 module lsu_lq #(
     parameter DATA_WIDTH      = 32,
     parameter ADDR_WIDTH      = 32,
-    parameter TAG_WIDTH       = 6,
+    arameter TAG_WIDTH       = 6,
     parameter LQ_DEPTH        = 8,
     parameter LQ_TAG_WIDTH    = 3
 ) (
@@ -30,7 +30,7 @@ module lsu_lq #(
 
     // SQ will send address of retiring store for mis-speculation detection
     input  logic [ADDR_WIDTH-1:0]            i_sq_retire_addr,
-    input  logic [DATA_WIDTH/8-1:0]          i_sq_retire_byte_valid,
+    input  logic [3:0]                       i_sq_retire_width,
     input  logic                             i_sq_retire_en,
 
     // ROB signal that a load has been retired
@@ -68,7 +68,6 @@ module lsu_lq #(
     logic [LQ_TAG_WIDTH-1:0] allocate_slot;
     logic [LQ_TAG_WIDTH-1:0] retire_slot;
 
-    logic [1:0]              sq_retire_addr_size;
     logic [ADDR_WIDTH-1:0]   sq_retire_addr_start;
     logic [ADDR_WIDTH-1:0]   sq_retire_addr_end;
 
@@ -91,9 +90,9 @@ module lsu_lq #(
     end
     endgenerate
 
-    // Calculate retired store start and end address based off store size
+    // Calculate retired store start and end address based off store width
     assign sq_retire_addr_start        = i_sq_retire_addr;
-    assign sq_retire_addr_end          = i_sq_retire_addr + sq_retire_addr_size;
+    assign sq_retire_addr_end          = i_sq_retire_addr + i_sq_retire_addr_width;
 
     // Produce a one-hot bit vector of the slot that will be used to allocate
     // the next load op. LQ is full if no bits are set in the empty vector
@@ -134,16 +133,6 @@ module lsu_lq #(
         retire_slot = r;
     end
 
-    // Convert retired store byte enable to store data size
-    always_comb begin
-        case (i_sq_retire_byte_valid)
-            4'b0001: sq_retire_addr_size = 3'b001;
-            4'b0011: sq_retire_addr_size = 3'b010;
-            4'b1111: sq_retire_addr_size = 3'b100;
-            default: sq_retire_addr_size = 3'b100;
-        endcase
-    end
-
     // Set the valid when a slot is allocated, clear on flush, reset or retire
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < LQ_DEPTH; i++) begin
@@ -165,7 +154,7 @@ module lsu_lq #(
             if (allocating && lq.allocate_select[i]) begin
                 lq.slots[i].addr        <= i_alloc_addr;
                 lq.slots[i].tag         <= i_alloc_tag;
-                lq.slots[i].byte_valid  <= i_alloc_byte_valid;
+                lq.slots[i].width       <= i_alloc_width;
             end
         end
     end

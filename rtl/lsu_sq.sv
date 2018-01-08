@@ -26,7 +26,7 @@ module lsu_sq #(
     // Signals from LSU_ID to allocate new store op in SQ
     input  logic [TAG_WIDTH-1:0]             i_alloc_tag,
     input  logic [ADDR_WIDTH-1:0]            i_alloc_addr,
-    input  logic [DATA_WIDTH/8-1:0]          i_alloc_byte_valid,
+    input  logic [3:0]                       i_alloc_width,
     input  logic                             i_alloc_en,
     output logic [SQ_TAG_WIDTH-1:0]          o_alloc_sq_tag,
 
@@ -41,7 +41,7 @@ module lsu_sq #(
     input  logic                             i_sq_retire_mshq_full,
     output logic [DATA_WIDTH-1:0]            o_sq_retire_data,
     output logic [ADDR_WIDTH-1:0]            o_sq_retire_addr,
-    output logic [DATA_WIDTH/8-1:0]          o_sq_retire_byte_valid,
+    output logic [3:0]                       o_sq_retire_width,
     output logic                             o_sq_retire_hit,
     output logic                             o_sq_retire_en,
 
@@ -52,13 +52,13 @@ module lsu_sq #(
     // Each SQ slot contains:
     // addr:        Store address updated in ID stage
     // data:        Store data updated in MEM stage
-    // byte_valid:  Indicates which bytes of the data should be written
+    // width:       Indicates which bytes of the data should be written
     // tag:         Destination tag in ROB (used for age comparison for store-to-load forwarding)
     // valid:       Indicates if slot is valid i.e. not empty
     typedef struct {
         logic [ADDR_WIDTH-1:0]   addr;
         logic [DATA_WIDTH-1:0]   data;
-        logic [DATA_WIDTH/8-1:0] byte_valid;
+        logic [3:0]              width;
         logic [TAG_WIDTH-1:0]    tag;
         logic                    valid;
     } sq_slot_t;
@@ -113,11 +113,11 @@ module lsu_sq #(
     // If store misses then allocate/merge retired store in MSHQ
     // Enable bit is to mux D$ input between MSHQ data write and retired store
     // as well as to mux MSHQ input between LSU_TW miss write and retired store miss
-    // The retiring store address and byte_valid and retire_en signals is also
+    // The retiring store address and width and retire_en signals is also
     // sent to the LQ for possible load bypass violation detection
     assign o_sq_retire_data           = sq.slots[retire_slot].data;
     assign o_sq_retire_addr           = sq.slots[retire_slot].addr;
-    assign o_sq_retire_byte_valid     = sq.slots[retire_slot].byte_valid;
+    assign o_sq_retire_width          = sq.slots[retire_slot].width;
     assign o_sq_retire_hit            = i_sq_retire_hit;
     assign o_sq_retire_en             = sq_retire.en;
 
@@ -175,7 +175,7 @@ module lsu_sq #(
         for (int i = 0; i < SQ_DEPTH; i++) begin
             if (allocating && sq.allocate_select[i]) begin
                 sq.slots[i].addr       <= i_alloc_addr;
-                sq.slots[i].byte_valid <= i_alloc_byte_valid;
+                sq.slots[i].width      <= i_alloc_width;
                 sq.slots[i].tag        <= i_alloc_tag;
             end
         end
