@@ -153,11 +153,11 @@ interface cdb_if #(
     parameter TAG_WIDTH  = 6
 ) ();
 
-    tri [DATA_WIDTH-1:0] data;
-    tri [ADDR_WIDTH-1:0] addr;
-    tri [TAG_WIDTH-1:0]  tag;
-    tri                  redirect;
-    tri                  en;
+    logic [DATA_WIDTH-1:0] data;
+    logic [ADDR_WIDTH-1:0] addr;
+    logic [TAG_WIDTH-1:0]  tag;
+    logic                  redirect;
+    logic                  en;
 
     modport source (
         output  data,
@@ -173,23 +173,6 @@ interface cdb_if #(
         input  tag,
         input  redirect,
         input  en
-    );
-
-endinterface
-
-interface arbiter_if ();
-
-    logic req;
-    logic gnt;
-
-    modport source (
-        output req,
-        input  gnt
-    );
-
-    modport sink (
-        input  req,
-        output gnt
     );
 
 endinterface
@@ -429,50 +412,6 @@ interface rs_funit_if #(
         input  tag,
         input  valid,
         output stall
-    );
-
-endinterface
-
-interface sq_retire_if #(
-    parameter TAG_WIDTH = 6
-) ();
-
-    logic [TAG_WIDTH-1:0] tag;
-    logic                 en;
-    logic                 stall;
-
-    modport source (
-        output tag,
-        output en,
-        input  stall
-    );
-
-    modport sink (
-        input  tag,
-        input  en,
-        output stall
-    );
-
-endinterface
-
-interface lq_retire_if #(
-    parameter TAG_WIDTH = 6
-) ();
-
-    logic [TAG_WIDTH-1:0] tag;
-    logic                 en;
-    logic                 mis_speculated;
-
-    modport source (
-        output tag,
-        output en,
-        input  mis_speculated
-    );
-
-    modport sink (
-        input  tag,
-        input  en,
-        output mis_speculated
     );
 
 endinterface
