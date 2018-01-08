@@ -11,7 +11,7 @@ import types::*;
 module lsu_lq #(
     parameter DATA_WIDTH      = 32,
     parameter ADDR_WIDTH      = 32,
-    arameter TAG_WIDTH       = 6,
+    parameter TAG_WIDTH       = 6,
     parameter LQ_DEPTH        = 8,
     parameter LQ_TAG_WIDTH    = 3
 ) (
@@ -26,7 +26,6 @@ module lsu_lq #(
     input  logic [TAG_WIDTH-1:0]             i_alloc_tag,
     input  logic [ADDR_WIDTH-1:0]            i_alloc_addr,
     input  logic                             i_alloc_en,
-    output logic [LQ_TAG_WIDTH-1:0]          o_alloc_lq_tag,
 
     // SQ will send address of retiring store for mis-speculation detection
     input  logic [ADDR_WIDTH-1:0]            i_sq_retire_addr,
@@ -65,7 +64,6 @@ module lsu_lq #(
     logic allocating;
     logic retiring;
 
-    logic [LQ_TAG_WIDTH-1:0] allocate_slot;
     logic [LQ_TAG_WIDTH-1:0] retire_slot;
 
     logic [ADDR_WIDTH-1:0]   sq_retire_addr_start;
@@ -98,27 +96,11 @@ module lsu_lq #(
     // the next load op. LQ is full if no bits are set in the empty vector
     assign lq.allocate_select           = lq.empty & ~(lq.empty - 1'b1);
     assign lq.full                      = ~|(lq.empty);
-
-    // Assign outputs to LSU_ID
-    assign o_alloc_lq_tag               = allocate_slot;
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    assign ldq_retire.mis_speculated   = lq.slots[retire_slot].mis_speculated
+    assign ldq_retire.mis_speculated   = lq.slots[retire_slot].mis_speculated;
     assign retiring                    = ldq_retire.en;
-
-    // Convert one-hot allocate_select vector into binary LQ slot #
-    always_comb begin
-        logic [LQ_TAG_WIDTH-1:0] r;
-        r = 0;
-        for (int i = 0; i < LQ_DEPTH; i++) begin
-            if (lq.allocate_select[i]) begin
-                r = r | i;
-            end
-        end
-
-        allocate_slot = r;
-    end
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin

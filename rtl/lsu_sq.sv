@@ -24,16 +24,11 @@ module lsu_sq #(
     output logic                             o_full,
 
     // Signals from LSU_ID to allocate new store op in SQ
+    input  logic [DATA_WIDTH-1:0]            i_alloc_data,
     input  logic [TAG_WIDTH-1:0]             i_alloc_tag,
     input  logic [ADDR_WIDTH-1:0]            i_alloc_addr,
     input  logic [3:0]                       i_alloc_width,
     input  logic                             i_alloc_en,
-    output logic [SQ_TAG_WIDTH-1:0]          o_alloc_sq_tag,
-
-    // Store data from LSU_MEM
-    input  logic [DATA_WIDTH-1:0]            i_mem_data,
-    input  logic [SQ_TAG_WIDTH-1:0]          i_mem_sq_tag,
-    input  logic                             i_mem_en,
 
     // Retired stores need to look up in D$ and write data to D$ or allocate
     // in MSHQ if store misses in D$. Stall ROB if MSHQ is full and store misses
@@ -51,7 +46,7 @@ module lsu_sq #(
 
     // Each SQ slot contains:
     // addr:        Store address updated in ID stage
-    // data:        Store data updated in MEM stage
+    // data:        Store data updated in ID stage
     // width:       Indicates which bytes of the data should be written
     // tag:         Destination tag in ROB (used for age comparison for store-to-load forwarding)
     // valid:       Indicates if slot is valid i.e. not empty
@@ -67,7 +62,6 @@ module lsu_sq #(
         logic                full;
         logic [SQ_DEPTH-1:0] empty;
         logic [SQ_DEPTH-1:0] allocate_select;
-        logic [SQ_DEPTH-1:0] sdata_select;
         logic [SQ_DEPTH-1:0] retire_select;
         sq_slot_t            slots [0:SQ_DEPTH-1];
     } sq_t;
@@ -79,7 +73,6 @@ module lsu_sq #(
     logic allocating;
     logic retiring;
 
-    logic [SQ_TAG_WIDTH-1:0] allocate_slot;
     logic [SQ_TAG_WIDTH-1:0] retire_slot;
 
     generate
@@ -101,13 +94,7 @@ module lsu_sq #(
     // empty vector
     assign sq.allocate_select         = sq.empty & ~(sq.empty - 1'b1);
     assign sq.full                    = ~|(sq.empty);
-
-    // Assign outputs to LSU_ID
-    assign o_alloc_sq_tag             = allocate_slot;
     assign allocating                 = ^(sq.allocate_select) && ~sq.full && i_alloc_en;
-
-    // Convert sq_tag from LSU_MEM stage to one-hot slot select vector
-    assign sq.sdata_select            = 1 << i_mem_sq_tag;
 
     // Assign outputs to write retired store data to D$ if hit
     // If store misses then allocate/merge retired store in MSHQ
@@ -127,19 +114,6 @@ module lsu_sq #(
 
     // Assign output
     assign o_full                     = sq.full;
-
-    // Convert one-hot allocate_select vector into binary SQ slot #
-    always_comb begin
-        logic [SQ_TAG_WIDTH)-1:0] r;
-        r = 0;
-        for (int i = 0; i < SQ_DEPTH; i++) begin
-            if (sq.allocate_select[i]) begin
-                r = r | i;
-            end
-        end
-
-        allocate_slot = r;
-    end
 
     // Convert one-hot retire_select vector into binary SQ slot #
     always_comb begin
@@ -174,18 +148,10 @@ module lsu_sq #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < SQ_DEPTH; i++) begin
             if (allocating && sq.allocate_select[i]) begin
+                sq.slots[i].data       <= i_alloc_data;
                 sq.slots[i].addr       <= i_alloc_addr;
                 sq.slots[i].width      <= i_alloc_width;
                 sq.slots[i].tag        <= i_alloc_tag;
-            end
-        end
-    end
-
-    // Update store data
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < SQ_DEPTH; i++) begin
-            if (i_mem_en && sq.sdata_select[i]) begin
-                sq.slots[i].data <= i_mem_data;
             end
         end
     end

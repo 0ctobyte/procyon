@@ -6,9 +6,7 @@ import types::*;
 module lsu_id #(
     parameter DATA_WIDTH       = 32,
     parameter ADDR_WIDTH       = 32,
-    parameter TAG_WIDTH        = 6,
-    parameter LQ_TAG_WIDTH     = 3,
-    parameter SQ_TAG_WIDTH     = 3
+    parameter TAG_WIDTH        = 6
 ) (
     input logic                       clk,
     input logic                       n_rst,
@@ -25,16 +23,13 @@ module lsu_id #(
     output lsu_func_t                 o_lsu_func,
     output logic [ADDR_WIDTH-1:0]     o_addr,
     output logic [TAG_WIDTH-1:0]      o_tag,
-    output logic [LQ_TAG_WIDTH-1:0]   o_lq_tag,
-    output logic [SQ_TAG_WIDTH-1:0]   o_sq_tag,
     output logic                      o_valid,
 
     // Enqueue newly issued load/store ops in the load/store queues
-    input  logic [SQ_TAG_WIDTH-1:0]   i_alloc_sq_tag,
-    input  logic [LQ_TAG_WIDTH-1:0]   i_alloc_lq_tag,
     output logic [TAG_WIDTH-1:0]      o_alloc_tag,
+    output logic [DATA_WIDTH-1:0]     o_alloc_data,
     output logic [ADDR_WIDTH-1:0]     o_alloc_addr,
-    output logic [DATA_WIDTH/8-1:0]   o_alloc_width,
+    output logic [3:0]                o_alloc_width,
     output logic                      o_alloc_sq_en,
     output logic                      o_alloc_lq_en
 );
@@ -60,6 +55,7 @@ module lsu_id #(
 
     // Allocate op in load queue or store queue
     assign o_alloc_tag      = i_tag;
+    assign o_alloc_data     = i_src_b;
     assign o_alloc_addr     = addr;
     assign o_alloc_width    = width;
     assign o_alloc_sq_en    = load_or_store;
@@ -68,8 +64,6 @@ module lsu_id #(
     // Assign outputs to next stage in the pipeline
     assign o_addr           = addr;
     assign o_tag            = i_tag;
-    assign o_lq_tag         = i_alloc_lq_tag;
-    assign o_sq_tag         = i_alloc_sq_tag;
     assign o_valid          = i_valid;
 
     // Decode width based on opcode and funct3
