@@ -110,7 +110,7 @@ module lsu_sq #(
     // Assign outputs to write retired store data to D$ if hit
     // If store misses then allocate/merge retired store in MSHQ
     // Enable bit is to mux D$ input between MSHQ data write and retired store
-    // as well as to mux MSHQ input between LSU_MEM miss write and retired store miss
+    // as well as to mux MSHQ input between LSU_EX miss write and retired store miss
     // The retiring store address and type and retire_en signals is also
     // sent to the LQ for possible load bypass violation detection
     assign o_sq_retire_dc_index       = sq.slots[retire_slot].addr[DC_INDEX_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH];
