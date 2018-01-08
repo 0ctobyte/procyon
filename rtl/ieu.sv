@@ -9,8 +9,7 @@ import types::*;
 module ieu #(
     parameter DATA_WIDTH     = 32,
     parameter ADDR_WIDTH     = 32,
-    parameter TAG_WIDTH      = 6,
-    parameter IEU_FIFO_DEPTH = 8
+    parameter TAG_WIDTH      = 6
 ) (
     input  logic      clk,
     input  logic      n_rst,
@@ -19,19 +18,8 @@ module ieu #(
 
     cdb_if.source     cdb,
 
-    rs_funit_if.sink  rs_funit,
-
-    arbiter_if.source arb
+    rs_funit_if.sink  rs_funit
 );
-
-    // FIFO interfaces
-    fifo_wr_if #(
-        .DATA_WIDTH(DATA_WIDTH+ADDR_WIDTH+TAG_WIDTH+1)
-    ) fifo_wr ();
-
-    fifo_rd_if #(
-        .DATA_WIDTH(DATA_WIDTH+ADDR_WIDTH+TAG_WIDTH+1)
-    ) fifo_rd ();
 
     typedef struct packed {
         alu_func_t             alu_func;
@@ -55,23 +43,16 @@ module ieu #(
     } ieu_ex_t;
 
     ieu_id_t ieu_id, ieu_id_q;
-    ieu_ex_t ieu_ex;
+    ieu_ex_t ieu_ex, ieu_ex_q;
 
-    // Connect FIFO write interface
-    assign fifo_wr.wr_en   = ieu_ex.valid;
-    assign fifo_wr.data_in = {ieu_ex.data, ieu_ex.addr, ieu_ex.tag, ieu_ex.redirect};
-    assign rs_funit.stall  = fifo_wr.full;
-
-    // Connect Arbiter interface
-    assign arb.req       = ~fifo_rd.empty;
-    assign fifo_rd.rd_en = arb.gnt;
+    assign rs_funit.stall  = 1'b0;
 
     // CDB outputs
-    assign cdb.en       = arb.gnt ? 'b1 : 'bz;
-    assign cdb.redirect = arb.gnt ? fifo_rd.data_out[0] : 'bz;
-    assign cdb.tag      = arb.gnt ? fifo_rd.data_out[TAG_WIDTH:1] : 'bz;
-    assign cdb.addr     = arb.gnt ? fifo_rd.data_out[ADDR_WIDTH+TAG_WIDTH:TAG_WIDTH+1] : 'bz;
-    assign cdb.data     = arb.gnt ? fifo_rd.data_out[DATA_WIDTH+ADDR_WIDTH+TAG_WIDTH:ADDR_WIDTH+TAG_WIDTH+1] : 'bz;
+    assign cdb.en       = ieu_ex_q.valid;
+    assign cdb.redirect = ieu_ex_q.redirect;
+    assign cdb.tag      = ieu_ex_q.tag;
+    assign cdb.addr     = ieu_ex_q.addr;
+    assign cdb.data     = ieu_ex_q.data;
 
     // Make sure valid bit is set to false on flush or reset
     always_ff @(posedge clk, negedge n_rst) begin
@@ -81,6 +62,16 @@ module ieu #(
             ieu_id_q.valid <= 'b0;
         end else begin
             ieu_id_q.valid <= ieu_id.valid;
+        end
+    end 
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            ieu_ex_q.valid <= 'b0;
+        end else if (i_flush) begin
+            ieu_ex_q.valid <= 'b0;
+        end else begin
+            ieu_ex_q.valid <= ieu_ex.valid;
         end
     end 
 
@@ -95,6 +86,14 @@ module ieu #(
         ieu_id_q.tag      <= ieu_id.tag;
         ieu_id_q.jmp      <= ieu_id.jmp;
         ieu_id_q.br       <= ieu_id.br;
+    end
+
+    // EX -> WB pipelined registers
+    always_ff @(posedge clk) begin
+        ieu_ex_q.redirect <= ieu_ex.redirect;
+        ieu_ex_q.tag      <= ieu_ex.tag;
+        ieu_ex_q.addr     <= ieu_ex.addr;
+        ieu_ex_q.data     <= ieu_ex.data;
     end
 
     ieu_id #(

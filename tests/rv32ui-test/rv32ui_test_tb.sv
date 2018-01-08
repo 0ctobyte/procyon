@@ -9,7 +9,6 @@
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 `define RS_DEPTH 8
-`define IEU_FIFO_DEPTH 8
 
 `define ROM_BASE_ADDR 32'h0
 
@@ -34,14 +33,6 @@ module rv32ui_test_tb #(
     logic [$clog2(`ROM_DEPTH)-1:0] rom_rd_addr;
 
     assign rom_data_valid = fetch_en;
-
-    assign arb.gnt = arb.req;
-
-    assign cdb.en       = arb.gnt ? 'bz : 'b0;
-    assign cdb.data     = arb.gnt ? 'bz : 'b0;
-    assign cdb.addr     = arb.gnt ? 'bz : 'b0;
-    assign cdb.tag      = arb.gnt ? 'bz : 'b0;
-    assign cdb.redirect = arb.gnt ? 'bz : 'b0;
 
     // Clock generation
     initial clk = 'b1;
@@ -140,8 +131,6 @@ module rv32ui_test_tb #(
         .ADDR_WIDTH(`ADDR_WIDTH),
         .TAG_WIDTH(`TAG_WIDTH)
     ) rs_funit ();
-
-    arbiter_if arb ();
 
     // Module Instances
     rom #(
@@ -243,15 +232,13 @@ module rv32ui_test_tb #(
     ieu #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
-        .TAG_WIDTH(`TAG_WIDTH),
-        .IEU_FIFO_DEPTH(`IEU_FIFO_DEPTH)
+        .TAG_WIDTH(`TAG_WIDTH)
     ) ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
         .cdb(cdb),
-        .rs_funit(rs_funit),
-        .arb(arb)
+        .rs_funit(rs_funit)
     );
 
 endmodule
