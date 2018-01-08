@@ -26,19 +26,20 @@ module lsu_id #(
     output logic                      o_valid,
 
     // Enqueue newly issued load/store ops in the load/store queues
+    output lsu_func_t                 o_alloc_lsu_func,
     output logic [TAG_WIDTH-1:0]      o_alloc_tag,
     output logic [DATA_WIDTH-1:0]     o_alloc_data,
     output logic [ADDR_WIDTH-1:0]     o_alloc_addr,
-    output logic [3:0]                o_alloc_width,
     output logic                      o_alloc_sq_en,
     output logic                      o_alloc_lq_en
 );
+
+    lsu_func_t              lsu_func;
 
     logic [DATA_WIDTH-1:0]  imm_i;
     logic [DATA_WIDTH-1:0]  imm_s;
 
     logic [ADDR_WIDTH-1:0]  addr;
-    logic [3:0]             width;
 
     // 1 if store, 0 if load
     logic                   load_or_store;
@@ -54,40 +55,41 @@ module lsu_id #(
     assign addr             = i_src_a + (load_or_store ? imm_s : imm_i);
 
     // Allocate op in load queue or store queue
+    assign o_alloc_lsu_func = lsu_func;
     assign o_alloc_tag      = i_tag;
     assign o_alloc_data     = i_src_b;
     assign o_alloc_addr     = addr;
-    assign o_alloc_width    = width;
     assign o_alloc_sq_en    = load_or_store;
     assign o_alloc_lq_en    = ~load_or_store;
 
     // Assign outputs to next stage in the pipeline
+    assign o_lsu_func       = lsu_func;
     assign o_addr           = addr;
     assign o_tag            = i_tag;
     assign o_valid          = i_valid;
 
-    // Decode width based on opcode and funct3
+    // Decode load/store type based on funct3 field
     always_comb begin
         case (i_opcode) begin
             OPCODE_STORE: begin
                 case (i_insn[14:12]) begin
-                    3'b000:  {o_lsu_func, width} = {LSU_FUNC_SB, 4'd1};
-                    3'b001:  {o_lsu_func, width} = {LSU_FUNC_SH, 4'd2};
-                    3'b010:  {o_lsu_func, width} = {LSU_FUNC_SW, 4'd4};
-                    default: {o_lsu_func, width} = {LSU_FUNC_SW, 4'd4};
+                    3'b000:  lsu_func = LSU_FUNC_SB;
+                    3'b001:  lsu_func = LSU_FUNC_SH;
+                    3'b010:  lsu_func = LSU_FUNC_SW;
+                    default: lsu_func = LSU_FUNC_SW;
                 endcase
             end
             OPCODE_LOAD: begin
                 case (i_insn[14:12]) begin
-                    3'b000:  {o_lsu_func, width} = {LSU_FUNC_LB,  4'd1};
-                    3'b001:  {o_lsu_func, width} = {LSU_FUNC_LH,  4'd2};
-                    3'b010:  {o_lsu_func, width} = {LSU_FUNC_LW,  4'd4};
-                    3'b100:  {o_lsu_func, width} = {LSU_FUNC_LBU, 4'd1};
-                    3'b101:  {o_lsu_func, width} = {LSU_FUNC_LHU, 4'd2};
-                    default: {o_lsu_func, width} = {LSU_FUNC_LW,  4'd4};
+                    3'b000:  lsu_func = LSU_FUNC_LB;
+                    3'b001:  lsu_func = LSU_FUNC_LH;
+                    3'b010:  lsu_func = LSU_FUNC_LW;
+                    3'b100:  lsu_func = LSU_FUNC_LB;
+                    3'b101:  lsu_func = LSU_FUNC_LH;
+                    default: lsu_func = LSU_FUNC_LW;
                 endcase
             end
-            default: {o_lsu_func, width} = {LSU_FUNC_LB, 4'd4};
+            default: lsu_func = LSU_FUNC_LB;
         endcase
     end
 
