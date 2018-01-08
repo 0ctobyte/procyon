@@ -12,8 +12,7 @@ module lsu_lq #(
     parameter DATA_WIDTH      = 32,
     parameter ADDR_WIDTH      = 32,
     parameter TAG_WIDTH       = 6,
-    parameter LQ_DEPTH        = 8,
-    parameter LQ_TAG_WIDTH    = 3
+    parameter LQ_DEPTH        = 8
 ) (
     input  logic                             clk,
     input  logic                             n_rst,
@@ -64,7 +63,7 @@ module lsu_lq #(
     logic allocating;
     logic retiring;
 
-    logic [LQ_TAG_WIDTH-1:0] retire_slot;
+    logic [$clog2(LQ_DEPTH)-1:0] retire_slot;
 
     logic [ADDR_WIDTH-1:0]   sq_retire_addr_start;
     logic [ADDR_WIDTH-1:0]   sq_retire_addr_end;
@@ -104,7 +103,7 @@ module lsu_lq #(
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin
-        logic [LQ_TAG_WIDTH-1:0] r;
+        logic [$clog2(LQ_DEPTH)-1:0] r;
         r = 0;
         for (int i = 0; i < LQ_DEPTH; i++) begin
             if (lq.retire_select[i]) begin
