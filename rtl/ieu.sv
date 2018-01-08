@@ -146,15 +146,4 @@ module ieu #(
         .o_valid(ieu_ex.valid)
     );
 
-    sync_fifo #(
-        .DATA_WIDTH(DATA_WIDTH+ADDR_WIDTH+TAG_WIDTH+1),
-        .FIFO_DEPTH(IEU_FIFO_DEPTH)
-    ) ieu_ex_fifo (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(i_flush),
-        .if_fifo_wr(fifo_wr),
-        .if_fifo_rd(fifo_rd)
-    );
-
 endmodule
