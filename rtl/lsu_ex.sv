@@ -2,7 +2,7 @@
 
 import types::*;
 
-module lsu_mem #(
+module lsu_ex #(
     parameter DATA_WIDTH       = 32,
     parameter ADDR_WIDTH       = 32,
     parameter TAG_WIDTH        = 6,
