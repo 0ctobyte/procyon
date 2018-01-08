@@ -177,6 +177,23 @@ interface cdb_if #(
 
 endinterface
 
+interface arbiter_if ();
+
+    logic req;
+    logic gnt;
+
+    modport source (
+        output req,
+        input  gnt
+    );
+
+    modport sink (
+        input  req,
+        output gnt
+    );
+
+endinterface
+
 // Interface between the ROB and dispatcher to enqueue a new instruction
 interface rob_dispatch_if #(
     parameter ADDR_WIDTH     = 32,
