@@ -1,8 +1,6 @@
 // Integer Execution Unit
 // Encapsulates the ID and EX stages
-// Writes the result of the EX stage to a FIFO
-// And, whenever the FIFO is not empty and is granted access to the CDB, 
-// broadcasts the results of the integer op on the CDB
+// Writes the result of the EX stage to the CDB when it is available
 
 import types::*;
 
