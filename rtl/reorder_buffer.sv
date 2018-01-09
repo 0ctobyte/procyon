@@ -11,32 +11,50 @@ module reorder_buffer #(
     parameter ROB_DEPTH      = 64,
     parameter REG_ADDR_WIDTH = 5
 ) (
-    input logic                   clk,
-    input logic                   n_rst,
+    input  logic                                clk,
+    input  logic                                n_rst,
 
     // The redirect signal and addr/iaddr are used by the Fetch unit to jump to the redirect address
     // Used for branches, exception etc.
-    output logic                  o_redirect,
-    output logic [ADDR_WIDTH-1:0] o_redirect_addr,
+    output logic                                o_redirect,
+    output logic [ADDR_WIDTH-1:0]               o_redirect_addr,
 
     // Common Data Bus interface
-    cdb_if.sink                   cdb,
+    cdb_if.sink                                 cdb,
 
-    // Dispatcher <-> ROB interface to enqueue a new instruction
-    rob_dispatch_if.sink          rob_dispatch, 
-
-    // Dispatcher <-> ROB interface to lookup data/tags for source operands of newly enqueued instruction
-    rob_lookup_if.sink            rob_lookup, 
+    // Dispatcher <-> ROB interface to enqueue a new instruction and lookup
+    // data/tags for source operands of newly enqueued instructions
+    input  logic                                i_rob_en,
+    input  logic                                i_rob_rdy,
+    input  rob_op_t                             i_rob_op,
+    input  logic [ADDR_WIDTH-1:0]               i_rob_iaddr,
+    input  logic [ADDR_WIDTH-1:0]               i_rob_addr,
+    input  logic [DATA_WIDTH-1:0]               i_rob_data,
+    input  logic [REG_ADDR_WIDTH-1:0]           i_rob_rdest,
+    input  logic [REG_ADDR_WIDTH-1:0]           i_rob_rsrc     [0:1],
+    output logic [$clog2(ROB_DEPTH)-1:0]        o_rob_tag,
+    output logic [DATA_WIDTH-1:0]               o_rob_src_data [0:1],
+    output logic [$clog2(ROB_DEPTH)-1:0]        o_rob_src_tag  [0:1],
+    output logic                                o_rob_src_rdy  [0:1],
+    output logic                                o_rob_stall,
 
     // Interface to register map to update destination register for retired instruction
-    regmap_dest_wr_if.source      dest_wr,
+    output logic [DATA_WIDTH-1:0]               o_regmap_retire_data,
+    output logic [REG_ADDR_WIDTH-1:0]           o_regmap_retire_rdest,
+    output logic [$clog2(ROB_DEPTH)-1:0]        o_regmap_retire_tag,
+    output logic                                o_regmap_retire_wr_en,
 
     // Interface to register map to update tag information of the destination register of the
     // newly enqueued instruction
-    regmap_tag_wr_if.source       tag_wr,
+    output logic [$clog2(ROB_DEPTH)-1:0]        o_regmap_rename_tag,
+    output logic [REG_ADDR_WIDTH-1:0]           o_regmap_rename_rdest,
+    output logic                                o_regmap_rename_wr_en,
 
     // Interface to register map to lookeup src register data/tags/rdy for newly enqueued instructions
-    regmap_lookup_if.source       regmap_lookup
+    input  logic                                i_regmap_lookup_rdy  [0:1],
+    input  logic [$clog2(ROB_DEPTH)-1:0]        i_regmap_lookup_tag  [0:1],
+    input  logic [DATA_WIDTH-1:0]               i_regmap_lookup_data [0:1],
+    output logic [REG_ADDR_WIDTH-1:0]           o_regmap_lookup_rsrc [0:1]
 );
 
     localparam TAG_WIDTH     = $clog2(ROB_DEPTH);
@@ -71,51 +89,51 @@ module reorder_buffer #(
     } rob_t;
     rob_t rob;
 
-    logic redirect;
+    logic                 redirect;
 
-    logic rob_dispatch_en;
-    logic rob_retire_en;
+    logic                 rob_dispatch_en;
+    logic                 rob_retire_en;
     
     logic [ROB_DEPTH-1:0] rob_dispatch_select;
     logic [ROB_DEPTH-1:0] cdb_tag_select;
     
-    assign rob_dispatch_select = 1 << rob.tail_addr;
-    assign cdb_tag_select      = 1 << cdb.tag;
+    assign rob_dispatch_select    = 1 << rob.tail_addr;
+    assign cdb_tag_select         = 1 << cdb.tag;
 
-    assign rob_dispatch_en = rob_dispatch.en && ~rob.full;
-    assign rob_retire_en   = rob.entries[rob.head_addr].rdy && ~rob.empty;
+    assign rob_dispatch_en        = i_rob_en && ~rob.full;
+    assign rob_retire_en          = rob.entries[rob.head_addr].rdy && ~rob.empty;
 
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
-    assign redirect        = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].redirect;
-    assign o_redirect      = redirect;
-    assign o_redirect_addr = rob.entries[rob.head_addr].addr;
+    assign redirect               = rob.entries[rob.head_addr].rdy && rob.entries[rob.head_addr].redirect;
+    assign o_redirect             = redirect;
+    assign o_redirect_addr        = rob.entries[rob.head_addr].addr;
 
-    assign rob.tail_addr = rob.tail[TAG_WIDTH-1:0];
-    assign rob.head_addr = rob.head[TAG_WIDTH-1:0]; 
-    assign rob.full      = ({~rob.tail[TAG_WIDTH], rob.tail[TAG_WIDTH-1:0]} == rob.head);
-    assign rob.empty     = (rob.tail == rob.head);
+    assign rob.tail_addr          = rob.tail[TAG_WIDTH-1:0];
+    assign rob.head_addr          = rob.head[TAG_WIDTH-1:0]; 
+    assign rob.full               = ({~rob.tail[TAG_WIDTH], rob.tail[TAG_WIDTH-1:0]} == rob.head);
+    assign rob.empty              = (rob.tail == rob.head);
 
     // Assign outputs to regmap
-    assign dest_wr.data  = rob.entries[rob.head_addr].data;
-    assign dest_wr.rdest = rob.entries[rob.head_addr].rdest;
-    assign dest_wr.tag   = rob.head_addr;
-    assign dest_wr.wr_en = rob_retire_en;
+    assign o_regmap_retire_data   = rob.entries[rob.head_addr].data;
+    assign o_regmap_retire_rdest  = rob.entries[rob.head_addr].rdest;
+    assign o_regmap_retire_tag    = rob.head_addr;
+    assign o_regmap_retire_wr_en  = rob_retire_en;
 
-    assign tag_wr.tag    = rob.tail_addr;
-    assign tag_wr.rdest  = rob_dispatch.rdest;
-    assign tag_wr.wr_en  = rob_dispatch_en;
-
-    genvar i;
-    generate
-    for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_SRCS
-        assign regmap_lookup.rsrc[i] = rob_lookup.rsrc[i];
-    end
-    endgenerate 
+    assign o_regmap_rename_tag    = rob.tail_addr;
+    assign o_regmap_rename_rdest  = i_rob_rdest;
+    assign o_regmap_rename_wr_en  = rob_dispatch_en;
 
     // Assign outputs to dispatcher
     // Stall if the ROB is full
-    assign rob_dispatch.stall = rob.full;
-    assign rob_dispatch.tag   = rob.tail_addr;
+    assign o_rob_stall            = rob.full;
+    assign o_rob_tag              = rob.tail_addr;
+
+    genvar i;
+    generate
+    for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_RSRC
+        assign o_regmap_lookup_rsrc[i] = i_rob_rsrc[i];
+    end
+    endgenerate 
 
     // Getting the right source register tags/data is tricky
     // If the register map has ready data then that must be used
@@ -126,11 +144,11 @@ module reorder_buffer #(
     // matches the tag from the register map, then that value must be used over the ROB data.
     always_comb begin
         for (int i = 0; i < 2; i++) begin
-            case ({regmap_lookup.rdy[i], (cdb.en && (cdb.tag == regmap_lookup.tag[i]))})
-                2'b00: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {rob.entries[regmap_lookup.tag[i]].data, regmap_lookup.tag[i], rob.entries[regmap_lookup.tag[i]].rdy};
-                2'b01: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {cdb.data, cdb.tag, 1'b1};
-                2'b10: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {regmap_lookup.data[i], regmap_lookup.tag[i], regmap_lookup.rdy[i]};
-                2'b11: {rob_lookup.src_data[i], rob_lookup.src_tag[i], rob_lookup.src_rdy[i]} = {regmap_lookup.data[i], regmap_lookup.tag[i], regmap_lookup.rdy[i]};
+            case ({i_regmap_lookup_rdy[i], (cdb.en && (cdb.tag == i_regmap_lookup_tag[i]))})
+                2'b00: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {rob.entries[i_regmap_lookup_tag[i]].data, i_regmap_lookup_tag[i], rob.entries[i_regmap_lookup_tag[i]].rdy};
+                2'b01: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {cdb.data, cdb.tag, 1'b1};
+                2'b10: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
+                2'b11: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
             endcase
         end
     end
@@ -140,7 +158,7 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                {rob.entries[i].op, rob.entries[i].iaddr, rob.entries[i].rdest} <= {rob_dispatch.op, rob_dispatch.iaddr, rob_dispatch.rdest};
+                {rob.entries[i].op, rob.entries[i].iaddr, rob.entries[i].rdest} <= {i_rob_op, i_rob_iaddr, i_rob_rdest};
             end
         end
     end
@@ -148,7 +166,7 @@ module reorder_buffer #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b0, rob_dispatch.addr, rob_dispatch.data};
+                {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b0, i_rob_addr, i_rob_data};
             end else if (cdb.en && cdb_tag_select[i]) begin
                 {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {cdb.redirect, cdb.addr, cdb.data};
             end
@@ -163,7 +181,7 @@ module reorder_buffer #(
             end else if (redirect) begin
                 rob.entries[i].rdy <= 1'b0;
             end else if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                rob.entries[i].rdy <= rob_dispatch.rdy;
+                rob.entries[i].rdy <= i_rob_rdy;
             end else if (cdb.en && cdb_tag_select[i]) begin
                 rob.entries[i].rdy <= 1'b1;
             end

@@ -19,16 +19,26 @@ module fetch #(
     output logic                  o_en,
 
     // Instruction FIFO interface
-    fifo_wr_if.sys                insn_fifo_wr
+    input  logic                  i_insn_fifo_full,
+    output logic [DATA_WIDTH-1:0] o_insn_fifo_data,
+    output logic                  o_insn_fifo_wr_en,
+
+    // Instruction address FIFO interface
+    input  logic                  i_iaddr_fifo_full,
+    output logic [DATA_WIDTH-1:0] o_iaddr_fifo_data,
+    output logic                  o_iaddr_fifo_wr_en
 );
 
     logic [ADDR_WIDTH-1:0] pc;
 
-    assign o_en = ~insn_fifo_wr.full && ~i_redirect;
-    assign o_pc = pc;
+    assign o_en                = ~i_insn_fifo_full && ~i_iaddr_fifo_full && ~i_redirect;
+    assign o_pc                = pc;
 
-    assign insn_fifo_wr.wr_en   = i_data_valid;
-    assign insn_fifo_wr.data_in = {pc, i_insn};
+    assign o_insn_fifo_wr_en   = i_data_valid;
+    assign o_insn_fifo_data    = i_insn;
+
+    assign o_iaddr_fifo_wr_en  = i_data_valid;
+    assign o_iaddr_fifo_data   = pc;
 
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin

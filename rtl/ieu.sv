@@ -9,14 +9,21 @@ module ieu #(
     parameter ADDR_WIDTH     = 32,
     parameter TAG_WIDTH      = 6
 ) (
-    input  logic      clk,
-    input  logic      n_rst,
+    input  logic                     clk,
+    input  logic                     n_rst,
 
-    input  logic      i_flush,
+    input  logic                     i_flush,
 
-    cdb_if.source     cdb,
+    cdb_if.source                    cdb,
 
-    rs_funit_if.sink  rs_funit
+    input  logic                     i_fu_valid,
+    input  opcode_t                  i_fu_opcode,
+    input  logic [ADDR_WIDTH-1:0]    i_fu_iaddr,
+    input  logic [DATA_WIDTH-1:0]    i_fu_insn,
+    input  logic [DATA_WIDTH-1:0]    i_fu_src_a,
+    input  logic [DATA_WIDTH-1:0]    i_fu_src_b,
+    input  logic [TAG_WIDTH-1:0]     i_fu_tag,
+    output logic                     o_fu_stall
 );
 
     typedef struct packed {
@@ -43,7 +50,7 @@ module ieu #(
     ieu_id_t ieu_id, ieu_id_q;
     ieu_ex_t ieu_ex, ieu_ex_q;
 
-    assign rs_funit.stall  = 1'b0;
+    assign o_fu_stall   = 1'b0;
 
     // CDB outputs
     assign cdb.en       = ieu_ex_q.valid;
@@ -101,13 +108,13 @@ module ieu #(
     ) ieu_id_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_opcode(rs_funit.opcode),
-        .i_iaddr(rs_funit.iaddr),
-        .i_insn(rs_funit.insn),
-        .i_src_a(rs_funit.src_a),
-        .i_src_b(rs_funit.src_b),
-        .i_tag(rs_funit.tag),
-        .i_valid(rs_funit.valid),
+        .i_opcode(i_fu_opcode),
+        .i_iaddr(i_fu_iaddr),
+        .i_insn(i_fu_insn),
+        .i_src_a(i_fu_src_a),
+        .i_src_b(i_fu_src_b),
+        .i_tag(i_fu_tag),
+        .i_valid(i_fu_valid),
         .o_alu_func(ieu_id.alu_func),
         .o_src_a(ieu_id.src_a),
         .o_src_b(ieu_id.src_b),

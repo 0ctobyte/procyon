@@ -12,21 +12,35 @@ module reservation_station #(
     parameter TAG_WIDTH  = 6,
     parameter RS_DEPTH   = 8
 ) (
-    input  logic        clk,
-    input  logic        n_rst,
+    input  logic                           clk,
+    input  logic                           n_rst,
 
-    input  logic        i_flush,
+    input  logic                           i_flush,
 
     // CDB
-    cdb_if.sink         cdb,
+    cdb_if.sink                            cdb,
 
     // Dispatch interface
-    rs_dispatch_if.sink rs_dispatch,
-
+    input  logic                           i_rs_en,
+    input  opcode_t                        i_rs_opcode,
+    input  logic [ADDR_WIDTH-1:0]          i_rs_iaddr,
+    input  logic [DATA_WIDTH-1:0]          i_rs_insn,
+    input  logic [TAG_WIDTH-1:0]           i_rs_src_tag  [0:1],
+    input  logic [DATA_WIDTH-1:0]          i_rs_src_data [0:1],
+    input  logic                           i_rs_src_rdy  [0:1],
+    input  logic [TAG_WIDTH-1:0]           i_rs_dst_tag,
+    output logic                           o_rs_stall,
+    
     // Functional Unit interface
-    rs_funit_if.source  rs_funit
+    input  logic                           i_fu_stall,
+    output logic                           o_fu_valid,
+    output opcode_t                        o_fu_opcode,
+    output logic [ADDR_WIDTH-1:0]          o_fu_iaddr,
+    output logic [DATA_WIDTH-1:0]          o_fu_insn,
+    output logic [DATA_WIDTH-1:0]          o_fu_src_a,
+    output logic [DATA_WIDTH-1:0]          o_fu_src_b,
+    output logic [TAG_WIDTH-1:0]           o_fu_tag
 );
-
     typedef struct {
         logic [$clog2(RS_DEPTH)-1:0] age;
         opcode_t                     opcode;
@@ -46,18 +60,16 @@ module reservation_station #(
         logic [RS_DEPTH-1:0] issue_select;
         logic [RS_DEPTH-1:0] dispatch_select;
         logic [RS_DEPTH-1:0] age_matrix [0:RS_DEPTH-1];
-        rs_slot_t            slots [0:RS_DEPTH-1];
+        rs_slot_t            slots      [0:RS_DEPTH-1];
     } rs_t;
-
     rs_t rs;
 
-    genvar i, j;
-
-    logic dispatching;
-    logic issuing;
+    logic                        dispatching;
+    logic                        issuing;
 
     logic [$clog2(RS_DEPTH)-1:0] issue_slot;
 
+    genvar i, j;
     generate
     // Generate the age matrix. A reservation station slot's age must be
     // greater than all other reservation station slots that are also ready to
@@ -71,7 +83,7 @@ module reservation_station #(
         end
     end
 
-    for (i = 0; i < RS_DEPTH; i++) begin : ASSIGN_RS_ISSUE_EMPTY_VECTORS
+    for (i = 0; i < RS_DEPTH; i++) begin : ASSIGN_RS_VECTORS
         assign rs.empty[i]           = rs.slots[i].empty;
 
         // An slot is ready to issue if it is not empty and has both it's
@@ -91,20 +103,20 @@ module reservation_station #(
 
     // The reservation station is full if there are no empty slots
     // Assert the stall signal in this situation
-    assign rs.full           = ~|(rs.empty);
-    assign rs_dispatch.stall = rs.full;
+    assign rs.full            = ~|(rs.empty);
+    assign o_rs_stall         = rs.full;
 
-    assign dispatching = ^(rs.dispatch_select) && rs_dispatch.en;
-    assign issuing     = ^(rs.issue_select) && ~rs_funit.stall;
+    assign dispatching        = ^(rs.dispatch_select) && i_rs_en;
+    assign issuing            = ^(rs.issue_select) && ~i_fu_stall;
 
     // Assign functional unit output
-    assign rs_funit.opcode = rs.slots[issue_slot].opcode;
-    assign rs_funit.iaddr  = rs.slots[issue_slot].iaddr;
-    assign rs_funit.insn   = rs.slots[issue_slot].insn;
-    assign rs_funit.src_a  = rs.slots[issue_slot].src_data[0];
-    assign rs_funit.src_b  = rs.slots[issue_slot].src_data[1];
-    assign rs_funit.tag    = rs.slots[issue_slot].dst_tag;
-    assign rs_funit.valid  = issuing;
+    assign o_fu_opcode        = rs.slots[issue_slot].opcode;
+    assign o_fu_iaddr         = rs.slots[issue_slot].iaddr;
+    assign o_fu_insn          = rs.slots[issue_slot].insn;
+    assign o_fu_src_a         = rs.slots[issue_slot].src_data[0];
+    assign o_fu_src_b         = rs.slots[issue_slot].src_data[1];
+    assign o_fu_tag           = rs.slots[issue_slot].dst_tag;
+    assign o_fu_valid         = issuing;
 
     // Convert one-hot issue_select vector to binary RS slot #
     always_comb begin
@@ -159,12 +171,12 @@ module reservation_station #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < RS_DEPTH; i++) begin
             if (dispatching && rs.dispatch_select[i]) begin
-                rs.slots[i].opcode     <= rs_dispatch.opcode;
-                rs.slots[i].iaddr      <= rs_dispatch.iaddr;
-                rs.slots[i].insn       <= rs_dispatch.insn;
-                rs.slots[i].src_tag[0] <= rs_dispatch.src_tag[0];
-                rs.slots[i].src_tag[1] <= rs_dispatch.src_tag[1];
-                rs.slots[i].dst_tag    <= rs_dispatch.dst_tag;
+                rs.slots[i].opcode     <= i_rs_opcode;
+                rs.slots[i].iaddr      <= i_rs_iaddr;
+                rs.slots[i].insn       <= i_rs_insn;
+                rs.slots[i].src_tag[0] <= i_rs_src_tag[0];
+                rs.slots[i].src_tag[1] <= i_rs_src_tag[1];
+                rs.slots[i].dst_tag    <= i_rs_dst_tag;
             end
         end
     end
@@ -177,7 +189,7 @@ module reservation_station #(
         for (int i = 0; i < RS_DEPTH; i++) begin
             for (int k = 0; k < 2; k++) begin
                 if (dispatching && rs.dispatch_select[i]) begin
-                    {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {rs_dispatch.src_rdy[k], rs_dispatch.src_data[k]};
+                    {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {i_rs_src_rdy[k], i_rs_src_data[k]};
                 end else if (~rs.slots[i].src_rdy[k] && cdb.en && cdb.tag == rs.slots[i].src_tag[k]) begin
                     {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {1'b1, cdb.data};
                 end

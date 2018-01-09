@@ -5,20 +5,28 @@ module register_map #(
     parameter REGMAP_DEPTH    = 32,
     parameter TAG_WIDTH       = 6
 ) (
-    input logic            clk,
-    input logic            n_rst,
+    input  logic                              clk,
+    input  logic                              n_rst,
 
     // Flush signal -> Set all ready bits (basically invalidate tags)
-    input logic            i_flush,
+    input  logic                              i_flush,
 
     // Destination register update interface
-    regmap_dest_wr_if.sink dest_wr,
+    input  logic [DATA_WIDTH-1:0]             i_regmap_retire_data,
+    input  logic [$clog2(REGMAP_DEPTH)-1:0]   i_regmap_retire_rdest,
+    input  logic [TAG_WIDTH-1:0]              i_regmap_retire_tag,
+    input  logic                              i_regmap_retire_wr_en,
 
     // Tag update interface
-    regmap_tag_wr_if.sink  tag_wr,
+    input  logic [TAG_WIDTH-1:0]              i_regmap_rename_tag,
+    input  logic [$clog2(REGMAP_DEPTH)-1:0]   i_regmap_rename_rdest,
+    input  logic                              i_regmap_rename_wr_en,
 
     // Lookup source operand tag/data/rdy
-    regmap_lookup_if.sink  regmap_lookup
+    input  logic [$clog2(REGMAP_DEPTH)-1:0]   i_regmap_lookup_rsrc [0:1],
+    output logic                              o_regmap_lookup_rdy  [0:1],
+    output logic [TAG_WIDTH-1:0]              o_regmap_lookup_tag  [0:1],
+    output logic [DATA_WIDTH-1:0]             o_regmap_lookup_data [0:1]
 );
 
     // Each Register Map entry will have a data value, tag and ready bit
@@ -34,28 +42,28 @@ module register_map #(
     // Register r0 is special and should never be changed
     regmap_t regmap [REGMAP_DEPTH-1:0];
 
-    logic dest_wr_en;
-    logic tag_wr_en;
+    logic                    dest_wr_en;
+    logic                    tag_wr_en;
 
     logic [REGMAP_DEPTH-1:0] dest_wr_select;
     logic [REGMAP_DEPTH-1:0] tag_wr_select;
 
     // We don't want to touch register r0 since it should always contain zero and cannot be changed
     // If any instruction tries to write to r0, it effectively means that instruction is throwing away the result
-    assign dest_wr_en = dest_wr.wr_en && (dest_wr.rdest != 'b0);
-    assign tag_wr_en  = tag_wr.wr_en && (tag_wr.rdest != 'b0);
+    assign dest_wr_en     = i_regmap_retire_wr_en && (i_regmap_retire_rdest != 'b0);
+    assign tag_wr_en      = i_regmap_rename_wr_en && (i_regmap_rename_rdest != 'b0);
 
     // Select vectors to enable writing to the registers whose select bit is set
-    assign dest_wr_select = 1 << dest_wr.rdest;
-    assign tag_wr_select  = 1 << tag_wr.rdest;
+    assign dest_wr_select = 1 << i_regmap_retire_rdest;
+    assign tag_wr_select  = 1 << i_regmap_rename_rdest;
 
     // The ROB will lookup tags/data for the source operands of the newly dispatched instruction
     genvar i;
     generate
-    for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_SRCS
-        assign regmap_lookup.rdy[i]  = regmap[regmap_lookup.rsrc[i]].rdy; 
-        assign regmap_lookup.data[i] = regmap[regmap_lookup.rsrc[i]].data; 
-        assign regmap_lookup.tag[i]  = regmap[regmap_lookup.rsrc[i]].tag; 
+    for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_OUTPUTS
+        assign o_regmap_lookup_rdy[i]  = regmap[i_regmap_lookup_rsrc[i]].rdy; 
+        assign o_regmap_lookup_data[i] = regmap[i_regmap_lookup_rsrc[i]].data; 
+        assign o_regmap_lookup_tag[i]  = regmap[i_regmap_lookup_rsrc[i]].tag; 
     end
     endgenerate
 
@@ -66,7 +74,7 @@ module register_map #(
     always_ff @(posedge clk) begin
         for (int i = 1; i < REGMAP_DEPTH; i++) begin
             if (tag_wr_en && tag_wr_select[i]) begin
-                regmap[i].tag <= tag_wr.tag;
+                regmap[i].tag <= i_regmap_rename_tag;
             end
         end
     end
@@ -75,7 +83,7 @@ module register_map #(
     always_ff @(posedge clk) begin
         for (int i = 1; i < REGMAP_DEPTH; i++) begin
             if (dest_wr_en && dest_wr_select[i]) begin
-                regmap[i].data <= dest_wr.data;
+                regmap[i].data <= i_regmap_retire_data;
             end
         end
     end
@@ -99,7 +107,7 @@ module register_map #(
                 // When an instruction is retired, the destination register value is valid and the ready bit can be set
                 // But only if the latest tag for the register matches the tag of the retiring instruction
                 // Otherwise the data is not ready because a newer instruction will provide it
-                regmap[i].rdy <= (dest_wr.tag == regmap[i].tag) ? 'b1 : 'b0;
+                regmap[i].rdy <= (i_regmap_retire_tag == regmap[i].tag) ? 'b1 : 'b0;
             end
         end
     end
