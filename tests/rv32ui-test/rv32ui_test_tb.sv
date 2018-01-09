@@ -1,15 +1,8 @@
 `timescale 1ns/1ns
 
-`define DATA_WIDTH 32
-`define ADDR_WIDTH 32
-`define TAG_WIDTH  6
-`define REG_ADDR_WIDTH 5
+`include "../../rtl/common.svh"
 
 `define ROM_DEPTH 512
-`define REGMAP_DEPTH 32
-`define ROB_DEPTH 64
-`define RS_DEPTH 8
-
 `define ROM_BASE_ADDR 32'h0
 
 `define NOOP 32'h00000013 // ADDI X0, X0, #0
