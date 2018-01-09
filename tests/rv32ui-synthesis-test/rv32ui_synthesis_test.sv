@@ -9,7 +9,6 @@
 `define REGMAP_DEPTH 32
 `define ROB_DEPTH 64
 `define RS_DEPTH 8
-`define IEU_FIFO_DEPTH 8
 
 `define ROM_BASE_ADDR 32'h0
 
@@ -86,8 +85,6 @@ module rv32ui_synthesis_test #(
         .TAG_WIDTH(`TAG_WIDTH)
     ) rs_funit ();
 
-    arbiter_if arb ();
-
     typedef enum logic {
         RUN  = 1'b0,
         HALT = 1'b1
@@ -111,14 +108,6 @@ module rv32ui_synthesis_test #(
     assign key = ~KEY[0];
 
     assign rom_data_valid = fetch_en;
-
-    assign arb.gnt = arb.req;
-
-    assign cdb.en       = arb.gnt ? 'bz : 'b0;
-    assign cdb.data     = arb.gnt ? 'bz : 'b0;
-    assign cdb.addr     = arb.gnt ? 'bz : 'b0;
-    assign cdb.tag      = arb.gnt ? 'bz : 'b0;
-    assign cdb.redirect = arb.gnt ? 'bz : 'b0;
 
     assign HEX0 = o_hex[0];
     assign HEX1 = o_hex[1];
@@ -271,15 +260,13 @@ module rv32ui_synthesis_test #(
     ieu #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
-        .TAG_WIDTH(`TAG_WIDTH),
-        .IEU_FIFO_DEPTH(`IEU_FIFO_DEPTH)
+        .TAG_WIDTH(`TAG_WIDTH)
     ) ieu_inst (
         .clk(clk),
         .n_rst(SW[17]),
         .i_flush(rob_redirect),
         .cdb(cdb),
-        .rs_funit(rs_funit),
-        .arb(arb)
+        .rs_funit(rs_funit)
     );
 
 endmodule
