@@ -1,8 +1,8 @@
 // Common defines
 
 `define REGMAP_DEPTH     32
-`define ROB_DEPTH        64
-`define RS_DEPTH         8
+`define ROB_DEPTH        32
+`define RS_DEPTH         16
 `define LQ_DEPTH         8
 `define SQ_DEPTH         8
 
