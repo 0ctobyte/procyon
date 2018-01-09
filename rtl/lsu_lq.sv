@@ -28,7 +28,7 @@ module lsu_lq #(
 
     // SQ will send address of retiring store for mis-speculation detection
     input  logic [ADDR_WIDTH-1:0]            i_sq_retire_addr,
-    input  logic [3:0]                       i_sq_retire_width,
+    input  lsu_func_t                        i_sq_retire_lsu_func,
     input  logic                             i_sq_retire_en,
 
     // ROB signal that a load has been retired
@@ -89,9 +89,8 @@ module lsu_lq #(
     end
     endgenerate
 
-    // Calculate retired store start and end address based off store width
-    assign sq_retire_addr_start        = i_sq_retire_addr;
-    assign sq_retire_addr_end          = i_sq_retire_addr + i_sq_retire_addr_width;
+    // Grab retired store address
+    assign sq_retire_addr_start         = i_sq_retire_addr;
 
     // Produce a one-hot bit vector of the slot that will be used to allocate
     // the next load op. LQ is full if no bits are set in the empty vector
@@ -100,8 +99,18 @@ module lsu_lq #(
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    assign o_rob_retire_mis_speculated = lq.slots[retire_slot].mis_speculated;
-    assign retiring                    = i_rob_retire_en;
+    assign o_rob_retire_mis_speculated  = lq.slots[retire_slot].mis_speculated;
+    assign retiring                     = i_rob_retire_en;
+    
+    // Calculate retiring store end address based off of store type
+    always_comb begin
+        case (i_sq_retire_lsu_func)
+            SB:      sq_retire_addr_end = i_sq_retire_addr + 4'd0001;
+            SH:      sq_retire_addr_end = i_sq_retire_addr + 4'b0010;
+            SW:      sq_retire_addr_end = i_sq_retire_addr + 4'b0100;
+            default: sq_retire_addr_end = i_sq_retire_addr + 4'b0100;
+        endcase
+    end
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin
@@ -137,7 +146,6 @@ module lsu_lq #(
             if (allocating && lq.allocate_select[i]) begin
                 lq.slots[i].addr        <= i_alloc_addr;
                 lq.slots[i].tag         <= i_alloc_tag;
-                lq.slots[i].width       <= i_alloc_width;
             end
         end
     end
