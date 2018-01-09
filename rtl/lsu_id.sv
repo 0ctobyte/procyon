@@ -1,12 +1,13 @@
 // Instruction decode and address generation unit
 // Will send signals to load or store queue to allocate op
 
+`include "common.svh"
 import types::*;
 
 module lsu_id #(
-    parameter DATA_WIDTH       = 32,
-    parameter ADDR_WIDTH       = 32,
-    parameter TAG_WIDTH        = 6
+    parameter DATA_WIDTH       = `DATA_WIDTH,
+    parameter ADDR_WIDTH       = `ADDR_WIDTH,
+    parameter TAG_WIDTH        = `TAG_WIDTH
 ) (
     input logic                       clk,
     input logic                       n_rst,

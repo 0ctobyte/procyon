@@ -2,12 +2,13 @@
 // Encapsulates the ID and EX stages
 // Writes the result of the EX stage to the CDB when it is available
 
+`include "common.svh"
 import types::*;
 
 module ieu #(
-    parameter DATA_WIDTH     = 32,
-    parameter ADDR_WIDTH     = 32,
-    parameter TAG_WIDTH      = 6
+    parameter DATA_WIDTH     = `DATA_WIDTH,
+    parameter ADDR_WIDTH     = `ADDR_WIDTH,
+    parameter TAG_WIDTH      = `TAG_WIDTH
 ) (
     input  logic                     clk,
     input  logic                     n_rst,

@@ -4,13 +4,14 @@
 // 2) Renames source operands by looking up the source operands in the register map & ROB
 // 3) Allocates entry in the reservation station for the instruction
 
+`include "common.svh"
 import types::*;
 
 module dispatch #(
-    parameter DATA_WIDTH     = 32,
-    parameter ADDR_WIDTH     = 32,
-    parameter TAG_WIDTH      = 6,
-    parameter REG_ADDR_WIDTH = 5
+    parameter DATA_WIDTH     = `DATA_WIDTH,
+    parameter ADDR_WIDTH     = `ADDR_WIDTH,
+    parameter TAG_WIDTH      = `TAG_WIDTH,
+    parameter REG_ADDR_WIDTH = `REG_ADDR_WIDTH
 ) (
     input  logic           clk,
     input  logic           n_rst,

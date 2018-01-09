@@ -4,13 +4,14 @@
 // reservation station will be assigned an age of 0 which will increment/decrement
 // if other instructions are dispatched/issued.
 
+`include "common.svh"
 import types::*;
 
 module reservation_station #(
-    parameter DATA_WIDTH = 32,
-    parameter ADDR_WIDTH = 32,
-    parameter TAG_WIDTH  = 6,
-    parameter RS_DEPTH   = 8
+    parameter DATA_WIDTH = `DATA_WIDTH,
+    parameter ADDR_WIDTH = `ADDR_WIDTH,
+    parameter TAG_WIDTH  = `TAG_WIDTH,
+    parameter RS_DEPTH   = `RS_DEPTH
 ) (
     input  logic                           clk,
     input  logic                           n_rst,

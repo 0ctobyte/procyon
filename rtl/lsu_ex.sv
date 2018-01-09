@@ -1,16 +1,17 @@
 // LSU execute stage
 // Grab data from D$ for loads and sign extend or zero extend if necessary
 
+`include "common.svh"
 import types::*;
 
 module lsu_ex #(
-    parameter DATA_WIDTH       = 32,
-    parameter ADDR_WIDTH       = 32,
-    parameter TAG_WIDTH        = 6,
-    parameter DC_LINE_WIDTH    = 5,
-    parameter DC_INDEX_WIDTH   = 4,
-    parameter DC_WAY_WIDTH     = 1,
-    parameter DC_TAG_WIDTH     = 23
+    parameter DATA_WIDTH       = `DATA_WIDTH,
+    parameter ADDR_WIDTH       = `ADDR_WIDTH,
+    parameter TAG_WIDTH        = `TAG_WIDTH,
+    parameter DC_LINE_WIDTH    = `DC_LINE_WIDTH,
+    parameter DC_SET_WIDTH     = `DC_SET_WIDTH,
+    parameter DC_WAY_WIDTH     = `DC_WAY_WIDTH,
+    parameter DC_TAG_WIDTH     = `DC_TAG_WIDTH
 ) (
     input  logic                                                   clk,
     input  logic                                                   n_rst,
@@ -30,12 +31,12 @@ module lsu_ex #(
     // Access D$ tag memory for address hit
     input  logic                                                   i_dc_hit,
     input  logic [DC_WAY_WIDTH-1:0]                                i_dc_way_addr,
-    output logic [DC_INDEX_WIDTH-1:0]                              o_dc_index,
+    output logic [DC_SET_WIDTH-1:0]                                o_dc_index,
     output logic [DC_TAG_WIDTH-1:0]                                o_dc_tag,
 
     // Access D$ data memory for load data
     input  logic [DATA_WIDTH-1:0]                                  i_dc_data,
-    output logic [DC_INDEX_WIDTH+DC_WAY_WIDTH+DC_LINE_WIDTH-1:0]   o_dc_addr,
+    output logic [DC_SET_WIDTH+DC_WAY_WIDTH+DC_LINE_WIDTH-1:0]     o_dc_addr,
 
     // On a D$ load miss, send load to MSHQ
     output lsu_func_t                                              o_mshq_lsu_func,
@@ -44,11 +45,11 @@ module lsu_ex #(
     output logic                                                   o_mshq_en
 );
     // Access D$ tag
-    assign o_dc_index               = i_addr[DC_INDEX_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH];
+    assign o_dc_index               = i_addr[DC_SET_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH];
     assign o_dc_tag                 = i_addr[ADDR_WIDTH-1:ADDR_WIDTH-DC_TAG_WIDTH];
 
     // Access D$ data
-    assign o_dc_addr                = {i_addr[DC_INDEX_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH], i_dc_way_addr, i_addr[DC_LINE_WIDTH-1:0]};
+    assign o_dc_addr                = {i_addr[DC_SET_WIDTH+DC_LINE_WIDTH-1:DC_LINE_WIDTH], i_dc_way_addr, i_addr[DC_LINE_WIDTH-1:0]};
 
     // Assign outputs to MSHQ
     assign o_mshq_lsu_func          = i_lsu_func;

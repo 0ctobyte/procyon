@@ -1,10 +1,10 @@
 // Instruction fetch unit
 
-import types::*;
+`include "common.svh"
 
 module fetch #(
-    parameter DATA_WIDTH = 32,
-    parameter ADDR_WIDTH = 32
+    parameter DATA_WIDTH = `DATA_WIDTH,
+    parameter ADDR_WIDTH = `ADDR_WIDTH
 ) (
     input  logic                  clk,
     input  logic                  n_rst,

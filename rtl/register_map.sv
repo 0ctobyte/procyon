@@ -1,9 +1,11 @@
 // Register Map with tag information for register renaming
 
+`include "common.svh"
+
 module register_map #(
-    parameter DATA_WIDTH      = 32,
-    parameter REGMAP_DEPTH    = 32,
-    parameter TAG_WIDTH       = 6
+    parameter DATA_WIDTH      = `DATA_WIDTH,
+    parameter REGMAP_DEPTH    = `ADDR_WIDTH,
+    parameter TAG_WIDTH       = `TAG_WIDTH
 ) (
     input  logic                              clk,
     input  logic                              n_rst,

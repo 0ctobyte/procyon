@@ -3,13 +3,14 @@
 // Every cycle a ready entry from the head of the FIFO is committed to the register file
 // This enforces instructions to complete in program order
 
+`include "common.svh"
 import types::*;
 
 module reorder_buffer #(
-    parameter DATA_WIDTH     = 32,
-    parameter ADDR_WIDTH     = 32,
-    parameter ROB_DEPTH      = 64,
-    parameter REG_ADDR_WIDTH = 5
+    parameter DATA_WIDTH     = `DATA_WIDTH,
+    parameter ADDR_WIDTH     = `ADDR_WIDTH,
+    parameter ROB_DEPTH      = `ROB_DEPTH,
+    parameter REG_ADDR_WIDTH = `REG_ADDR_WIDTH
 ) (
     input  logic                                clk,
     input  logic                                n_rst,

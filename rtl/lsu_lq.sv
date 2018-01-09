@@ -6,13 +6,14 @@
 // The purpose of the load queue is to keep track of load ops until they are
 // retired and to detect mis-speculated loads whenever a store op has been retired
 
+`include "common.svh"
 import types::*;
 
 module lsu_lq #(
-    parameter DATA_WIDTH      = 32,
-    parameter ADDR_WIDTH      = 32,
-    parameter TAG_WIDTH       = 6,
-    parameter LQ_DEPTH        = 8
+    parameter DATA_WIDTH      = `DATA_WIDTH,
+    parameter ADDR_WIDTH      = `ADDR_WIDTH,
+    parameter TAG_WIDTH       = `TAG_WIDTH,
+    parameter LQ_DEPTH        = `LQ_DEPTH
 ) (
     input  logic                             clk,
     input  logic                             n_rst,
