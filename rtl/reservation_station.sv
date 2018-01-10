@@ -11,6 +11,7 @@ module reservation_station #(
     parameter DATA_WIDTH = `DATA_WIDTH,
     parameter ADDR_WIDTH = `ADDR_WIDTH,
     parameter TAG_WIDTH  = `TAG_WIDTH,
+    parameter CDB_DEPTH  = `CDB_DEPTH,
     parameter RS_DEPTH   = `RS_DEPTH
 ) (
     input  logic                           clk,
@@ -18,8 +19,12 @@ module reservation_station #(
 
     input  logic                           i_flush,
 
-    // CDB
-    cdb_if.sink                            cdb,
+    // Common Data Bus networks
+    input  logic                           i_cdb_en       [0:CDB_DEPTH-1],
+    input  logic                           i_cdb_redirect [0:CDB_DEPTH-1],
+    input  logic [DATA_WIDTH-1:0]          i_cdb_data     [0:CDB_DEPTH-1],
+    input  logic [ADDR_WIDTH-1:0]          i_cdb_addr     [0:CDB_DEPTH-1],
+    input  logic [TAG_WIDTH-1:0]           i_cdb_tag      [0:CDB_DEPTH-1],
 
     // Dispatch interface
     input  logic                           i_rs_en,
@@ -191,8 +196,12 @@ module reservation_station #(
             for (int k = 0; k < 2; k++) begin
                 if (dispatching && rs.dispatch_select[i]) begin
                     {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {i_rs_src_rdy[k], i_rs_src_data[k]};
-                end else if (~rs.slots[i].src_rdy[k] && cdb.en && cdb.tag == rs.slots[i].src_tag[k]) begin
-                    {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {1'b1, cdb.data};
+                end else begin
+                    for (int j = 0; j < CDB_DEPTH; j++) begin
+                        if (~rs.slots[i].src_rdy[k] && i_cdb_en[j] && (i_cdb_tag[j] == rs.slots[i].src_tag[k])) begin
+                            {rs.slots[i].src_rdy[k], rs.slots[i].src_data[k]} <= {1'b1, i_cdb_data[j]};
+                        end
+                    end
                 end
             end
         end

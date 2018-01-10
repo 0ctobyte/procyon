@@ -65,21 +65,21 @@ module rv32ui_synthesis_test #(
     logic [`DATA_WIDTH-1:0]               regmap_lookup_data [0:1];
     logic [`REG_ADDR_WIDTH-1:0]           regmap_lookup_rsrc [0:1];
 
-    logic                                 fu_stall;
-    logic                                 fu_valid;
-    opcode_t                              fu_opcode;
-    logic [`ADDR_WIDTH-1:0]               fu_iaddr;
-    logic [`DATA_WIDTH-1:0]               fu_insn;
-    logic [`DATA_WIDTH-1:0]               fu_src_a;
-    logic [`DATA_WIDTH-1:0]               fu_src_b;
-    logic [`TAG_WIDTH-1:0]                fu_tag;
+    logic                                 fu_stall  [0:`CDB_DEPTH-1];
+    logic                                 fu_valid  [0:`CDB_DEPTH-1];
+    opcode_t                              fu_opcode [0:`CDB_DEPTH-1];
+    logic [`ADDR_WIDTH-1:0]               fu_iaddr  [0:`CDB_DEPTH-1];
+    logic [`DATA_WIDTH-1:0]               fu_insn   [0:`CDB_DEPTH-1];
+    logic [`DATA_WIDTH-1:0]               fu_src_a  [0:`CDB_DEPTH-1];
+    logic [`DATA_WIDTH-1:0]               fu_src_b  [0:`CDB_DEPTH-1];
+    logic [`TAG_WIDTH-1:0]                fu_tag    [0:`CDB_DEPTH-1];
 
+    logic                                 cdb_en       [0:`CDB_DEPTH-1];
+    logic                                 cdb_redirect [0:`CDB_DEPTH-1];
+    logic [`DATA_WIDTH-1:0]               cdb_data     [0:`CDB_DEPTH-1];
+    logic [`ADDR_WIDTH-1:0]               cdb_addr     [0:`CDB_DEPTH-1];
+    logic [`TAG_WIDTH-1:0]                cdb_tag      [0:`CDB_DEPTH-1];
 
-    cdb_if #(
-        .ADDR_WIDTH(`ADDR_WIDTH),
-        .DATA_WIDTH(`DATA_WIDTH),
-        .TAG_WIDTH(`TAG_WIDTH)
-    ) cdb ();
 
     typedef enum logic {
         RUN  = 1'b0,
@@ -99,9 +99,16 @@ module rv32ui_synthesis_test #(
     logic                   rom_data_valid;
     logic [$clog2(`ROM_DEPTH)-1:0] rom_rd_addr;
 
+    logic rs_en_flip;
+    logic [`CDB_DEPTH-1:0] rs_en_m;
+    logic [`CDB_DEPTH-1:0] rs_stall_m;
+
     logic [6:0] o_hex [0:7];
 
     assign key = ~KEY[0];
+
+    assign rs_en_m    = rs_en_flip ? {1'b0, rs_en} : {rs_en, 1'b0};
+    assign rs_stall   = |rs_stall_m;
 
     assign rom_data_valid = fetch_en;
 
@@ -136,6 +143,14 @@ module rv32ui_synthesis_test #(
         logic [`ADDR_WIDTH-1:0] t;
         t = fetch_pc >> 2;
         rom_rd_addr = t[$clog2(`ROM_DEPTH)-1:0];
+    end
+
+    always @(posedge clk, negedge SW[17]) begin
+        if (~SW[17]) begin
+            rs_en_flip <= 1'b0;
+        end else begin
+            rs_en_flip <= rs_en_flip ^ 1'b1;
+        end
     end
 
     genvar i;
@@ -239,14 +254,19 @@ module rv32ui_synthesis_test #(
     reorder_buffer #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
-        .ROB_DEPTH(`ROB_DEPTH),
-        .REG_ADDR_WIDTH(`REG_ADDR_WIDTH)
+        .REG_ADDR_WIDTH(`REG_ADDR_WIDTH),
+        .CDB_DEPTH(`CDB_DEPTH),
+        .ROB_DEPTH(`ROB_DEPTH)
     ) rob (
         .clk(clk),
         .n_rst(SW[17]),
         .o_redirect(rob_redirect),
         .o_redirect_addr(rob_redirect_addr),
-        .cdb(cdb),
+        .i_cdb_en(cdb_en),
+        .i_cdb_redirect(cdb_redirect),
+        .i_cdb_data(cdb_data),
+        .i_cdb_addr(cdb_addr),
+        .i_cdb_tag(cdb_tag),
         .i_rob_en(rob_en),
         .i_rob_rdy(rob_rdy),
         .i_rob_op(rob_op),
@@ -294,52 +314,65 @@ module rv32ui_synthesis_test #(
         .o_regmap_lookup_data(regmap_lookup_data)
     );
 
-    reservation_station #(
-        .DATA_WIDTH(`DATA_WIDTH),
-        .ADDR_WIDTH(`ADDR_WIDTH),
-        .TAG_WIDTH(`TAG_WIDTH),
-        .RS_DEPTH(`RS_DEPTH)
-    ) rs_inst (
-        .clk(clk),
-        .n_rst(SW[17]),
-        .i_flush(rob_redirect),
-        .cdb(cdb),
-        .i_rs_en(rs_en),
-        .i_rs_opcode(rs_opcode),
-        .i_rs_iaddr(rs_iaddr),
-        .i_rs_insn(rs_insn),
-        .i_rs_src_tag(rs_src_tag),
-        .i_rs_src_data(rs_src_data),
-        .i_rs_src_rdy(rs_src_rdy),
-        .i_rs_dst_tag(rs_dst_tag),
-        .o_rs_stall(rs_stall),
-        .i_fu_stall(fu_stall),
-        .o_fu_valid(fu_valid),
-        .o_fu_opcode(fu_opcode),
-        .o_fu_iaddr(fu_iaddr),
-        .o_fu_insn(fu_insn),
-        .o_fu_src_a(fu_src_a),
-        .o_fu_src_b(fu_src_b),
-        .o_fu_tag(fu_tag)
-    );
+    generate
+    for (i = 0; i < `CDB_DEPTH; i++) begin : GENERATE_RS_IEU_UNITS
+        reservation_station #(
+            .DATA_WIDTH(`DATA_WIDTH),
+            .ADDR_WIDTH(`ADDR_WIDTH),
+            .TAG_WIDTH(`TAG_WIDTH),
+            .CDB_DEPTH(`CDB_DEPTH),
+            .RS_DEPTH(`RS_DEPTH)
+        ) rs_inst (
+            .clk(clk),
+            .n_rst(SW[17]),
+            .i_flush(rob_redirect),
+            .i_cdb_en(cdb_en),
+            .i_cdb_redirect(cdb_redirect),
+            .i_cdb_data(cdb_data),
+            .i_cdb_addr(cdb_addr),
+            .i_cdb_tag(cdb_tag),
+            .i_rs_en(rs_en_m[i]),
+            .i_rs_opcode(rs_opcode),
+            .i_rs_iaddr(rs_iaddr),
+            .i_rs_insn(rs_insn),
+            .i_rs_src_tag(rs_src_tag),
+            .i_rs_src_data(rs_src_data),
+            .i_rs_src_rdy(rs_src_rdy),
+            .i_rs_dst_tag(rs_dst_tag),
+            .o_rs_stall(rs_stall_m[i]),
+            .i_fu_stall(fu_stall[i]),
+            .o_fu_valid(fu_valid[i]),
+            .o_fu_opcode(fu_opcode[i]),
+            .o_fu_iaddr(fu_iaddr[i]),
+            .o_fu_insn(fu_insn[i]),
+            .o_fu_src_a(fu_src_a[i]),
+            .o_fu_src_b(fu_src_b[i]),
+            .o_fu_tag(fu_tag[i])
+        );
 
-    ieu #(
-        .DATA_WIDTH(`DATA_WIDTH),
-        .ADDR_WIDTH(`ADDR_WIDTH),
-        .TAG_WIDTH(`TAG_WIDTH)
-    ) ieu_inst (
-        .clk(clk),
-        .n_rst(SW[17]),
-        .i_flush(rob_redirect),
-        .cdb(cdb),
-        .i_fu_valid(fu_valid),
-        .i_fu_opcode(fu_opcode),
-        .i_fu_iaddr(fu_iaddr),
-        .i_fu_insn(fu_insn),
-        .i_fu_src_a(fu_src_a),
-        .i_fu_src_b(fu_src_b),
-        .i_fu_tag(fu_tag),
-        .o_fu_stall(fu_stall)
-    );
+        ieu #(
+            .DATA_WIDTH(`DATA_WIDTH),
+            .ADDR_WIDTH(`ADDR_WIDTH),
+            .TAG_WIDTH(`TAG_WIDTH)
+        ) ieu_inst (
+            .clk(clk),
+            .n_rst(SW[17]),
+            .i_flush(rob_redirect),
+            .o_cdb_en(cdb_en[i]),
+            .o_cdb_redirect(cdb_redirect[i]),
+            .o_cdb_data(cdb_data[i]),
+            .o_cdb_addr(cdb_addr[i]),
+            .o_cdb_tag(cdb_tag[i]),
+            .i_fu_valid(fu_valid[i]),
+            .i_fu_opcode(fu_opcode[i]),
+            .i_fu_iaddr(fu_iaddr[i]),
+            .i_fu_insn(fu_insn[i]),
+            .i_fu_src_a(fu_src_a[i]),
+            .i_fu_src_b(fu_src_b[i]),
+            .i_fu_tag(fu_tag[i]),
+            .o_fu_stall(fu_stall[i])
+        );
+    end
+    endgenerate
 
 endmodule

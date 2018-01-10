@@ -1,5 +1,6 @@
 // Common defines
 
+`define CDB_DEPTH        2
 `define REGMAP_DEPTH     32
 `define ROB_DEPTH        32
 `define RS_DEPTH         16

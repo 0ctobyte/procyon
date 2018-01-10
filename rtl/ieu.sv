@@ -15,7 +15,12 @@ module ieu #(
 
     input  logic                     i_flush,
 
-    cdb_if.source                    cdb,
+    // Common Data Bus
+    output logic [DATA_WIDTH-1:0]    o_cdb_data,
+    output logic [ADDR_WIDTH-1:0]    o_cdb_addr,
+    output logic [TAG_WIDTH-1:0]     o_cdb_tag,
+    output logic                     o_cdb_redirect,
+    output logic                     o_cdb_en,
 
     input  logic                     i_fu_valid,
     input  opcode_t                  i_fu_opcode,
@@ -51,14 +56,14 @@ module ieu #(
     ieu_id_t ieu_id, ieu_id_q;
     ieu_ex_t ieu_ex, ieu_ex_q;
 
-    assign o_fu_stall   = 1'b0;
+    assign o_fu_stall      = 1'b0;
 
     // CDB outputs
-    assign cdb.en       = ieu_ex_q.valid;
-    assign cdb.redirect = ieu_ex_q.redirect;
-    assign cdb.tag      = ieu_ex_q.tag;
-    assign cdb.addr     = ieu_ex_q.addr;
-    assign cdb.data     = ieu_ex_q.data;
+    assign o_cdb_en        = ieu_ex_q.valid;
+    assign o_cdb_redirect  = ieu_ex_q.redirect;
+    assign o_cdb_tag       = ieu_ex_q.tag;
+    assign o_cdb_addr      = ieu_ex_q.addr;
+    assign o_cdb_data      = ieu_ex_q.data;
 
     // Make sure valid bit is set to false on flush or reset
     always_ff @(posedge clk, negedge n_rst) begin

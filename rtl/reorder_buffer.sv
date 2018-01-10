@@ -9,8 +9,9 @@ import types::*;
 module reorder_buffer #(
     parameter DATA_WIDTH     = `DATA_WIDTH,
     parameter ADDR_WIDTH     = `ADDR_WIDTH,
-    parameter ROB_DEPTH      = `ROB_DEPTH,
-    parameter REG_ADDR_WIDTH = `REG_ADDR_WIDTH
+    parameter REG_ADDR_WIDTH = `REG_ADDR_WIDTH,
+    parameter CDB_DEPTH      = `CDB_DEPTH,
+    parameter ROB_DEPTH      = `ROB_DEPTH
 ) (
     input  logic                                clk,
     input  logic                                n_rst,
@@ -20,8 +21,12 @@ module reorder_buffer #(
     output logic                                o_redirect,
     output logic [ADDR_WIDTH-1:0]               o_redirect_addr,
 
-    // Common Data Bus interface
-    cdb_if.sink                                 cdb,
+    // Common Data Bus networks
+    input  logic                                i_cdb_en       [0:CDB_DEPTH-1],
+    input  logic                                i_cdb_redirect [0:CDB_DEPTH-1],
+    input  logic [DATA_WIDTH-1:0]               i_cdb_data     [0:CDB_DEPTH-1],
+    input  logic [ADDR_WIDTH-1:0]               i_cdb_addr     [0:CDB_DEPTH-1],
+    input  logic [$clog2(ROB_DEPTH)-1:0]        i_cdb_tag      [0:CDB_DEPTH-1],
 
     // Dispatcher <-> ROB interface to enqueue a new instruction and lookup
     // data/tags for source operands of newly enqueued instructions
@@ -65,9 +70,9 @@ module reorder_buffer #(
     // redirect: Asserted by branches or instructions that cause exceptions
     // op:       What operation is the instruction doing?
     // iaddr:    Address of the instruction (to rollback on exception)
-    // addr:     Destination address for branch 
+    // addr:     Destination address for branch
     // data:     The data for the destination register
-    // rdest:    The destination register 
+    // rdest:    The destination register
     typedef struct packed {
         logic                      rdy;
         logic                      redirect;
@@ -94,12 +99,11 @@ module reorder_buffer #(
 
     logic                 rob_dispatch_en;
     logic                 rob_retire_en;
-    
+
     logic [ROB_DEPTH-1:0] rob_dispatch_select;
-    logic [ROB_DEPTH-1:0] cdb_tag_select;
-    
+    logic [ROB_DEPTH-1:0] cdb_tag_select [0:CDB_DEPTH-1];
+
     assign rob_dispatch_select    = 1 << rob.tail_addr;
-    assign cdb_tag_select         = 1 << cdb.tag;
 
     assign rob_dispatch_en        = i_rob_en && ~rob.full;
     assign rob_retire_en          = rob.entries[rob.head_addr].rdy && ~rob.empty;
@@ -110,7 +114,7 @@ module reorder_buffer #(
     assign o_redirect_addr        = rob.entries[rob.head_addr].addr;
 
     assign rob.tail_addr          = rob.tail[TAG_WIDTH-1:0];
-    assign rob.head_addr          = rob.head[TAG_WIDTH-1:0]; 
+    assign rob.head_addr          = rob.head[TAG_WIDTH-1:0];
     assign rob.full               = ({~rob.tail[TAG_WIDTH], rob.tail[TAG_WIDTH-1:0]} == rob.head);
     assign rob.empty              = (rob.tail == rob.head);
 
@@ -134,23 +138,31 @@ module reorder_buffer #(
     for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_RSRC
         assign o_regmap_lookup_rsrc[i] = i_rob_rsrc[i];
     end
-    endgenerate 
+
+    for (i = 0; i < CDB_DEPTH; i++) begin : ASSIGN_CDB_SELECT_SIGNALS
+        assign cdb_tag_select[i]       = 1 << i_cdb_tag[i];
+    end
+    endgenerate
 
     // Getting the right source register tags/data is tricky
     // If the register map has ready data then that must be used
     // Otherwise the ROB entry corresponding to the tag in the register map for the
-    // source register is looked up and the data, if available, is retrieved from that 
+    // source register is looked up and the data, if available, is retrieved from that
     // entry. If it's not available then the instruction must wait for the tag to be broadcast
     // on the CDB. Now if there is something available on the CDB in the same cycle and it
     // matches the tag from the register map, then that value must be used over the ROB data.
     always_comb begin
         for (int i = 0; i < 2; i++) begin
-            case ({i_regmap_lookup_rdy[i], (cdb.en && (cdb.tag == i_regmap_lookup_tag[i]))})
-                2'b00: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {rob.entries[i_regmap_lookup_tag[i]].data, i_regmap_lookup_tag[i], rob.entries[i_regmap_lookup_tag[i]].rdy};
-                2'b01: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {cdb.data, cdb.tag, 1'b1};
-                2'b10: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
-                2'b11: {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
-            endcase
+            {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {rob.entries[i_regmap_lookup_tag[i]].data, i_regmap_lookup_tag[i], rob.entries[i_regmap_lookup_tag[i]].rdy};
+            if (i_regmap_lookup_rdy[i]) begin
+                {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
+            end else begin
+                for (int j = 0; j < CDB_DEPTH; j++) begin
+                    if (i_cdb_en[j] && (i_cdb_tag[j] == i_regmap_lookup_tag[i])) begin
+                        {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_cdb_data[j], i_cdb_tag[j], 1'b1};
+                    end
+                end
+            end
         end
     end
 
@@ -168,11 +180,15 @@ module reorder_buffer #(
         for (int i = 0; i < ROB_DEPTH; i++) begin
             if (rob_dispatch_en && rob_dispatch_select[i]) begin
                 {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {1'b0, i_rob_addr, i_rob_data};
-            end else if (cdb.en && cdb_tag_select[i]) begin
-                {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {cdb.redirect, cdb.addr, cdb.data};
+            end else begin
+                for (int j = 0; j < CDB_DEPTH; j++) begin
+                    if (i_cdb_en[j] && cdb_tag_select[j][i]) begin
+                        {rob.entries[i].redirect, rob.entries[i].addr, rob.entries[i].data} <= {i_cdb_redirect[j], i_cdb_addr[j], i_cdb_data[j]};
+                    end
+                end
             end
         end
-    end 
+    end
 
     // Clear the ready bits on a flush or reset
     always_ff @(posedge clk, negedge n_rst) begin
@@ -183,11 +199,15 @@ module reorder_buffer #(
                 rob.entries[i].rdy <= 1'b0;
             end else if (rob_dispatch_en && rob_dispatch_select[i]) begin
                 rob.entries[i].rdy <= i_rob_rdy;
-            end else if (cdb.en && cdb_tag_select[i]) begin
-                rob.entries[i].rdy <= 1'b1;
+            end else begin
+                for (int j = 0; j < CDB_DEPTH; j++) begin
+                    if (i_cdb_en[j] && cdb_tag_select[j][i]) begin
+                        rob.entries[i].rdy <= 1'b1;
+                    end
+                end
             end
         end
-    end 
+    end
 
     // Increment the tail pointer if the dispatcher signals a new instruction to be enqueued
     // and the ROB is not full. Reset if redirect asserted
