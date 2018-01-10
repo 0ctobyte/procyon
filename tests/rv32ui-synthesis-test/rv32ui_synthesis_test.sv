@@ -20,66 +20,59 @@ module rv32ui_synthesis_test #(
     output logic [6:0]   HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, HEX6, HEX7
 );
     // Module signals
-    logic                           insn_fifo_empty;
-    logic [`DATA_WIDTH-1:0]         insn_fifo_rd_data;
-    logic                           insn_fifo_rd_en;
-    logic                           insn_fifo_full;
-    logic [`DATA_WIDTH-1:0]         insn_fifo_wr_data;
-    logic                           insn_fifo_wr_en;
+    logic                                 insn_fifo_empty;
+    logic [`ADDR_WIDTH+`DATA_WIDTH-1:0]   insn_fifo_rd_data;
+    logic                                 insn_fifo_rd_en;
+    logic                                 insn_fifo_full;
+    logic [`ADDR_WIDTH+`DATA_WIDTH-1:0]   insn_fifo_wr_data;
+    logic                                 insn_fifo_wr_en;
 
-    logic                           iaddr_fifo_empty;
-    logic [`ADDR_WIDTH-1:0]         iaddr_fifo_rd_data;
-    logic                           iaddr_fifo_rd_en;
-    logic                           iaddr_fifo_full;
-    logic [`ADDR_WIDTH-1:0]         iaddr_fifo_wr_data;
-    logic                           iaddr_fifo_wr_en;
+    logic                                 rs_stall;
+    logic                                 rs_en;
+    opcode_t                              rs_opcode;
+    logic [`ADDR_WIDTH-1:0]               rs_iaddr;
+    logic [`DATA_WIDTH-1:0]               rs_insn;
+    logic [`TAG_WIDTH-1:0]                rs_src_tag  [0:1];
+    logic [`DATA_WIDTH-1:0]               rs_src_data [0:1];
+    logic                                 rs_src_rdy  [0:1];
+    logic [`TAG_WIDTH-1:0]                rs_dst_tag;
 
-    logic                           rs_stall;
-    logic                           rs_en;
-    opcode_t                        rs_opcode;
-    logic [`ADDR_WIDTH-1:0]         rs_iaddr;
-    logic [`DATA_WIDTH-1:0]         rs_insn;
-    logic [`TAG_WIDTH-1:0]          rs_src_tag  [0:1];
-    logic [`DATA_WIDTH-1:0]         rs_src_data [0:1];
-    logic                           rs_src_rdy  [0:1];
-    logic [`TAG_WIDTH-1:0]          rs_dst_tag;
+    logic                                 rob_stall;
+    logic [`TAG_WIDTH-1:0]                rob_tag;
+    logic                                 rob_src_rdy  [0:1];
+    logic [`DATA_WIDTH-1:0]               rob_src_data [0:1];
+    logic [`TAG_WIDTH-1:0]                rob_src_tag  [0:1];
+    logic                                 rob_en;
+    logic                                 rob_rdy;
+    rob_op_t                              rob_op;
+    logic [`ADDR_WIDTH-1:0]               rob_iaddr;
+    logic [`ADDR_WIDTH-1:0]               rob_addr;
+    logic [`DATA_WIDTH-1:0]               rob_data;
+    logic [`REG_ADDR_WIDTH-1:0]           rob_rdest;
+    logic [`REG_ADDR_WIDTH-1:0]           rob_rsrc     [0:1];
 
-    logic                           rob_stall;
-    logic [`TAG_WIDTH-1:0]          rob_tag;
-    logic                           rob_src_rdy  [0:1];
-    logic [`DATA_WIDTH-1:0]         rob_src_data [0:1];
-    logic [`TAG_WIDTH-1:0]          rob_src_tag  [0:1];
-    logic                           rob_en;
-    logic                           rob_rdy;
-    rob_op_t                        rob_op;
-    logic [`ADDR_WIDTH-1:0]         rob_iaddr;
-    logic [`ADDR_WIDTH-1:0]         rob_addr;
-    logic [`DATA_WIDTH-1:0]         rob_data;
-    logic [`REG_ADDR_WIDTH-1:0]     rob_rdest;
-    logic [`REG_ADDR_WIDTH-1:0]     rob_rsrc     [0:1];
+    logic [`DATA_WIDTH-1:0]               regmap_retire_data;
+    logic [`REG_ADDR_WIDTH-1:0]           regmap_retire_rdest;
+    logic [$clog2(`ROB_DEPTH)-1:0]        regmap_retire_tag;
+    logic                                 regmap_retire_wr_en;
 
-    logic [`DATA_WIDTH-1:0]         regmap_retire_data;
-    logic [`REG_ADDR_WIDTH-1:0]     regmap_retire_rdest;
-    logic [$clog2(`ROB_DEPTH)-1:0]  regmap_retire_tag;
-    logic                           regmap_retire_wr_en;
+    logic [$clog2(`ROB_DEPTH)-1:0]        regmap_rename_tag;
+    logic [`REG_ADDR_WIDTH-1:0]           regmap_rename_rdest;
+    logic                                 regmap_rename_wr_en;
 
-    logic [$clog2(`ROB_DEPTH)-1:0]  regmap_rename_tag;
-    logic [`REG_ADDR_WIDTH-1:0]     regmap_rename_rdest;
-    logic                           regmap_rename_wr_en;
+    logic                                 regmap_lookup_rdy  [0:1];
+    logic [$clog2(`ROB_DEPTH)-1:0]        regmap_lookup_tag  [0:1];
+    logic [`DATA_WIDTH-1:0]               regmap_lookup_data [0:1];
+    logic [`REG_ADDR_WIDTH-1:0]           regmap_lookup_rsrc [0:1];
 
-    logic                           regmap_lookup_rdy  [0:1];
-    logic [$clog2(`ROB_DEPTH)-1:0]  regmap_lookup_tag  [0:1];
-    logic [`DATA_WIDTH-1:0]         regmap_lookup_data [0:1];
-    logic [`REG_ADDR_WIDTH-1:0]     regmap_lookup_rsrc [0:1];
-
-    logic                           fu_stall;
-    logic                           fu_valid;
-    opcode_t                        fu_opcode;
-    logic [`ADDR_WIDTH-1:0]         fu_iaddr;
-    logic [`DATA_WIDTH-1:0]         fu_insn;
-    logic [`DATA_WIDTH-1:0]         fu_src_a;
-    logic [`DATA_WIDTH-1:0]         fu_src_b;
-    logic [`TAG_WIDTH-1:0]          fu_tag;
+    logic                                 fu_stall;
+    logic                                 fu_valid;
+    opcode_t                              fu_opcode;
+    logic [`ADDR_WIDTH-1:0]               fu_iaddr;
+    logic [`DATA_WIDTH-1:0]               fu_insn;
+    logic [`DATA_WIDTH-1:0]               fu_src_a;
+    logic [`DATA_WIDTH-1:0]               fu_src_b;
+    logic [`TAG_WIDTH-1:0]                fu_tag;
 
 
     cdb_if #(
@@ -190,14 +183,11 @@ module rv32ui_synthesis_test #(
         .o_en(fetch_en),
         .i_insn_fifo_full(insn_fifo_full),
         .o_insn_fifo_data(insn_fifo_wr_data),
-        .o_insn_fifo_wr_en(insn_fifo_wr_en),
-        .i_iaddr_fifo_full(iaddr_fifo_full),
-        .o_iaddr_fifo_data(iaddr_fifo_wr_data),
-        .o_iaddr_fifo_wr_en(iaddr_fifo_wr_en)
+        .o_insn_fifo_wr_en(insn_fifo_wr_en)
     );
 
     sync_fifo #(
-        .DATA_WIDTH(`DATA_WIDTH),
+        .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
         .FIFO_DEPTH(8)
     ) insn_fifo (
         .clk(clk),
@@ -211,21 +201,6 @@ module rv32ui_synthesis_test #(
         .o_fifo_full(insn_fifo_full)
     );
 
-    sync_fifo #(
-        .DATA_WIDTH(`ADDR_WIDTH),
-        .FIFO_DEPTH(8)
-    ) iaddr_fifo (
-        .clk(clk),
-        .n_rst(SW[17]),
-        .i_flush(rob_redirect),
-        .i_fifo_rd_en(iaddr_fifo_rd_en),
-        .o_fifo_data(iaddr_fifo_rd_data),
-        .o_fifo_empty(iaddr_fifo_empty),
-        .i_fifo_wr_en(iaddr_fifo_wr_en),
-        .i_fifo_data(iaddr_fifo_wr_data),
-        .o_fifo_full(iaddr_fifo_full)
-    );
-
     dispatch #(
         .DATA_WIDTH(`DATA_WIDTH),
         .ADDR_WIDTH(`ADDR_WIDTH),
@@ -237,9 +212,6 @@ module rv32ui_synthesis_test #(
         .i_insn_fifo_empty(insn_fifo_empty),
         .i_insn_fifo_data(insn_fifo_rd_data),
         .o_insn_fifo_rd_en(insn_fifo_rd_en),
-        .i_iaddr_fifo_empty(iaddr_fifo_empty),
-        .i_iaddr_fifo_data(iaddr_fifo_rd_data),
-        .o_iaddr_fifo_rd_en(iaddr_fifo_rd_en),
         .i_rs_stall(rs_stall),
         .o_rs_en(rs_en),
         .o_rs_opcode(rs_opcode),

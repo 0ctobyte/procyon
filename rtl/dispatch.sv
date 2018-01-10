@@ -17,40 +17,35 @@ module dispatch #(
     input  logic           n_rst,
 
     // Instruction FIFO interface
-    input  logic                           i_insn_fifo_empty,
-    input  logic [DATA_WIDTH-1:0]          i_insn_fifo_data,
-    output logic                           o_insn_fifo_rd_en,
-
-    // Instruction address FIFO interface
-    input  logic                           i_iaddr_fifo_empty,
-    input  logic [ADDR_WIDTH-1:0]          i_iaddr_fifo_data,
-    output logic                           o_iaddr_fifo_rd_en,
+    input  logic                                i_insn_fifo_empty,
+    input  logic [ADDR_WIDTH+DATA_WIDTH-1:0]    i_insn_fifo_data,
+    output logic                                o_insn_fifo_rd_en,
 
     // Reservation Station interface
-    input  logic                           i_rs_stall,
-    output logic                           o_rs_en,
-    output opcode_t                        o_rs_opcode,
-    output logic [ADDR_WIDTH-1:0]          o_rs_iaddr,
-    output logic [DATA_WIDTH-1:0]          o_rs_insn,
-    output logic [TAG_WIDTH-1:0]           o_rs_src_tag  [0:1],
-    output logic [DATA_WIDTH-1:0]          o_rs_src_data [0:1],
-    output logic                           o_rs_src_rdy  [0:1],
-    output logic [TAG_WIDTH-1:0]           o_rs_dst_tag,
+    input  logic                                i_rs_stall,
+    output logic                                o_rs_en,
+    output opcode_t                             o_rs_opcode,
+    output logic [ADDR_WIDTH-1:0]               o_rs_iaddr,
+    output logic [DATA_WIDTH-1:0]               o_rs_insn,
+    output logic [TAG_WIDTH-1:0]                o_rs_src_tag  [0:1],
+    output logic [DATA_WIDTH-1:0]               o_rs_src_data [0:1],
+    output logic                                o_rs_src_rdy  [0:1],
+    output logic [TAG_WIDTH-1:0]                o_rs_dst_tag,
 
     // ROB interface
-    input  logic                           i_rob_stall,
-    input  logic [TAG_WIDTH-1:0]           i_rob_tag,
-    input  logic                           i_rob_src_rdy  [0:1],
-    input  logic [DATA_WIDTH-1:0]          i_rob_src_data [0:1],
-    input  logic [TAG_WIDTH-1:0]           i_rob_src_tag  [0:1],
-    output logic                           o_rob_en,
-    output logic                           o_rob_rdy,
-    output rob_op_t                        o_rob_op,
-    output logic [ADDR_WIDTH-1:0]          o_rob_iaddr,
-    output logic [ADDR_WIDTH-1:0]          o_rob_addr,
-    output logic [DATA_WIDTH-1:0]          o_rob_data,
-    output logic [REG_ADDR_WIDTH-1:0]      o_rob_rdest,
-    output logic [REG_ADDR_WIDTH-1:0]      o_rob_rsrc     [0:1]
+    input  logic                                i_rob_stall,
+    input  logic [TAG_WIDTH-1:0]                i_rob_tag,
+    input  logic                                i_rob_src_rdy  [0:1],
+    input  logic [DATA_WIDTH-1:0]               i_rob_src_data [0:1],
+    input  logic [TAG_WIDTH-1:0]                i_rob_src_tag  [0:1],
+    output logic                                o_rob_en,
+    output logic                                o_rob_rdy,
+    output rob_op_t                             o_rob_op,
+    output logic [ADDR_WIDTH-1:0]               o_rob_iaddr,
+    output logic [ADDR_WIDTH-1:0]               o_rob_addr,
+    output logic [DATA_WIDTH-1:0]               o_rob_data,
+    output logic [REG_ADDR_WIDTH-1:0]           o_rob_rdest,
+    output logic [REG_ADDR_WIDTH-1:0]           o_rob_rsrc     [0:1]
 );
 
     logic [6:0]                opcode;    
@@ -63,8 +58,8 @@ module dispatch #(
     logic                      enable;
 
     // Pull out the signals from the insn FIFO
-    assign insn                = i_insn_fifo_data;
-    assign iaddr               = i_iaddr_fifo_data;
+    assign insn                = i_insn_fifo_data[DATA_WIDTH-1:0];
+    assign iaddr               = i_insn_fifo_data[ADDR_WIDTH+DATA_WIDTH-1:DATA_WIDTH];
 
     // Pull out the relevant signals from the insn
     assign opcode              = insn[6:0];
@@ -75,11 +70,9 @@ module dispatch #(
     // Stall if either the reservation station is full or if the ROB is full
     // Assert enable only if there are no stalls and the insn FIFO is not empty
     assign stall               = i_rob_stall || i_rs_stall;
-    assign enable              = ~stall && ~i_insn_fifo_empty && ~i_iaddr_fifo_empty; 
+    assign enable              = ~stall && ~i_insn_fifo_empty;
 
     assign o_insn_fifo_rd_en   = enable;
-    assign o_iaddr_fifo_rd_en  = enable;
-
     assign o_rs_en             = enable;
     assign o_rob_en            = enable;
 
