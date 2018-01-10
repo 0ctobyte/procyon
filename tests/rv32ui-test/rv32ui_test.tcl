@@ -19,9 +19,10 @@ vsim -GROM_FILE=$1 $PROJECT.$TOP_LEVEL_ENTITY
 
 restart -force -nowave
 
-add wave -r * /register_map_inst/regmap
+log -r * /register_map_inst/regmap
 
 run -all
 
-view wave -undock
-wave zoom full
+exit
+# view wave -undock
+# wave zoom full
