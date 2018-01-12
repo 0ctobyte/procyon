@@ -5,8 +5,10 @@ module cache #(
     parameter   ADDR_WIDTH      = 32,
     parameter   CACHE_SIZE      = 1024,
     parameter   CACHE_LINE_SIZE = 32,
-    localparam  WORD_SIZE       = DATA_WIDTH/8,
     localparam  CACHE_SET_COUNT = CACHE_SIZE/CACHE_LINE_SIZE,
+    localparam  WORD_SIZE       = DATA_WIDTH/8,
+    localparam  BLOCK_SIZE      = CACHE_LINE_SIZE/WORD_SIZE,
+    localparam  BLOCK_WIDTH     = $clog2(BLOCK_SIZE),
     localparam  LINE_WIDTH      = $clog2(CACHE_LINE_SIZE),
     localparam  SET_WIDTH       = $clog2(CACHE_SET_COUNT),
     localparam  TAG_WIDTH       = ADDR_WIDTH-SET_WIDTH-LINE_WIDTH
@@ -22,7 +24,7 @@ module cache #(
     input  logic                     i_cache_re,
     input  logic                     i_cache_we,
     input  logic                     i_cache_valid,
-    input  logic [LINE_WIDTH-1:0]    i_cache_word,
+    input  logic [BLOCK_WIDTH-1:0]   i_cache_word,
     input  logic [SET_WIDTH-1:0]     i_cache_set,
     input  logic [TAG_WIDTH-1:0]     i_cache_tag,
     input  logic [DATA_WIDTH-1:0]    i_cache_data,
@@ -59,17 +61,17 @@ module cache #(
     //
     // The Data RAM is structured as follows
     // ------------------------------------------------------------
-    // |   byte0   |    byte1   |   byte2   |   byte3   |   ...   |
+    // |   word0   |    word1   |   word2   |   word3   |   ...   |
     // ------------------------------------------------------------
-    // |   byte0   |    byte1   |   byte2   |   byte3   |   ...   |
+    // |   word0   |    word1   |   word2   |   word3   |   ...   |
     // ------------------------------------------------------------
-    // |   byte0   |    byte1   |   byte2   |   byte3   |   ...   |
+    // |   word0   |    word1   |   word2   |   word3   |   ...   |
     // ------------------------------------------------------------
     // ...
-    // Each set is composed of an array of bytes
+    // Each set is composed of an array of words
     typedef struct {
-        cache_state_t  tags  [0:CACHE_SET_COUNT-1];
-        logic [7:0]    data  [0:CACHE_SET_COUNT-1][0:CACHE_LINE_SIZE-1];
+        cache_state_t             tags  [0:CACHE_SET_COUNT-1];
+        logic [DATA_WIDTH-1:0]    data  [0:CACHE_SET_COUNT-1][0:BLOCK_SIZE-1];
     } cache_t;
 
     cache_t cache;
@@ -85,12 +87,7 @@ module cache #(
 
     // Read the cacheline if i_cache_re is asserted
     // No functionality to read across two cachelines
-    genvar i;
-    generate
-    for (i = 0; i < WORD_SIZE; i++) begin : ASSIGN_DATA_READ_OUTPUT
-        assign o_cache_data[(i+1)*8-1:i*8] = i_cache_re ? cache.data[i_cache_set][i_cache_word+i] : 8'b0;
-    end
-    endgenerate
+    assign o_cache_data  = i_cache_re ? cache.data[i_cache_set][i_cache_word] : 'b0;
 
     // Output cache state information on cache read access
     assign o_cache_valid = i_cache_re ? valid : 1'b0;
@@ -121,13 +118,11 @@ module cache #(
         end
     end
 
-    // Update data and tags
+    // Update data and tags on a write
     always_ff @(posedge clk) begin
         if (i_cache_we) begin
-            cache.tags[i_cache_set].tags <= i_cache_tag;
-            for (int i = 0; i < WORD_SIZE; i++) begin
-                o_cache.data[i_cache_set][i_cache_word+i] <= i_cache_data[(i+1)*8-1:i*8];
-            end
+            cache.tags[i_cache_set].tags          <= i_cache_tag;
+            cache.data[i_cache_set][i_cache_word] <= i_cache_data;
         end
     end
 
