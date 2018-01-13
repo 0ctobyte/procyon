@@ -1,0 +1,11 @@
+`define SRAM_ADDR_WIDTH 20
+`define SRAM_DATA_WIDTH 16
+
+`define WB_DATA_WIDTH 16
+`define WB_ADDR_WIDTH 32
+`define WB_WORD_SIZE  (`WB_DATA_WIDTH/8)
+
+`define WB_SRAM_BASE_ADDR 0
+`define WB_SRAM_FIFO_DEPTH 8
+
+`define DATA_WIDTH 32

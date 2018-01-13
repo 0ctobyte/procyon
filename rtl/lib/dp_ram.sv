@@ -30,14 +30,14 @@ module dp_ram #(
     assign cs_wr         = (n_rst && i_ram_wr_en && (i_ram_wr_addr >= BASE_ADDR) && (i_ram_wr_addr < (BASE_ADDR + RAM_DEPTH)));
     assign cs_rd         = (n_rst && i_ram_rd_en && (i_ram_rd_addr >= BASE_ADDR) && (i_ram_rd_addr < (BASE_ADDR + RAM_DEPTH)));
 
-    // Asynchronous read; perform read combinationally 
+    // Asynchronous read; perform read combinationally
     assign o_ram_rd_data = (cs_rd) ? ram[i_ram_rd_addr] : 'b0;
 
     // Synchronous write; perform write at positive clock edge
     always_ff @(posedge clk) begin
         if (cs_wr) begin
             ram[i_ram_wr_addr] <= i_ram_wr_data;
-        end 
+        end
     end
 
 endmodule

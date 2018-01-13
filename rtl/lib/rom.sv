@@ -1,4 +1,4 @@
-// ROM with initialized memory 
+// ROM with initialized memory
 
 module rom #(
     parameter DATA_WIDTH = 8,
@@ -22,7 +22,7 @@ module rom #(
 
     assign cs         = (n_rst && (i_rom_rd_addr >= BASE_ADDR) && (i_rom_rd_addr < (BASE_ADDR + ROM_DEPTH)));
 
-    // Asynchronous read; perform read combinationally 
+    // Asynchronous read; perform read combinationally
     assign o_rom_data_out = (cs) ? rom[i_rom_rd_addr] : 'b0;
 
     initial begin

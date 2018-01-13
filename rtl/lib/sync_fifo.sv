@@ -1,5 +1,5 @@
 // Synchronous FIFO
-// Dual port FIFO for single clock domains with one read and one write port 
+// Dual port FIFO for single clock domains with one read and one write port
 // Accepts a flush signal which will clear the FIFO
 
 module sync_fifo #(
@@ -50,7 +50,7 @@ module sync_fifo #(
     assign wr_addr_en    = i_fifo_wr_en & (~full);
     assign rd_addr_en    = i_fifo_rd_en & (~empty);
 
-    // The FIFO memory read/write addresses don't include the MSB since that is only 
+    // The FIFO memory read/write addresses don't include the MSB since that is only
     // used to check for overflow (i.e. full) the FIFO entries not actually used to address
     assign ram_wr_addr   = wr_addr[$clog2(FIFO_DEPTH)-1:0];
     assign ram_rd_addr   = rd_addr[$clog2(FIFO_DEPTH)-1:0];
@@ -77,7 +77,7 @@ module sync_fifo #(
             wr_addr <= wr_addr + 1'b1;
         end
     end
- 
+
     // Update the rd_addr pointer
     always_ff @(posedge clk, negedge n_rst) begin : RD_ADDR_REG
         if (~n_rst) begin
@@ -91,18 +91,18 @@ module sync_fifo #(
 
     // Instantiate RAM for FIFO memory
     dp_ram #(
-        .DATA_WIDTH(DATA_WIDTH), 
-        .RAM_DEPTH(FIFO_DEPTH), 
+        .DATA_WIDTH(DATA_WIDTH),
+        .RAM_DEPTH(FIFO_DEPTH),
         .BASE_ADDR(0)
     ) fifo_mem (
-        .clk(clk), 
-        .n_rst(n_rst), 
+        .clk(clk),
+        .n_rst(n_rst),
         .i_ram_rd_en(ram_rd_en),
         .i_ram_rd_addr(ram_rd_addr),
         .o_ram_rd_data(ram_rd_data),
         .i_ram_wr_en(ram_wr_en),
         .i_ram_wr_addr(ram_wr_addr),
         .i_ram_wr_data(ram_wr_data)
-    ); 
-     
+    );
+
 endmodule
