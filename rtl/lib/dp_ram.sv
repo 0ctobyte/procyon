@@ -3,8 +3,7 @@
 
 module dp_ram #(
     parameter DATA_WIDTH = 8,
-    parameter RAM_DEPTH  = 8,
-    parameter BASE_ADDR  = 0
+    parameter RAM_DEPTH  = 8
 ) (
     input  logic                         clk,
     input  logic                         n_rst,
@@ -24,11 +23,11 @@ module dp_ram #(
     logic [DATA_WIDTH-1:0] ram [BASE_ADDR:BASE_ADDR + RAM_DEPTH - 1];
 
     // Used to check if addresses are within range
-    logic cs_wr;
-    logic cs_rd;
+    logic                  cs_wr;
+    logic                  cs_rd;
 
-    assign cs_wr         = (n_rst && i_ram_wr_en && (i_ram_wr_addr >= BASE_ADDR) && (i_ram_wr_addr < (BASE_ADDR + RAM_DEPTH)));
-    assign cs_rd         = (n_rst && i_ram_rd_en && (i_ram_rd_addr >= BASE_ADDR) && (i_ram_rd_addr < (BASE_ADDR + RAM_DEPTH)));
+    assign cs_wr         = n_rst && i_ram_wr_en;
+    assign cs_rd         = n_rst && i_ram_rd_en;
 
     // Asynchronous read; perform read combinationally
     assign o_ram_rd_data = (cs_rd) ? ram[i_ram_rd_addr] : 'b0;
