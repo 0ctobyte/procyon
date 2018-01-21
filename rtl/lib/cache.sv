@@ -104,7 +104,7 @@ module cache #(
     always_comb begin
         for (int i = 0; i < `CACHE_WORD_SIZE; i++) begin
             for (int j = 0; j < LINE_SIZE; j++) begin
-                unique if (cache_offset_select[i][j]) begin
+                if (cache_offset_select[i][j]) begin
                     o_cache_rdata[i*8 +: 8] = data_ram_rd_data[j*8 +: 8];
                 end
             end
@@ -121,7 +121,7 @@ module cache #(
                 data_ram_wr_data[i*8 +: 8] = i_cache_fdata[i*8 +: 8];
             end else if (i_cache_we) begin
                 for (int j = 0; j < `CACHE_WORD_SIZE; j++) begin
-                    unique if (cache_offset_select[j][i]) begin
+                    if (cache_offset_select[j][i]) begin
                         data_ram_wr_data[i*8 +: 8] = i_cache_wdata[j*8 +: 8];
                     end
                 end
