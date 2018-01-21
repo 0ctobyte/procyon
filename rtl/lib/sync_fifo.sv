@@ -92,8 +92,7 @@ module sync_fifo #(
     // Instantiate RAM for FIFO memory
     dp_ram #(
         .DATA_WIDTH(DATA_WIDTH),
-        .RAM_DEPTH(FIFO_DEPTH),
-        .BASE_ADDR(0)
+        .RAM_DEPTH(FIFO_DEPTH)
     ) fifo_mem (
         .clk(clk),
         .n_rst(n_rst),
