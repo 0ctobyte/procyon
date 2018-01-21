@@ -1,6 +1,6 @@
 `timescale 1ns/1ns
 
-`include "test_common.svh"
+`include "../../common/test_common.svh"
 
 module wb_sram_tb;
 

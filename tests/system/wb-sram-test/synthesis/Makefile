@@ -12,7 +12,7 @@ DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := de2-115.pin.tcl
 
 # Directory where source files are located
-SRCS := $(wildcard ../../../../rtl/lib/*.sv ../../../../rtl/system/*.sv ../wb_master_driver.sv wb_sram_test.sv)
+SRCS := $(wildcard ../../../../rtl/lib/*.sv ../../../../rtl/system/*.sv ../../../common/*.sv wb_sram_test.sv)
 
 all: $(PROJECT).sof
 

@@ -1,4 +1,4 @@
-`include "../test_common.svh"
+`include "../../../common/test_common.svh"
 
 module wb_sram_test (
     input  logic                         CLOCK_50,
