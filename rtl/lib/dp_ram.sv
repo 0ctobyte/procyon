@@ -20,7 +20,7 @@ module dp_ram #(
 );
 
     // Memory array
-    logic [DATA_WIDTH-1:0] ram [BASE_ADDR:BASE_ADDR + RAM_DEPTH - 1];
+    logic [DATA_WIDTH-1:0] ram [0:RAM_DEPTH-1];
 
     // Used to check if addresses are within range
     logic                  cs_wr;

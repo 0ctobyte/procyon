@@ -116,11 +116,11 @@ module cache #(
     // written using cache_offset_select. Otherwise just write back the
     // same bytes that were read out from the cache line.
     always_comb begin
-        for (int i = 0: i < LINE_SIZE; i++) begin
+        for (int i = 0; i < LINE_SIZE; i++) begin
             if (i_cache_fe) begin
                 data_ram_wr_data[i*8 +: 8] = i_cache_fdata[i*8 +: 8];
             end else if (i_cache_we) begin
-                for (int j = 0; j < `CACHE_WORD_SIZE; j++)
+                for (int j = 0; j < `CACHE_WORD_SIZE; j++) begin
                     unique if (cache_offset_select[j][i]) begin
                         data_ram_wr_data[i*8 +: 8] = i_cache_wdata[j*8 +: 8];
                     end
