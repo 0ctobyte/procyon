@@ -1,17 +1,17 @@
 // Basic direct-mapped cache
 
 `define CACHE_WORD_SIZE       (DATA_WIDTH/8)
-`define CACHE_INDEX_COUNT     (CACHE_SIZE/LINE_SIZE)
-`define CACHE_OFFSET_WIDTH    ($clog2(LINE_SIZE))
+`define CACHE_INDEX_COUNT     (CACHE_SIZE/CACHE_LINE_SIZE)
+`define CACHE_OFFSET_WIDTH    ($clog2(CACHE_LINE_SIZE))
 `define CACHE_INDEX_WIDTH     ($clog2(`CACHE_INDEX_COUNT))
-`define CACHE_TAG_WIDTH       (ADDR_WIDTH-`CACHE_INDEX_WIDTH-`CACHE_LINE_WIDTH)
-`define CACHE_LINE_WIDTH      (LINE_SIZE*8)
+`define CACHE_TAG_WIDTH       (ADDR_WIDTH-`CACHE_INDEX_WIDTH-`CACHE_OFFSET_WIDTH)
+`define CACHE_LINE_WIDTH      (CACHE_LINE_SIZE*8)
 
 module cache #(
     parameter   DATA_WIDTH      = 32,
     parameter   ADDR_WIDTH      = 32,
     parameter   CACHE_SIZE      = 1024,
-    parameter   LINE_SIZE       = 32
+    parameter   CACHE_LINE_SIZE = 32
 ) (
     input  logic                            clk,
     input  logic                            n_rst,
@@ -58,7 +58,7 @@ module cache #(
     logic                           cache_line_dirty;
     logic                           cache_line_hit;
     logic                           cache_we;
-    logic [LINE_SIZE-1:0]           cache_offset_select [0:`CACHE_WORD_SIZE-1];
+    logic [CACHE_LINE_SIZE-1:0]     cache_offset_select [0:`CACHE_WORD_SIZE-1];
 
     logic                           data_ram_re;
     logic                           data_ram_we;
@@ -103,7 +103,7 @@ module cache #(
     // the cacheline using cache_offset_select as the select signal.
     always_comb begin
         for (int i = 0; i < `CACHE_WORD_SIZE; i++) begin
-            for (int j = 0; j < LINE_SIZE; j++) begin
+            for (int j = 0; j < CACHE_LINE_SIZE; j++) begin
                 if (cache_offset_select[i][j]) begin
                     o_cache_rdata[i*8 +: 8] = data_ram_rd_data[j*8 +: 8];
                 end
@@ -116,7 +116,7 @@ module cache #(
     // written using cache_offset_select. Otherwise just write back the
     // same bytes that were read out from the cache line.
     always_comb begin
-        for (int i = 0; i < LINE_SIZE; i++) begin
+        for (int i = 0; i < CACHE_LINE_SIZE; i++) begin
             if (i_cache_fe) begin
                 data_ram_wr_data[i*8 +: 8] = i_cache_fdata[i*8 +: 8];
             end else if (i_cache_we) begin
