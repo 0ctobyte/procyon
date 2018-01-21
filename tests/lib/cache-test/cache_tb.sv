@@ -58,7 +58,7 @@ module cache_tb;
 
     assign cache_driver_we     = count < TEST_RAM_DEPTH;
     assign cache_driver_re     = ~cache_driver_we;
-    assign cache_driver_addr   = {{(`WB_ADDR_WIDTH-TEST_RAM_WIDTH){1'b0}}, addr};
+    assign cache_driver_addr   = {{(`WB_ADDR_WIDTH-TEST_RAM_WIDTH-1){1'b0}}, addr, 1'b0};
     assign cache_driver_data_i = data;
 
     always_ff @(posedge clk) begin
@@ -66,9 +66,9 @@ module cache_tb;
             $display("----- PASS -----\n");
             $stop;
         end else if ((count < TEST_RAM_DEPTH) && cache_driver_hit) begin
-            $display("STORE: %h to %h\n", data, addr);
+            $display("STORE: %h to %h\n", data, cache_driver_addr);
         end else if ((count >= TEST_RAM_DEPTH) && cache_driver_hit) begin
-           $display("LOAD: %h = %h from %h\n", cache_driver_data_o, data, addr);
+           $display("LOAD: %h = %h from %h\n", cache_driver_data_o, data, cache_driver_addr);
            if (cache_driver_data_o == data) begin
                $display("----- OKAY -----\n");
            end else begin
@@ -90,7 +90,7 @@ module cache_tb;
         if (~n_rst) begin
             addr <= 'b0;
         end else if (cache_driver_hit) begin
-            addr <= addr + (`DATA_WIDTH/8);
+            addr <= addr + 1'b1;
         end
     end
 

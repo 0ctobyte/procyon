@@ -89,11 +89,16 @@ module wb_master_driver #(
 
     always_ff @(posedge i_wb_clk) begin
         if (state_q == IDLE) begin
+            drv_we_q <= i_drv_we;
+        end
+    end
+
+    always_ff @(posedge i_wb_clk) begin
+        if (state_q == IDLE) begin
             drv_addr_q   <= i_drv_addr;
             drv_data_i_q <= i_drv_data;
-            drv_we_q     <= i_drv_we;
         end else if (state == REQS) begin
-            drv_addr_q   <= i_drv_addr + WB_WORD_SIZE;
+            drv_addr_q   <= drv_addr_q + WB_WORD_SIZE;
             drv_data_i_q <= {{(WB_DATA_WIDTH){1'b0}}, drv_data_i_q[DATA_WIDTH-1:WB_DATA_WIDTH]};
         end
     end
