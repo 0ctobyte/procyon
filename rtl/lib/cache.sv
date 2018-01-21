@@ -55,7 +55,7 @@ module cache #(
 
     cache_state_t                   cache_state [0:`CACHE_INDEX_COUNT-1];
     logic                           cache_line_valid;
-    logic                           cache_line_dirt;
+    logic                           cache_line_dirty;
     logic                           cache_line_hit;
     logic                           cache_we;
     logic [LINE_SIZE-1:0]           cache_offset_select [0:`CACHE_WORD_SIZE-1];
