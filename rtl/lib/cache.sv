@@ -33,7 +33,7 @@ module cache #(
     input  logic [`CACHE_INDEX_WIDTH-1:0]   i_cache_index,
     input  logic [`CACHE_TAG_WIDTH-1:0]     i_cache_tag,
     input  logic [`CACHE_LINE_WIDTH-1:0]    i_cache_fdata,
-    input  logic [DATA_WIDTH-1:0]           i_cache_wdata
+    input  logic [DATA_WIDTH-1:0]           i_cache_wdata,
 
     // o_cache_valid, o_cache_dirty and o_cache_hit is output on every cache
     // access so that the consumer knows whether to write back the data.
