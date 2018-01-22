@@ -45,6 +45,7 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "set_global_assignment -name DEVICE $(DEVICE)" >> $@
 	echo "set_global_assignment -name TOP_LEVEL_ENTITY $(TOP_LEVEL_ENTITY)" >> $@
 	echo "set_global_assignment -name ADD_PASS_THROUGH_LOGIC_TO_INFERRED_RAMS OFF" >> $@
+	# echo "set_global_assignment -name ALLOW_ANY_RAM_SIZE_FOR_RECOGNITION ON" >> $@
 	echo "" >> $@
 	echo "# Set pin assignments" >> $@
 	echo "source \"$(PIN_ASSIGNMENTS_FILE)\"" >> $@
