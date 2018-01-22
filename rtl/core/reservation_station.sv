@@ -107,7 +107,7 @@ module reservation_station #(
     assign rs.full            = ~|(rs.empty);
     assign o_rs_stall         = rs.full;
 
-    assign dispatching        = ^(rs.dispatch_select) && i_rs_en;
+    assign dispatching        = ~rs.full && i_rs_en;
     assign issuing            = ^(rs.issue_select) && ~i_fu_stall;
 
     // Assign functional unit output
@@ -162,8 +162,8 @@ module reservation_station #(
             case ({dispatching, issuing})
                 2'b00: rs.slots[i].age <= rs.slots[i].age;
                 2'b01: rs.slots[i].age <= (rs.slots[i].age > rs.slots[issue_slot].age) ? rs.slots[i].age - 1'b1 : rs.slots[i].age;
-                2'b10: rs.slots[i].age <= (rs.dispatch_select[i]) ? 'b0 : rs.slots[i].age + 1'b1;
-                2'b11: rs.slots[i].age <= (rs.dispatch_select[i]) ? 'b0 : ((rs.slots[i].age < rs.slots[issue_slot].age) ? rs.slots[i].age + 1'b1 : rs.slots[i].age);
+                2'b10: rs.slots[i].age <= (rs.dispatch_select[i]) ? {{($clog2(RS_DEPTH)){1'b0}}} : rs.slots[i].age + 1'b1;
+                2'b11: rs.slots[i].age <= (rs.dispatch_select[i]) ? {{($clog2(RS_DEPTH)){1'b0}}} : ((rs.slots[i].age < rs.slots[issue_slot].age) ? rs.slots[i].age + 1'b1 : rs.slots[i].age);
             endcase
         end
     end

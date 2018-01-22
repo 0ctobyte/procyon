@@ -17,6 +17,9 @@ module rv32ui_synthesis_test #(
 
     input  logic [0:0]   KEY,
 
+    output logic [17:0]  LEDR,
+    output logic [7:0]   LEDG,
+
     output logic [6:0]   HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, HEX6, HEX7
 );
 
@@ -51,6 +54,8 @@ module rv32ui_synthesis_test #(
     procyon_data_t                 rob_data;
     procyon_reg_t                  rob_rdest;
     procyon_reg_t                  rob_rsrc     [0:1];
+    logic                          rob_redirect;
+    procyon_addr_t                 rob_redirect_addr;
 
     procyon_data_t                 regmap_retire_data;
     procyon_reg_t                  regmap_retire_rdest;
@@ -92,13 +97,13 @@ module rv32ui_synthesis_test #(
         RUN  = 1'b0,
         HALT = 1'b1
     } state_t;
-    state_t state;
 
-    logic clk;
-    logic key, key_pulse;
+    state_t                        state;
 
-    logic                          rob_redirect;
-    procyon_addr_t                 rob_redirect_addr;
+    logic                          clk;
+    logic                          n_rst;
+    logic                          key;
+    logic                          key_pulse;
 
     procyon_addr_t                 fetch_pc;
     logic                          fetch_en;
@@ -106,37 +111,44 @@ module rv32ui_synthesis_test #(
     logic                          rom_data_valid;
     logic [$clog2(`ROM_DEPTH)-1:0] rom_rd_addr;
 
-    logic                          rs_en_flip;
     logic                          rs_opcode_is_lsu;
     logic [`CDB_DEPTH-1:0]         rs_en_m;
     logic [`CDB_DEPTH-1:0]         rs_stall_m;
 
-    logic [6:0] o_hex [0:7];
+    logic [6:0]                    o_hex [0:7];
 
-    assign key = ~KEY[0];
+    assign n_rst            = SW[17];
 
-    assign rs_en_m    = rs_en_flip ? {1'b0, rs_en} : {rs_en, 1'b0};
-    assign rs_stall   = |rs_stall_m;
+    assign rs_opcode_is_lsu = (rs_opcode == OPCODE_STORE) || (rs_opcode == OPCODE_LOAD);
+    assign rs_en_m[0]       = ~rs_opcode_is_lsu ? rs_en : 1'b0;
+    assign rs_en_m[1]       = rs_opcode_is_lsu ? rs_en : 1'b0;
+    assign rs_stall         = rs_opcode_is_lsu ? rs_stall_m[1] : rs_stall_m[0];
 
-    assign rom_data_valid = fetch_en;
+    assign rom_data_valid   = fetch_en;
 
-    assign HEX0 = o_hex[0];
-    assign HEX1 = o_hex[1];
-    assign HEX2 = o_hex[2];
-    assign HEX3 = o_hex[3];
-    assign HEX4 = o_hex[4];
-    assign HEX5 = o_hex[5];
-    assign HEX6 = o_hex[6];
-    assign HEX7 = o_hex[7];
+    assign LEDR[17]         = SW[17];
+    assign LEDR[16]         = rob_redirect;
+    assign LEDR[15:0]       = rob_redirect_addr[15:0];
+    assign LEDG             = regmap_retire_rdest;
+    assign key              = ~KEY[0];
+
+    assign HEX0             = o_hex[0];
+    assign HEX1             = o_hex[1];
+    assign HEX2             = o_hex[2];
+    assign HEX3             = o_hex[3];
+    assign HEX4             = o_hex[4];
+    assign HEX5             = o_hex[5];
+    assign HEX6             = o_hex[6];
+    assign HEX7             = o_hex[7];
 
     always_comb begin
         case (state)
             RUN:  clk = CLOCK_50;
-            HALT: clk = 'b0;
+            HALT: clk = 1'b0;
         endcase
     end
 
-    always_ff @(posedge CLOCK_50, negedge SW[17]) begin
+    always_ff @(negedge CLOCK_50, negedge SW[17]) begin
         if (~SW[17]) begin
             state <= RUN;
         end else begin
@@ -148,24 +160,16 @@ module rv32ui_synthesis_test #(
     end
 
     always_comb begin
-        logic [`ADDR_WIDTH-1:0] t;
+        procyon_addr_t t;
         t = fetch_pc >> 2;
         rom_rd_addr = t[$clog2(`ROM_DEPTH)-1:0];
-    end
-
-    always @(posedge clk, negedge SW[17]) begin
-        if (~SW[17]) begin
-            rs_en_flip <= 1'b0;
-        end else begin
-            rs_en_flip <= rs_en_flip ^ 1'b1;
-        end
     end
 
     genvar i;
     generate
     for (i = 0; i < 8; i++) begin : SEG7_DECODER_INSTANCES
         seg7_decoder seg7_decoder_inst (
-            .n_rst(SW[17]),
+            .n_rst(n_rst),
             .i_hex(regmap_retire_data[i*4+3:i*4]),
             .o_hex(o_hex[i])
         );
@@ -174,7 +178,7 @@ module rv32ui_synthesis_test #(
 
     edge_detector edge_detector_inst (
         .clk(CLOCK_50),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_async(key),
         .o_pulse(key_pulse)
     );
@@ -187,14 +191,14 @@ module rv32ui_synthesis_test #(
         .ROM_FILE(ROM_FILE)
     ) boot_rom (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_rom_rd_addr(rom_rd_addr),
         .o_rom_data_out(rom_data_out)
     );
 
     fetch fetch_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_redirect(rob_redirect),
         .i_redirect_addr(rob_redirect_addr),
         .i_insn(rom_data_out),
@@ -211,7 +215,7 @@ module rv32ui_synthesis_test #(
         .FIFO_DEPTH(8)
     ) insn_fifo (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_fifo_rd_en(insn_fifo_rd_en),
         .o_fifo_data(insn_fifo_rd_data),
@@ -223,7 +227,8 @@ module rv32ui_synthesis_test #(
 
     dispatch dispatch_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
+        .i_flush(rob_redirect),
         .i_insn_fifo_empty(insn_fifo_empty),
         .i_insn_fifo_data(insn_fifo_rd_data),
         .o_insn_fifo_rd_en(insn_fifo_rd_en),
@@ -253,7 +258,7 @@ module rv32ui_synthesis_test #(
 
     reorder_buffer rob (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .o_redirect(rob_redirect),
         .o_redirect_addr(rob_redirect_addr),
         .i_cdb_en(cdb_en),
@@ -294,7 +299,7 @@ module rv32ui_synthesis_test #(
 
     register_map register_map_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_regmap_retire_data(regmap_retire_data),
         .i_regmap_retire_rdest(regmap_retire_rdest),
@@ -313,7 +318,7 @@ module rv32ui_synthesis_test #(
         .RS_DEPTH(`RS_DEPTH)
     ) rs_ieu_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_cdb_en(cdb_en),
         .i_cdb_redirect(cdb_redirect),
@@ -341,7 +346,7 @@ module rv32ui_synthesis_test #(
 
     ieu ieu_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .o_cdb_en(cdb_en[0]),
         .o_cdb_redirect(cdb_redirect[0]),
@@ -362,7 +367,7 @@ module rv32ui_synthesis_test #(
         .RS_DEPTH(`RS_DEPTH)
     ) rs_lsu_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_cdb_en(cdb_en),
         .i_cdb_redirect(cdb_redirect),
@@ -393,7 +398,7 @@ module rv32ui_synthesis_test #(
         .SQ_DEPTH(`SQ_DEPTH)
     ) lsu_inst (
         .clk(clk),
-        .n_rst(SW[17]),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .o_cdb_en(cdb_en[1]),
         .o_cdb_redirect(cdb_redirect[1]),
@@ -414,5 +419,4 @@ module rv32ui_synthesis_test #(
         .o_rob_retire_stall(lsu_retire_stall),
         .o_rob_retire_mis_speculated(lsu_retire_mis_speculated)
     );
-
 endmodule

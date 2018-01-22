@@ -99,8 +99,8 @@ module rv32ui_test_tb #(
     logic [`CDB_DEPTH-1:0]         rs_stall_m;
 
     assign rs_opcode_is_lsu = (rs_opcode == OPCODE_STORE) || (rs_opcode == OPCODE_LOAD);
-    assign rs_en_m[0]       = rs_en && ~rs_opcode_is_lsu;
-    assign rs_en_m[1]       = rs_en && rs_opcode_is_lsu;
+    assign rs_en_m[0]       = ~rs_opcode_is_lsu ? rs_en : 1'b0;
+    assign rs_en_m[1]       = rs_opcode_is_lsu ? rs_en : 1'b0;
     assign rs_stall         = rs_opcode_is_lsu ? rs_stall_m[1] : rs_stall_m[0];
 
     assign rom_data_valid   = fetch_en;
@@ -198,6 +198,7 @@ module rv32ui_test_tb #(
     dispatch dispatch_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .i_flush(rob_redirect),
         .i_insn_fifo_empty(insn_fifo_empty),
         .i_insn_fifo_data(insn_fifo_rd_data),
         .o_insn_fifo_rd_en(insn_fifo_rd_en),

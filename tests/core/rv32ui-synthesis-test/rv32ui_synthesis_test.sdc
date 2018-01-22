@@ -7,6 +7,11 @@ set_input_delay -clock ext_clk -min 0 [get_ports {SW[*]}]
 set_input_delay -clock ext_clk -max 0 [get_ports {KEY[*]}]
 set_input_delay -clock ext_clk -min 0 [get_ports {KEY[*]}]
 
+set_output_delay -clock ext_clk -max 0.5 [get_ports {LEDR[*]}]
+set_output_delay -clock ext_clk -min -0.5 [get_ports {LEDR[*]}]
+set_output_delay -clock ext_clk -max 0.5 [get_ports {LEDG[*]}]
+set_output_delay -clock ext_clk -min -0.5 [get_ports {LEDG[*]}]
+
 set_output_delay -clock ext_clk -max 0 [get_ports {HEX0[*]}]
 set_output_delay -clock ext_clk -min 0 [get_ports {HEX0[*]}]
 set_output_delay -clock ext_clk -max 0 [get_ports {HEX1[*]}]

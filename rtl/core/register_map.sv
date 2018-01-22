@@ -89,31 +89,31 @@ module register_map (
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 1; i < `REGMAP_DEPTH; i++) begin
             if (~n_rst) begin
-                regmap[i].rdy <= 'b1;
+                regmap[i].rdy <= 1'b1;
             end else if (i_flush) begin
                 // If an exception/branch occurs then we need to throw away all the tags as those tags belong to instructions
                 // that are now flushed and so won't produce the data. Luckily the register map already holds the latest
                 // correct data for each register before the exception occurred and so all we need to do is set the ready bits
-                regmap[i].rdy <= 'b1;
+                regmap[i].rdy <= 1'b1;
             end else if (tag_wr_en && tag_wr_select[i]) begin
                 // Tag updates take priority over retired instructions
                 // The value from the retired instruction doesn't matter if the same register will be updated
                 // by a next instruction dispatched
-                regmap[i].rdy <= 'b0;
+                regmap[i].rdy <= 1'b0;
             end else if (dest_wr_en && dest_wr_select[i]) begin
                 // When an instruction is retired, the destination register value is valid and the ready bit can be set
                 // But only if the latest tag for the register matches the tag of the retiring instruction
                 // Otherwise the data is not ready because a newer instruction will provide it
-                regmap[i].rdy <= (i_regmap_retire_tag == regmap[i].tag) ? 'b1 : 'b0;
+                regmap[i].rdy <= (i_regmap_retire_tag == regmap[i].tag) ? 1'b1 : 1'b0;
             end
         end
     end
 
     // r0 should have correct values on reset
     always_ff @(posedge clk) begin
-        regmap[0].data <= 'b0;
-        regmap[0].tag  <= 'b0;
-        regmap[0].rdy  <= 'b1;
+        regmap[0].data <= {{(`DATA_WIDTH){1'b0}}};
+        regmap[0].tag  <= {{(`TAG_WIDTH){1'b0}}};
+        regmap[0].rdy  <= 1'b1;
     end
 
 endmodule

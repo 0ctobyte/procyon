@@ -41,7 +41,7 @@ module ieu_ex (
     // Assign outputs
     assign o_data     = i_jmp ? i_iaddr + 4 : result;
     assign o_addr     = i_jmp ? result : (i_br ? i_iaddr + i_imm_b : 'b0);
-    assign o_redirect = i_jmp ? 'b1 : (i_br ? result[0] : 'b0);
+    assign o_redirect = i_jmp ? 1'b1 : (i_br ? result[0] : 1'b0);
     assign o_tag      = i_tag;
     assign o_valid    = i_valid;
 

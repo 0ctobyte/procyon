@@ -75,9 +75,6 @@ module lsu #(
     procyon_word_t        sq_retire_byte_en;
     logic                 lq_full;
     logic                 sq_full;
-    procyon_dc_line_t     dc_word;
-    procyon_dc_set_t      dc_set;
-    procyon_dc_tag_t      dc_tag;
 
     logic [$clog2(`DC_CACHE_SIZE)-1:0] ram_rd_addr;
     logic [$clog2(`DC_CACHE_SIZE)-1:0] ram_wr_addr;
@@ -85,10 +82,6 @@ module lsu #(
 
     assign ram_rd_addr    = dc_addr[$clog2(`DC_CACHE_SIZE)-1:0];
     assign ram_wr_addr    = sq_retire_addr[$clog2(`DC_CACHE_SIZE)-1:0];
-
-    assign dc_word        = dc_addr[`DC_LINE_WIDTH-1:0];
-    assign dc_set         = dc_addr[`DC_SET_WIDTH+`DC_LINE_WIDTH-1:`DC_LINE_WIDTH];
-    assign dc_tag         = dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
 
     assign o_fu_stall     = lq_full || sq_full;
 
