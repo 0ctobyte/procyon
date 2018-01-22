@@ -56,7 +56,7 @@ module wb_master_driver #(
 
     // Assign static outputs
     assign o_wb_addr   = drv_addr_q;
-    assign o_wb_data   = drv_data_i_q;
+    assign o_wb_data   = drv_data_i_q[`WB_DATA_WIDTH-1:0];
     assign o_wb_we     = drv_we_q;
 
     always_comb begin

@@ -3,8 +3,8 @@ QUARTUS_SH := quartus_sh
 QUARTUS_PGM := quartus_pgm
 
 # Project configuration
-PROJECT := wb_sram_test
-TOP_LEVEL_ENTITY := wb_sram_test
+PROJECT := cache_test
+TOP_LEVEL_ENTITY := cache_test
 
 # Device information
 FAMILY := "Cyclone IV E"
@@ -12,7 +12,7 @@ DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := de2-115.pin.tcl
 
 # Directory where source files are located
-SRCS := $(wildcard ../../../../rtl/lib/*.sv ../../../../rtl/system/*.sv ../../../common/*.sv wb_sram_test.sv)
+SRCS := $(wildcard ../../../../rtl/lib/*.sv ../../../../rtl/system/*.sv ../../../common/*.sv ../cache_driver.sv cache_test.sv)
 
 all: $(PROJECT).sof
 

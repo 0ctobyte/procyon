@@ -5,13 +5,7 @@ module cache_driver #(
     parameter  DATA_WIDTH         = `DATA_WIDTH,
     parameter  ADDR_WIDTH         = `WB_ADDR_WIDTH,
     parameter  CACHE_SIZE         = `CACHE_SIZE,
-    parameter  CACHE_LINE_SIZE    = `CACHE_LINE_SIZE,
-    localparam CACHE_WORD_SIZE    = DATA_WIDTH/8,
-    localparam CACHE_INDEX_COUNT  = CACHE_SIZE/CACHE_LINE_SIZE,
-    localparam CACHE_OFFSET_WIDTH = $clog2(CACHE_LINE_SIZE),
-    localparam CACHE_INDEX_WIDTH  = $clog2(CACHE_INDEX_COUNT),
-    localparam CACHE_TAG_WIDTH    = ADDR_WIDTH-CACHE_INDEX_WIDTH-CACHE_OFFSET_WIDTH,
-    localparam CACHE_LINE_WIDTH   = CACHE_LINE_SIZE*8
+    parameter  CACHE_LINE_SIZE    = `CACHE_LINE_SIZE
 ) (
     input  logic                           clk,
     input  logic                           n_rst,
@@ -26,12 +20,19 @@ module cache_driver #(
 
     input  logic                           i_cache_driver_biu_done,
     input  logic                           i_cache_driver_biu_busy,
-    input  logic [CACHE_LINE_WIDTH-1:0]    i_cache_driver_biu_data,
+    input  logic [CACHE_LINE_SIZE*8-1:0]   i_cache_driver_biu_data,
     output logic                           o_cache_driver_biu_en,
     output logic                           o_cache_driver_biu_we,
     output logic [ADDR_WIDTH-1:0]          o_cache_driver_biu_addr,
-    output logic [CACHE_LINE_WIDTH-1:0]    o_cache_driver_biu_data
+    output logic [CACHE_LINE_SIZE*8-1:0]   o_cache_driver_biu_data
 );
+
+    localparam CACHE_WORD_SIZE    = DATA_WIDTH/8;
+    localparam CACHE_INDEX_COUNT  = CACHE_SIZE/CACHE_LINE_SIZE;
+    localparam CACHE_OFFSET_WIDTH = $clog2(CACHE_LINE_SIZE);
+    localparam CACHE_INDEX_WIDTH  = $clog2(CACHE_INDEX_COUNT);
+    localparam CACHE_TAG_WIDTH    = ADDR_WIDTH-CACHE_INDEX_WIDTH-CACHE_OFFSET_WIDTH;
+    localparam CACHE_LINE_WIDTH   = CACHE_LINE_SIZE*8;
 
     typedef enum logic [1:0] {
         IDLE    = 2'b00,
@@ -55,6 +56,7 @@ module cache_driver #(
     logic                          cache_we;
     logic                          cache_fe;
 
+    logic                          victimized;
     logic [CACHE_LINE_WIDTH-1:0]   vdata_q;
     logic [ADDR_WIDTH-1:0]         vaddr_q;
 

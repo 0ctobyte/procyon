@@ -92,7 +92,7 @@ module wb_sram #(
     assign o_sram_oe_n           = 1'b0;
     assign io_sram_dq            = (state_q == ACK0 && sram_we) ? (unaligned ? {sram_data[7:0], 8'b0} : sram_data) :
                                    (state_q == ACK1 && sram_we_q) ? {8'b0, sram_data_q} :
-                                   'bz;
+                                   {{(`SRAM_DATA_WIDTH){1'bz}}};
 
     // Latch sram data, addr, we and select signals for unaligned case
     always_ff @(posedge i_wb_clk) begin
@@ -136,7 +136,7 @@ module wb_sram #(
 
             end
             ACK0: begin
-                o_wb_data   = sram_we ? 'b0 : io_sram_dq;
+                o_wb_data   = sram_we ? {{(`SRAM_DATA_WIDTH){1'b0}}} : io_sram_dq;
                 o_wb_ack    = ~unaligned;
                 o_sram_addr = sram_addr[`SRAM_ADDR_WIDTH:1];
                 o_sram_we_n = ~sram_we;
@@ -144,7 +144,7 @@ module wb_sram #(
                 o_sram_lb_n = unaligned ? 1'b1 : ~sram_sel[0];
             end
             ACK1: begin
-                o_wb_data   = sram_we_q ? 'b0 : {io_sram_dq[7:0], sram_data_q};
+                o_wb_data   = sram_we_q ? {{(`SRAM_DATA_WIDTH){1'b0}}} : {io_sram_dq[7:0], sram_data_q};
                 o_wb_ack    = 1'b1;
                 o_sram_addr = sram_addr_q[`SRAM_ADDR_WIDTH:1];
                 o_sram_we_n = ~sram_we_q;

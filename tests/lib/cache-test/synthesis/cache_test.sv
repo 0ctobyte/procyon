@@ -1,6 +1,8 @@
 `include "../../../common/test_common.svh"
 
-module wb_sram_test (
+`define DATA_WIDTH      (16)
+
+module cache_test (
     input  logic                         CLOCK_50,
 
     input  logic [17:0]                  SW,
@@ -26,54 +28,89 @@ module wb_sram_test (
     output logic [6:0]                   HEX7
 );
 
-    logic                        n_rst;
+    localparam TEST_RAM_DEPTH  = 64;
+    localparam TEST_RAM_WIDTH  = $clog2(TEST_RAM_DEPTH);
 
-    logic                        wb_cyc;
-    logic                        wb_stb;
-    logic                        wb_we;
-    logic [`WB_WORD_SIZE-1:0]    wb_sel;
-    logic [`WB_ADDR_WIDTH-1:0]   wb_addr;
-    logic [`WB_DATA_WIDTH-1:0]   wb_data_i;
-    logic [`WB_DATA_WIDTH-1:0]   wb_data_o;
-    logic                        wb_ack;
-    logic                        wb_stall;
+    logic                              n_rst;
 
-    logic                        drv_en;
-    logic                        drv_we;
-    logic [`WB_ADDR_WIDTH-1:0]   drv_addr;
-    logic [`DATA_WIDTH-1:0]      drv_data_o;
-    logic [`DATA_WIDTH-1:0]      drv_data_i;
-    logic                        drv_done;
-    logic                        drv_busy;
+    logic                              wb_cyc;
+    logic                              wb_stb;
+    logic                              wb_we;
+    logic [`WB_WORD_SIZE-1:0]          wb_sel;
+    logic [`WB_ADDR_WIDTH-1:0]         wb_addr;
+    logic [`WB_DATA_WIDTH-1:0]         wb_data_i;
+    logic [`WB_DATA_WIDTH-1:0]         wb_data_o;
+    logic                              wb_ack;
+    logic                              wb_stall;
 
-    logic [3:0]                  key_pulse;
-    logic [`DATA_WIDTH-1:0]      out_data;
+    logic                              drv_en;
+    logic                              drv_we;
+    logic [`WB_ADDR_WIDTH-1:0]         drv_addr;
+    logic [`CACHE_LINE_WIDTH-1:0]      drv_data_o;
+    logic [`CACHE_LINE_WIDTH-1:0]      drv_data_i;
+    logic                              drv_done;
+    logic                              drv_busy;
 
-    assign n_rst       = ~SW[17];
-    assign LEDR[17]    = SW[17];
-    assign LEDR[16]    = drv_we;
-    assign LEDR[15:0]  = SW[15:0];
-    assign LEDG        = drv_addr[7:0];
+    logic                              cache_driver_re;
+    logic                              cache_driver_we;
+    logic [`WB_ADDR_WIDTH-1:0]         cache_driver_addr;
+    logic [`DATA_WIDTH-1:0]            cache_driver_data_i;
+    logic [`DATA_WIDTH-1:0]            cache_driver_data_o;
+    logic                              cache_driver_hit;
+    logic                              cache_driver_busy;
 
-    assign drv_en      = key_pulse && ~drv_busy;
-    assign drv_data_i  = SW[`SRAM_DATA_WIDTH-1:0];
-    assign drv_we      = key_pulse[1] ? 1'b1 : 1'b0;
+    logic [3:0]                        key_pulse;
+    logic [`DATA_WIDTH-1:0]            out_data;
+
+    assign n_rst                        = ~SW[17];
+    assign LEDR[17]                     = SW[17];
+    assign LEDR[16]                     = 1'b0;
+    assign LEDR[15:0]                   = SW[15:0];
+    assign LEDG[`CACHE_INDEX_WIDTH-1:0] = cache_driver_addr[`CACHE_INDEX_WIDTH+`CACHE_OFFSET_WIDTH-1:`CACHE_OFFSET_WIDTH];
+
+    assign cache_driver_data_i          = SW[`WB_DATA_WIDTH-1:0];
+    assign cache_driver_we              = key_pulse[1];
+    assign cache_driver_re              = key_pulse[0];
 
     always_ff @(posedge CLOCK_50) begin
-        if (drv_done && ~drv_we) begin
-            out_data <= drv_data_o;
+        if (cache_driver_hit && cache_driver_re) begin
+            out_data <= cache_driver_data_o;
         end
     end
 
     always_ff @(posedge CLOCK_50, posedge SW[17]) begin
         if (SW[17]) begin
-            drv_addr <= 'b0;
+            cache_driver_addr <= 'b0;
         end else if (key_pulse[2]) begin
-            drv_addr <= drv_addr - 1;
+            cache_driver_addr <= cache_driver_addr + 1;
         end else if (key_pulse[3]) begin
-            drv_addr <= drv_addr + 1;
+            cache_driver_addr <= cache_driver_addr - 1;
         end
     end
+
+    cache_driver #(
+        .DATA_WIDTH(`DATA_WIDTH),
+        .ADDR_WIDTH(`WB_ADDR_WIDTH),
+        .CACHE_SIZE(`CACHE_SIZE),
+        .CACHE_LINE_SIZE(`CACHE_LINE_SIZE)
+    ) cache_driver_inst (
+        .clk(CLOCK_50),
+        .n_rst(n_rst),
+        .i_cache_driver_re(cache_driver_re),
+        .i_cache_driver_we(cache_driver_we),
+        .i_cache_driver_addr(cache_driver_addr),
+        .i_cache_driver_data(cache_driver_data_i),
+        .o_cache_driver_data(cache_driver_data_o),
+        .o_cache_driver_hit(cache_driver_hit),
+        .o_cache_driver_busy(cache_driver_busy),
+        .i_cache_driver_biu_done(drv_done),
+        .i_cache_driver_biu_busy(drv_busy),
+        .i_cache_driver_biu_data(drv_data_o),
+        .o_cache_driver_biu_en(drv_en),
+        .o_cache_driver_biu_we(drv_we),
+        .o_cache_driver_biu_addr(drv_addr),
+        .o_cache_driver_biu_data(drv_data_i)
+    );
 
     wb_sram #(
         .DATA_WIDTH(`WB_DATA_WIDTH),
@@ -102,7 +139,7 @@ module wb_sram_test (
     );
 
     wb_master_driver #(
-        .DATA_WIDTH(`DATA_WIDTH),
+        .DATA_WIDTH(`CACHE_LINE_WIDTH),
         .WB_DATA_WIDTH(`WB_DATA_WIDTH),
         .ADDR_WIDTH(`WB_ADDR_WIDTH)
     ) wb_master_driver_inst (
@@ -166,25 +203,25 @@ module wb_sram_test (
 
     seg7_decoder seg7_inst4 (
         .n_rst(n_rst),
-        .i_hex(out_data[19:16]),
+        .i_hex(cache_driver_addr[3:0]),
         .o_hex(HEX4)
     );
 
     seg7_decoder seg7_inst5 (
         .n_rst(n_rst),
-        .i_hex(out_data[23:20]),
+        .i_hex(cache_driver_addr[7:4]),
         .o_hex(HEX5)
     );
 
     seg7_decoder seg7_inst6 (
         .n_rst(n_rst),
-        .i_hex(out_data[27:24]),
+        .i_hex(cache_driver_addr[11:8]),
         .o_hex(HEX6)
     );
 
     seg7_decoder seg7_inst7 (
         .n_rst(n_rst),
-        .i_hex(out_data[31:28]),
+        .i_hex(cache_driver_addr[15:12]),
         .o_hex(HEX7)
     );
 

@@ -30,7 +30,7 @@ module dp_ram #(
     assign cs_rd         = n_rst && i_ram_rd_en;
 
     // Asynchronous read; perform read combinationally
-    assign o_ram_rd_data = (cs_rd) ? ram[i_ram_rd_addr] : 'b0;
+    assign o_ram_rd_data = (cs_rd) ? ram[i_ram_rd_addr] : {{(DATA_WIDTH){1'b0}}};
 
     // Synchronous write; perform write at positive clock edge
     always_ff @(posedge clk) begin
