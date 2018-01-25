@@ -98,12 +98,31 @@ module rv32ui_test_tb #(
     logic [`CDB_DEPTH-1:0]         rs_en_m;
     logic [`CDB_DEPTH-1:0]         rs_stall_m;
 
+    logic [`DATA_WIDTH-1:0]        cycles;
+    logic [`DATA_WIDTH-1:0]        retired_insns;
+
     assign rs_opcode_is_lsu = (rs_opcode == OPCODE_STORE) || (rs_opcode == OPCODE_LOAD);
     assign rs_en_m[0]       = ~rs_opcode_is_lsu ? rs_en : 1'b0;
     assign rs_en_m[1]       = rs_opcode_is_lsu ? rs_en : 1'b0;
     assign rs_stall         = rs_opcode_is_lsu ? rs_stall_m[1] : rs_stall_m[0];
 
     assign rom_data_valid   = fetch_en;
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            cycles <= {{(`DATA_WIDTH){1'b0}}};
+        end else begin
+            cycles <= cycles + 1'b1;
+        end
+    end
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            retired_insns <= {{(`DATA_WIDTH){1'b0}}};
+        end else if (regmap_retire_wr_en) begin
+            retired_insns <= retired_insns + 1'b1;
+        end
+    end
 
     // Clock generation
     initial clk = 'b1;
@@ -141,6 +160,7 @@ module rv32ui_test_tb #(
             $stop;
         end else if (register_map_inst.regmap[3].rdy && register_map_inst.regmap[3].data == 32'hfffffbd2) begin
             $display("---------PASS---------\n");
+            $display("Cycles: %d; Insns: %d\n", cycles, retired_insns);
             $stop;
         end
     end

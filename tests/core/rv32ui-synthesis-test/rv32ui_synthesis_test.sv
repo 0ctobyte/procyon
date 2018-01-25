@@ -115,6 +115,9 @@ module rv32ui_synthesis_test #(
     logic [`CDB_DEPTH-1:0]         rs_en_m;
     logic [`CDB_DEPTH-1:0]         rs_stall_m;
 
+    logic [`DATA_WIDTH-1:0]        cycles;
+    logic [`DATA_WIDTH-1:0]        retired_insns;
+
     logic [6:0]                    o_hex [0:7];
 
     assign n_rst            = SW[17];
@@ -140,6 +143,22 @@ module rv32ui_synthesis_test #(
     assign HEX5             = o_hex[5];
     assign HEX6             = o_hex[6];
     assign HEX7             = o_hex[7];
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            cycles <= {{(`DATA_WIDTH){1'b0}}};
+        end else begin
+            cycles <= cycles + 1'b1;
+        end
+    end
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if (~n_rst) begin
+            retired_insns <= {{(`DATA_WIDTH){1'b0}}};
+        end else if (regmap_retire_wr_en) begin
+            retired_insns <= retired_insns + 1'b1;
+        end
+    end
 
     always_comb begin
         case (state)
