@@ -10,6 +10,7 @@
 `include "common.svh"
 import procyon_types::*;
 
+/* verilator lint_off MULTIDRIVEN */
 module lsu_sq #(
     parameter SQ_DEPTH = `SQ_DEPTH
 ) (
@@ -47,40 +48,42 @@ module lsu_sq #(
     // data:        Store data updated in ID stage
     // tag:         Destination tag in ROB (used for age comparison for store-to-load forwarding)
     // valid:       Indicates if slot is valid i.e. not empty
-    typedef struct {
-        procyon_lsu_func_t   lsu_func;
-        procyon_addr_t       addr;
-        procyon_data_t       data;
-        procyon_tag_t        tag;
-        logic                valid;
+    typedef struct packed {
+        procyon_lsu_func_t       lsu_func;
+        procyon_addr_t           addr;
+        procyon_data_t           data;
+        procyon_tag_t            tag;
+        logic                    valid;
     } sq_slot_t;
 
-    typedef struct {
-        logic                full;
-        logic [SQ_DEPTH-1:0] empty;
-        logic [SQ_DEPTH-1:0] allocate_select;
-        logic [SQ_DEPTH-1:0] retire_select;
-        sq_slot_t            slots [0:SQ_DEPTH-1];
+    typedef struct packed {
+        logic                    full;
+        logic     [SQ_DEPTH-1:0] empty;
+        logic     [SQ_DEPTH-1:0] allocate_select;
+        logic     [SQ_DEPTH-1:0] retire_select;
     } sq_t;
 
-    sq_t                         sq;
-    logic                        allocating;
-    logic                        retiring;
-    logic                        retire_stall;
-    logic [$clog2(SQ_DEPTH)-1:0] retire_slot;
+    sq_slot_t [SQ_DEPTH-1:0]         sq_slots;
+/* verilator lint_off UNOPTFLAT */
+    sq_t                             sq;
+/* verilator lint_on  UNOPTFLAT */
+    logic                            allocating;
+    logic                            retiring;
+    logic                            retire_stall;
+    logic     [$clog2(SQ_DEPTH)-1:0] retire_slot;
 
-    genvar i;
+    genvar gvar;
     generate
         // Use the ROB tag to determine which slot will be retired
         // by generating a retire_select one-hot bit vector
-        for (i = 0; i < SQ_DEPTH; i++) begin : ASSIGN_SQ_RETIRE_VECTORS
+        for (gvar = 0; gvar < SQ_DEPTH; gvar++) begin : ASSIGN_SQ_RETIRE_VECTORS
             // Only one valid slot should have the matching tag
-            assign sq.retire_select[i] = (sq.slots[i].tag == i_rob_retire_tag) && sq.slots[i].valid;
+            assign sq.retire_select[gvar] = (sq_slots[gvar].tag == i_rob_retire_tag) && sq_slots[gvar].valid;
         end
 
-        for (i = 0; i < SQ_DEPTH; i++) begin : ASSIGN_SQ_EMPTY_VECTORS
+        for (gvar = 0; gvar < SQ_DEPTH; gvar++) begin : ASSIGN_SQ_EMPTY_VECTORS
             // A slot is considered empty if it is marked as not valid
-            assign sq.empty[i] = ~sq.slots[i].valid;
+            assign sq.empty[gvar] = ~sq_slots[gvar].valid;
         end
     endgenerate
 
@@ -95,9 +98,9 @@ module lsu_sq #(
     // If store misses then allocate/merge retired store in MSQ
     // The retiring store address and type and retire_en signals is also
     // sent to the LQ for possible load bypass violation detection
-    assign o_sq_retire_data           = sq.slots[retire_slot].data;
-    assign o_sq_retire_addr           = sq.slots[retire_slot].addr;
-    assign o_sq_retire_lsu_func       = sq.slots[retire_slot].lsu_func;
+    assign o_sq_retire_data           = sq_slots[retire_slot].data;
+    assign o_sq_retire_addr           = sq_slots[retire_slot].addr;
+    assign o_sq_retire_lsu_func       = sq_slots[retire_slot].lsu_func;
     assign o_sq_retire_en             = i_rob_retire_en;
 
     // Stall ROB from retiring store if store misses in cache and MSQ is full
@@ -110,14 +113,14 @@ module lsu_sq #(
 
     // Convert one-hot retire_select vector into binary SQ slot #
     always_comb begin
-        logic [$clog2(SQ_DEPTH)-1:0] r;
+        int r;
         r = 0;
         for (int i = 0; i < SQ_DEPTH; i++) begin
             if (sq.retire_select[i]) begin
                 r = r | i;
             end
         end
-        retire_slot = r;
+        retire_slot = r[$clog2(SQ_DEPTH)-1:0];
     end
 
     // Set the valid bit for a slot only if new store op is being allocated
@@ -125,13 +128,13 @@ module lsu_sq #(
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < SQ_DEPTH; i++) begin
             if (~n_rst) begin
-                sq.slots[i].valid <= 'b0;
+                sq_slots[i].valid <= 'b0;
             end else if (i_flush) begin
-                sq.slots[i].valid <= 'b0;
+                sq_slots[i].valid <= 'b0;
             end else if (allocating && sq.allocate_select[i]) begin
-                sq.slots[i].valid <= 'b1;
+                sq_slots[i].valid <= 'b1;
             end else if (retiring && sq.retire_select[i]) begin
-                sq.slots[i].valid <= 'b0;
+                sq_slots[i].valid <= 'b0;
             end
         end
     end
@@ -140,12 +143,13 @@ module lsu_sq #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < SQ_DEPTH; i++) begin
             if (allocating && sq.allocate_select[i]) begin
-                sq.slots[i].data       <= i_alloc_data;
-                sq.slots[i].addr       <= i_alloc_addr;
-                sq.slots[i].lsu_func   <= i_alloc_lsu_func;
-                sq.slots[i].tag        <= i_alloc_tag;
+                sq_slots[i].data       <= i_alloc_data;
+                sq_slots[i].addr       <= i_alloc_addr;
+                sq_slots[i].lsu_func   <= i_alloc_lsu_func;
+                sq_slots[i].tag        <= i_alloc_tag;
             end
         end
     end
 
 endmodule
+/* verilator lint_on  MULTIDRIVEN */

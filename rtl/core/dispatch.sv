@@ -9,7 +9,9 @@ import procyon_types::*;
 
 module dispatch (
     input  logic                  clk,
+/* verilator lint_off UNUSED */
     input  logic                  n_rst,
+/* verilator lint_on  UNUSED */
 
     input  logic                  i_flush,
 

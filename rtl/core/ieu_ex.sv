@@ -4,9 +4,6 @@
 import procyon_types::*;
 
 module ieu_ex (
-    input  logic                   clk,
-    input  logic                   n_rst,
-
     input  procyon_alu_func_t      i_alu_func,
     input  procyon_data_t          i_src_a,
     input  procyon_data_t          i_src_b,
@@ -46,6 +43,7 @@ module ieu_ex (
     assign o_valid    = i_valid;
 
     // ALU
+    /* verilator lint_off WIDTH */
     always_comb begin
         case (i_alu_func)
             ALU_FUNC_ADD: result = i_src_a + i_src_b;
@@ -65,5 +63,6 @@ module ieu_ex (
             default:      result = 'b0;
         endcase
     end
+    /* verilator lint_on  WIDTH */
 
 endmodule

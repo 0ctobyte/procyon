@@ -5,9 +5,6 @@
 import procyon_types::*;
 
 module lsu_ex (
-    input  logic                  clk,
-    input  logic                  n_rst,
-
     // Inputs from last stage in the LSU pipeline
     input  procyon_lsu_func_t     i_lsu_func,
     input  procyon_addr_t         i_addr,
@@ -21,7 +18,9 @@ module lsu_ex (
     output logic                  o_valid,
 
     // Access D$ data memory for load data and tag hit
+/* verilator lint_off UNUSED */
     input  logic                  i_dc_hit,
+/* verilator lint_on  UNUSED */
     input  procyon_data_t         i_dc_data,
     output procyon_addr_t         o_dc_addr,
     output logic                  o_dc_re

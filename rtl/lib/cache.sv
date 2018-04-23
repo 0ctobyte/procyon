@@ -48,7 +48,7 @@ module cache #(
     output logic [DATA_WIDTH-1:0]               o_cache_rdata
 );
 
-    typedef struct {
+    typedef struct packed {
         logic      valid;
         logic      dirty;
     } cache_state_t;
@@ -90,12 +90,12 @@ module cache #(
     assign o_cache_tag         = tag_ram_rd_data;
     assign o_cache_vdata       = data_ram_rd_data;
 
-    genvar i;
+    genvar g;
     generate
         // Need to determine which bytes in the cache line are to be written
         // to or read from
-        for (i = 0; i < `LIB_CACHE_WORD_SIZE; i++) begin : GENERATE_OFFSET_SELECT
-            assign cache_offset_select[i] = 1 << (i_cache_offset + i);
+        for (g = 0; g < `LIB_CACHE_WORD_SIZE; g++) begin : GENERATE_OFFSET_SELECT
+            assign cache_offset_select[g] = 1 << (i_cache_offset + g);
         end
     endgenerate
 

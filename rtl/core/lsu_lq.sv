@@ -9,6 +9,7 @@
 `include "common.svh"
 import procyon_types::*;
 
+/* verilator lint_off MULTIDRIVEN */
 module lsu_lq #(
     parameter LQ_DEPTH = `LQ_DEPTH
 ) (
@@ -39,46 +40,48 @@ module lsu_lq #(
     // tag:               ROB tag used to determine age of the load op
     // valid:             Indicates if entry is valid
     // mis_speculated:    Indicates if load has been mis-speculatively executed
-    typedef struct {
-        procyon_addr_t       addr;
-        procyon_tag_t        tag;
-        logic                valid;
-        logic                mis_speculated;
+    typedef struct packed {
+        procyon_addr_t           addr;
+        procyon_tag_t            tag;
+        logic                    valid;
+        logic                    mis_speculated;
     } lq_slot_t;
 
-    typedef struct {
-        logic                full;
-        logic [LQ_DEPTH-1:0] empty;
-        logic [LQ_DEPTH-1:0] allocate_select;
-        logic [LQ_DEPTH-1:0] mis_speculated_select;
-        logic [LQ_DEPTH-1:0] retire_select;
-        lq_slot_t            slots [0:LQ_DEPTH-1];
+    typedef struct packed {
+        logic                    full;
+        logic     [LQ_DEPTH-1:0] empty;
+        logic     [LQ_DEPTH-1:0] allocate_select;
+        logic     [LQ_DEPTH-1:0] mis_speculated_select;
+        logic     [LQ_DEPTH-1:0] retire_select;
     } lq_t;
 
-    lq_t                         lq;
-    logic                        allocating;
-    logic                        retiring;
-    logic [$clog2(LQ_DEPTH)-1:0] retire_slot;
-    procyon_addr_t               sq_retire_addr_start;
-    procyon_addr_t               sq_retire_addr_end;
+    lq_slot_t [LQ_DEPTH-1:0]         lq_slots;
+/* verilator lint_off UNOPTFLAT */
+    lq_t                             lq;
+/* verilator lint_on  UNOPTFLAT */
+    logic                            allocating;
+    logic                            retiring;
+    logic     [$clog2(LQ_DEPTH)-1:0] retire_slot;
+    procyon_addr_t                   sq_retire_addr_start;
+    procyon_addr_t                   sq_retire_addr_end;
 
-    genvar i;
+    genvar gvar;
     generate
         // Use the ROB tag to determine which slot will be retired
         // by generating a retire_select one-hot bit vector
-        for (i = 0; i < LQ_DEPTH; i++) begin : ASSIGN_LQ_RETIRE_VECTORS
+        for (gvar = 0; gvar < LQ_DEPTH; gvar++) begin : ASSIGN_LQ_RETIRE_VECTORS
             // Only one valid slot should have the matching tag
-            assign lq.retire_select[i] = (lq.slots[i].tag == i_rob_retire_tag) && lq.slots[i].valid;
+            assign lq.retire_select[gvar] = (lq_slots[gvar].tag == i_rob_retire_tag) && lq_slots[gvar].valid;
         end
 
         // Compare retired store address with all valid load addresses to detect mis-speculated loads
-        for (i = 0; i < LQ_DEPTH; i++) begin : ASSIGN_LQ_MIS_SPECULATED_LOAD_VECTORS
-            assign lq.mis_speculated_select[i] = ((lq.slots[i].addr >= sq_retire_addr_start) && (lq.slots[i].addr < sq_retire_addr_end));
+        for (gvar = 0; gvar < LQ_DEPTH; gvar++) begin : ASSIGN_LQ_MIS_SPECULATED_LOAD_VECTORS
+            assign lq.mis_speculated_select[gvar] = ((lq_slots[gvar].addr >= sq_retire_addr_start) && (lq_slots[gvar].addr < sq_retire_addr_end));
         end
 
-        for (i = 0; i < LQ_DEPTH; i++) begin : ASSIGN_LQ_EMPTY_VECTORS
+        for (gvar = 0; gvar < LQ_DEPTH; gvar++) begin : ASSIGN_LQ_EMPTY_VECTORS
             // A slot is considered empty if it is marked as not valid
-            assign lq.empty[i] = ~lq.slots[i].valid;
+            assign lq.empty[gvar] = ~lq_slots[gvar].valid;
         end
     endgenerate
 
@@ -92,7 +95,7 @@ module lsu_lq #(
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    assign o_rob_retire_mis_speculated  = lq.slots[retire_slot].mis_speculated;
+    assign o_rob_retire_mis_speculated  = lq_slots[retire_slot].mis_speculated;
     assign retiring                     = i_rob_retire_en;
 
     // Ouput full signal
@@ -101,37 +104,36 @@ module lsu_lq #(
     // Calculate retiring store end address based off of store type
     always_comb begin
         case (i_sq_retire_lsu_func)
-            LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + 4'b0001;
-            LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + 4'b0010;
-            LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + 4'b0100;
-            default:     sq_retire_addr_end = i_sq_retire_addr + 4'b0100;
+            LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + 32'b0001;
+            LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + 32'b0010;
+            LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + 32'b0100;
+            default:     sq_retire_addr_end = i_sq_retire_addr + 32'b0100;
         endcase
     end
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin
-        logic [$clog2(LQ_DEPTH)-1:0] r;
+        int r;
         r = 0;
         for (int i = 0; i < LQ_DEPTH; i++) begin
             if (lq.retire_select[i]) begin
                 r = r | i;
             end
         end
-
-        retire_slot = r;
+        retire_slot = r[$clog2(LQ_DEPTH)-1:0];
     end
 
     // Set the valid when a slot is allocated, clear on flush, reset or retire
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < LQ_DEPTH; i++) begin
             if (~n_rst) begin
-                lq.slots[i].valid <= 'b0;
+                lq_slots[i].valid <= 'b0;
             end else if (i_flush) begin
-                lq.slots[i].valid <= 'b0;
+                lq_slots[i].valid <= 'b0;
             end else if (allocating && lq.allocate_select[i]) begin
-                lq.slots[i].valid <= 'b1;
+                lq_slots[i].valid <= 'b1;
             end else if (retiring && lq.retire_select[i]) begin
-                lq.slots[i].valid <= 'b0;
+                lq_slots[i].valid <= 'b0;
             end
         end
     end
@@ -140,23 +142,24 @@ module lsu_lq #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < LQ_DEPTH; i++) begin
             if (allocating && lq.allocate_select[i]) begin
-                lq.slots[i].addr        <= i_alloc_addr;
-                lq.slots[i].tag         <= i_alloc_tag;
+                lq_slots[i].addr        <= i_alloc_addr;
+                lq_slots[i].tag         <= i_alloc_tag;
             end
         end
     end
 
     // Update mis-speculated bit for mis-speculated loads
-    always_ff @(posedge clk) begin
+    always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < LQ_DEPTH; i++) begin
             if (~n_rst) begin
-                lq.slots[i].mis_speculated <= 1'b0;
+                lq_slots[i].mis_speculated <= 1'b0;
             end else if (allocating && lq.allocate_select[i]) begin
-                lq.slots[i].mis_speculated <= 1'b0;
+                lq_slots[i].mis_speculated <= 1'b0;
             end else if (i_sq_retire_en && lq.mis_speculated_select[i]) begin
-                lq.slots[i].mis_speculated <= 1'b1;
+                lq_slots[i].mis_speculated <= 1'b1;
             end
         end
     end
 
 endmodule
+/* verilator lint_on  MULTIDRIVEN */

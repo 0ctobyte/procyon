@@ -3,9 +3,13 @@
 `include "common.svh"
 import procyon_types::*;
 
+/* verilator lint_off MULTIDRIVEN */
 module register_map (
     input  logic           clk,
     input  logic           n_rst,
+
+    // FIXME: Temporary for simulation pass/fail detection
+    output procyon_data_t  o_sim_tp,
 
     // Flush signal -> Set all ready bits (basically invalidate tags)
     input  logic           i_flush,
@@ -54,13 +58,16 @@ module register_map (
     assign dest_wr_select = 1 << i_regmap_retire_rdest;
     assign tag_wr_select  = 1 << i_regmap_rename_rdest;
 
+    // FIXME: Output this register for architectural simulation test pass/fail detection
+    assign o_sim_tp       = regmap[4].data;
+
     // The ROB will lookup tags/data for the source operands of the newly dispatched instruction
-    genvar i;
+    genvar gvar;
     generate
-        for (i = 0; i < 2; i++) begin : ASSIGN_REGMAP_LOOKUP_OUTPUTS
-            assign o_regmap_lookup_rdy[i]  = regmap[i_regmap_lookup_rsrc[i]].rdy;
-            assign o_regmap_lookup_data[i] = regmap[i_regmap_lookup_rsrc[i]].data;
-            assign o_regmap_lookup_tag[i]  = regmap[i_regmap_lookup_rsrc[i]].tag;
+        for (gvar = 0; gvar < 2; gvar++) begin : ASSIGN_REGMAP_LOOKUP_OUTPUTS
+            assign o_regmap_lookup_rdy[gvar]  = regmap[i_regmap_lookup_rsrc[gvar]].rdy;
+            assign o_regmap_lookup_data[gvar] = regmap[i_regmap_lookup_rsrc[gvar]].data;
+            assign o_regmap_lookup_tag[gvar]  = regmap[i_regmap_lookup_rsrc[gvar]].tag;
         end
     endgenerate
 
@@ -117,3 +124,4 @@ module register_map (
     end
 
 endmodule
+/* verilator lint_on  MULTIDRIVEN */

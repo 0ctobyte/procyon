@@ -4,12 +4,11 @@
 import procyon_types::*;
 
 module ieu_id (
-    input  logic                clk,
-    input  logic                n_rst,
-
     input  procyon_opcode_t     i_opcode,
     input  procyon_addr_t       i_iaddr,
+/* verilator lint_off UNUSED */
     input  procyon_data_t       i_insn,
+/* verilator lint_on  UNUSED */
     input  procyon_data_t       i_src_a,
     input  procyon_data_t       i_src_b,
     input  procyon_tag_t        i_tag,
@@ -88,7 +87,7 @@ module ieu_id (
                     default: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b0};
                 endcase
             end
-            OPCODE_LUI:   {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, 1'b0, imm_u, i_insn[24:20], 1'b0, 1'b0};
+            OPCODE_LUI:   {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, {(`DATA_WIDTH){1'b0}}, imm_u, i_insn[24:20], 1'b0, 1'b0};
             OPCODE_AUIPC: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_iaddr, imm_u, i_insn[24:20], 1'b0, 1'b0};
             OPCODE_JAL:   {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_iaddr, imm_j, i_insn[24:20], 1'b1, 1'b0};
             OPCODE_JALR:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, imm_i, i_insn[24:20], 1'b1, 1'b0};

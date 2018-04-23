@@ -5,12 +5,11 @@
 import procyon_types::*;
 
 module lsu_id (
-    input logic                 clk,
-    input logic                 n_rst,
-
     // Inputs from reservation station
     input  procyon_opcode_t     i_opcode,
+/* verilator lint_off UNUSED */
     input  procyon_data_t       i_insn,
+/* verilator lint_on  UNUSED */
     input  procyon_data_t       i_src_a,
     input  procyon_data_t       i_src_b,
     input  procyon_tag_t        i_tag,

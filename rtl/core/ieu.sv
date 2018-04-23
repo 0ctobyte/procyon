@@ -5,6 +5,7 @@
 `include "common.svh"
 import procyon_types::*;
 
+/* verilator lint_off MULTIDRIVEN */
 module ieu (
     input  logic             clk,
     input  logic             n_rst,
@@ -106,8 +107,6 @@ module ieu (
     end
 
     ieu_id ieu_id_inst (
-        .clk(clk),
-        .n_rst(n_rst),
         .i_opcode(i_fu_opcode),
         .i_iaddr(i_fu_iaddr),
         .i_insn(i_fu_insn),
@@ -128,8 +127,6 @@ module ieu (
     );
 
     ieu_ex ieu_ex_inst (
-        .clk(clk),
-        .n_rst(n_rst),
         .i_alu_func(ieu_id_q.alu_func),
         .i_src_a(ieu_id_q.src_a),
         .i_src_b(ieu_id_q.src_b),
@@ -148,3 +145,4 @@ module ieu (
     );
 
 endmodule
+/* verilator lint_on  MULTIDRIVEN */
