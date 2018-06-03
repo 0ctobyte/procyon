@@ -10,49 +10,49 @@ module lsu #(
     parameter  LQ_DEPTH = `LQ_DEPTH,
     parameter  SQ_DEPTH = `SQ_DEPTH
 ) (
-    input  logic             clk,
-    input  logic             n_rst,
+    input  logic                    clk,
+    input  logic                    n_rst,
 
-    input  logic             i_flush,
+    input  logic                    i_flush,
 
     // Common Data Bus
-    output logic             o_cdb_en,
-    output logic             o_cdb_redirect,
-    output procyon_data_t    o_cdb_data,
-    output procyon_addr_t    o_cdb_addr,
-    output procyon_tag_t     o_cdb_tag,
+    output logic                    o_cdb_en,
+    output logic                    o_cdb_redirect,
+    output procyon_data_t           o_cdb_data,
+    output procyon_addr_t           o_cdb_addr,
+    output procyon_tag_t            o_cdb_tag,
 
-    input  logic             i_fu_valid,
-    input  procyon_opcode_t  i_fu_opcode,
+    input  logic                    i_fu_valid,
+    input  procyon_opcode_t         i_fu_opcode,
 /* verilator lint_off UNUSED */
-    input  procyon_addr_t    i_fu_iaddr,
+    input  procyon_addr_t           i_fu_iaddr,
 /* verilator lint_on  UNUSED */
-    input  procyon_data_t    i_fu_insn,
-    input  procyon_data_t    i_fu_src_a,
-    input  procyon_data_t    i_fu_src_b,
-    input  procyon_tag_t     i_fu_tag,
-    output logic             o_fu_stall,
+    input  procyon_data_t           i_fu_insn,
+    input  procyon_data_t           i_fu_src_a,
+    input  procyon_data_t           i_fu_src_b,
+    input  procyon_tag_t            i_fu_tag,
+    output logic                    o_fu_stall,
 
     // ROB retirement interface
-    input  procyon_tag_t     i_rob_retire_tag,
-    input  logic             i_rob_retire_lq_en,
-    input  logic             i_rob_retire_sq_en,
-    output logic             o_rob_retire_stall,
-    output logic             o_rob_retire_mis_speculated,
+    input  procyon_tag_t            i_rob_retire_tag,
+    input  logic                    i_rob_retire_lq_en,
+    input  logic                    i_rob_retire_sq_en,
+    output logic                    o_rob_retire_stall,
+    output logic                    o_rob_retire_mis_speculated,
 
     // FIXME: Temporary data cache interface
-    input  logic             i_dc_hit,
-    input  procyon_data_t    i_dc_data,
-    output logic             o_dc_re,
-    output procyon_addr_t    o_dc_addr,
+    input  logic                    i_dc_hit,
+    input  procyon_data_t           i_dc_data,
+    output logic                    o_dc_re,
+    output procyon_addr_t           o_dc_addr,
 
     // FIXME: Store retire to cache interface
-    input  logic             i_sq_retire_dc_hit,
-    input  logic             i_sq_retire_msq_full,
-    output logic             o_sq_retire_en,
-    output procyon_word_t    o_sq_retire_byte_en,
-    output procyon_addr_t    o_sq_retire_addr,
-    output procyon_data_t    o_sq_retire_data
+    input  logic                    i_sq_retire_dc_hit,
+    input  logic                    i_sq_retire_msq_full,
+    output logic                    o_sq_retire_en,
+    output procyon_byte_select_t    o_sq_retire_byte_en,
+    output procyon_addr_t           o_sq_retire_addr,
+    output procyon_data_t           o_sq_retire_data
 );
 
     typedef struct packed {

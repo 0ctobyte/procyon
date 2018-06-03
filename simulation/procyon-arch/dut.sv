@@ -3,31 +3,31 @@
 import procyon_types::*;
 
 module dut (
-    input  logic           clk,
-    input  logic           n_rst,
+    input  logic                  clk,
+    input  logic                  n_rst,
 
     // FIXME: To test if simulations pass/fail
-    output procyon_data_t  o_sim_tp,
+    output procyon_data_t         o_sim_tp,
 
     // FIXME: Temporary instruction cache interface
-    input  procyon_data_t  i_ic_insn,
-    input  logic           i_ic_valid,
-    output procyon_addr_t  o_ic_pc,
-    output logic           o_ic_en,
+    input  procyon_data_t         i_ic_insn,
+    input  logic                  i_ic_valid,
+    output procyon_addr_t         o_ic_pc,
+    output logic                  o_ic_en,
 
     // FIXME: Temporary data cache interface
-    input  logic           i_dc_hit,
-    input  procyon_data_t  i_dc_data,
-    output logic           o_dc_re,
-    output procyon_addr_t  o_dc_addr,
+    input  logic                  i_dc_hit,
+    input  procyon_data_t         i_dc_data,
+    output logic                  o_dc_re,
+    output procyon_addr_t         o_dc_addr,
 
     // FIXME: Temporary store retire to cache interface
-    input  logic           i_sq_retire_dc_hit,
-    input  logic           i_sq_retire_msq_full,
-    output logic           o_sq_retire_en,
-    output procyon_word_t  o_sq_retire_byte_en,
-    output procyon_addr_t  o_sq_retire_addr,
-    output procyon_data_t  o_sq_retire_data
+    input  logic                  i_sq_retire_dc_hit,
+    input  logic                  i_sq_retire_msq_full,
+    output logic                  o_sq_retire_en,
+    output procyon_byte_select_t  o_sq_retire_byte_en,
+    output procyon_addr_t         o_sq_retire_addr,
+    output procyon_data_t         o_sq_retire_data
 );
 
 /* verilator lint_off UNUSED */

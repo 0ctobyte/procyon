@@ -5,19 +5,19 @@ import procyon_types::*;
 module data_ram #(
     parameter HEX_FILE = ""
 ) (
-    input  logic           clk,
+    input  logic                  clk,
 
-    output logic           o_dc_hit,
-    output procyon_data_t  o_dc_data,
-    input  logic           i_dc_re,
-    input  procyon_addr_t  i_dc_addr,
+    output logic                  o_dc_hit,
+    output procyon_data_t         o_dc_data,
+    input  logic                  i_dc_re,
+    input  procyon_addr_t         i_dc_addr,
 
-    output logic           o_sq_retire_dc_hit,
-    output logic           o_sq_retire_msq_full,
-    input  logic           i_sq_retire_en,
-    input  procyon_word_t  i_sq_retire_byte_en,
-    input  procyon_addr_t  i_sq_retire_addr,
-    input  procyon_data_t  i_sq_retire_data
+    output logic                  o_sq_retire_dc_hit,
+    output logic                  o_sq_retire_msq_full,
+    input  logic                  i_sq_retire_en,
+    input  procyon_byte_select_t  i_sq_retire_byte_en,
+    input  procyon_addr_t         i_sq_retire_addr,
+    input  procyon_data_t         i_sq_retire_data
 
 );
     

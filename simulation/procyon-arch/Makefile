@@ -8,7 +8,7 @@ VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
 VSRCS := procyon_types.sv
-SRCS := sc_main.cpp BootRom.cpp DataRam.cpp
+SRCS := sc_main.cpp DataRam.cpp ../common/BootRom.cpp
 
 TESTS_RUN_DIR := tests
 TESTS_RUN_SCRIPT := ./run_tests.py

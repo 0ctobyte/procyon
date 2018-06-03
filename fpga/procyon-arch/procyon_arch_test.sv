@@ -27,40 +27,40 @@ module procyon_arch_test #(
         HALT = 1'b1
     } state_t;
 
-    state_t         state;
+    state_t                state;
 
-    logic           clk;
-    logic           n_rst;
+    logic                  clk;
+    logic                  n_rst;
 
     // FIXME: To test if simulations pass/fail
-    procyon_data_t  sim_tp;
+    procyon_data_t         sim_tp;
 
     // FIXME: FPGA debugging output
-    logic           rob_redirect;
-    procyon_addr_t  rob_redirect_addr;
-    logic           regmap_retire_wr_en;
-    procyon_reg_t   regmap_retire_rdest;
-    procyon_data_t  regmap_retire_data;
+    logic                  rob_redirect;
+    procyon_addr_t         rob_redirect_addr;
+    logic                  regmap_retire_wr_en;
+    procyon_reg_t          regmap_retire_rdest;
+    procyon_data_t         regmap_retire_data;
 
     // FIXME: Temporary instruction cache interface
-    procyon_data_t  ic_insn;
-    logic           ic_valid;
-    procyon_addr_t  ic_pc;
-    logic           ic_en;
+    procyon_data_t         ic_insn;
+    logic                  ic_valid;
+    procyon_addr_t         ic_pc;
+    logic                  ic_en;
 
     // FIXME: Temporary data cache interface
-    logic           dc_hit;
-    procyon_data_t  dc_data;
-    logic           dc_re;
-    procyon_addr_t  dc_addr;
+    logic                  dc_hit;
+    procyon_data_t         dc_data;
+    logic                  dc_re;
+    procyon_addr_t         dc_addr;
 
     // FIXME: Temporary store retire to cache interface
-    logic           sq_retire_dc_hit;
-    logic           sq_retire_msq_full;
-    logic           sq_retire_en;
-    procyon_word_t  sq_retire_byte_en;
-    procyon_addr_t  sq_retire_addr;
-    procyon_data_t  sq_retire_data;
+    logic                  sq_retire_dc_hit;
+    logic                  sq_retire_msq_full;
+    logic                  sq_retire_en;
+    procyon_byte_select_t  sq_retire_byte_en;
+    procyon_addr_t         sq_retire_addr;
+    procyon_data_t         sq_retire_data;
 
     logic           key0;
     logic           key_pulse;
