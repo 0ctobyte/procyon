@@ -10,7 +10,6 @@ SC_MODULE(Monitor) {
     sc_in<uint32_t> i_cache_index;
     sc_in<uint32_t> i_cache_offset;
     sc_in<uint32_t> i_cache_wdata;
-    sc_in<bool> i_cache_valid;
     sc_in<bool> i_cache_hit;
     sc_in<uint32_t> i_cache_rdata;
 

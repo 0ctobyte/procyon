@@ -22,7 +22,7 @@ int sc_main(int argc, char** argv) {
     sc_signal<bool> cache_re;
     sc_signal<bool> cache_we;
     sc_signal<bool> cache_fe;
-    sc_signal<bool> cache_valid_i;
+    sc_signal<bool> cache_valid;
     sc_signal<uint32_t> cache_tag_i;
     sc_signal<uint32_t> cache_index;
     sc_signal<uint32_t> cache_offset;
@@ -30,7 +30,6 @@ int sc_main(int argc, char** argv) {
     sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_fdata;
     sc_signal<bool> cache_dirty;
     sc_signal<bool> cache_hit;
-    sc_signal<bool> cache_valid_o;
     sc_signal<uint32_t> cache_tag_o;
     sc_signal<uint32_t> cache_rdata;
     sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_vdata;
@@ -102,7 +101,7 @@ int sc_main(int argc, char** argv) {
     driver.o_cache_re(cache_re);
     driver.o_cache_we(cache_we);
     driver.o_cache_fe(cache_fe);
-    driver.o_cache_valid(cache_valid_i);
+    driver.o_cache_valid(cache_valid);
     driver.o_cache_tag(cache_tag_i);
     driver.o_cache_index(cache_index);
     driver.o_cache_offset(cache_offset);
@@ -110,7 +109,6 @@ int sc_main(int argc, char** argv) {
     driver.o_cache_fdata(cache_fdata);
     driver.i_cache_dirty(cache_dirty);
     driver.i_cache_hit(cache_hit);
-    driver.i_cache_valid(cache_valid_o);
     driver.i_cache_tag(cache_tag_o);
     driver.i_cache_rdata(cache_rdata);
     driver.i_cache_vdata(cache_vdata);
@@ -131,7 +129,6 @@ int sc_main(int argc, char** argv) {
     monitor.i_cache_index(cache_index);
     monitor.i_cache_offset(cache_offset);
     monitor.i_cache_wdata(cache_wdata);
-    monitor.i_cache_valid(cache_valid_o);
     monitor.i_cache_hit(cache_hit);
     monitor.i_cache_rdata(cache_rdata);
 
@@ -141,7 +138,7 @@ int sc_main(int argc, char** argv) {
     dut.i_cache_re(cache_re);
     dut.i_cache_we(cache_we);
     dut.i_cache_fe(cache_fe);
-    dut.i_cache_valid(cache_valid_i);
+    dut.i_cache_valid(cache_valid);
     dut.i_cache_tag(cache_tag_i);
     dut.i_cache_index(cache_index);
     dut.i_cache_offset(cache_offset);
@@ -149,7 +146,6 @@ int sc_main(int argc, char** argv) {
     dut.i_cache_fdata(cache_fdata);
     dut.o_cache_dirty(cache_dirty);
     dut.o_cache_hit(cache_hit);
-    dut.o_cache_valid(cache_valid_o);
     dut.o_cache_tag(cache_tag_o);
     dut.o_cache_rdata(cache_rdata);
     dut.o_cache_vdata(cache_vdata);

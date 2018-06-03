@@ -51,8 +51,7 @@ module cache_driver #(
     logic [CACHE_LINE_WIDTH-1:0]   cache_vdata;
     logic                          cache_hit;
     logic                          cache_dirty;
-    logic                          cache_valid_i;
-    logic                          cache_valid_o;
+    logic                          cache_valid;
     logic                          cache_we;
     logic                          cache_fe;
 
@@ -64,8 +63,8 @@ module cache_driver #(
     assign cache_index             = i_cache_driver_addr[CACHE_INDEX_WIDTH+CACHE_OFFSET_WIDTH-1:CACHE_OFFSET_WIDTH];
     assign cache_tag_i             = i_cache_driver_addr[ADDR_WIDTH-1:ADDR_WIDTH-CACHE_TAG_WIDTH];
 
-    assign victimized              = (i_cache_driver_biu_done && (state_q != VICTIM) && cache_valid_o && cache_dirty);
-    assign cache_valid_i           = 1'b1;
+    assign victimized              = (i_cache_driver_biu_done && (state_q != VICTIM) && cache_dirty);
+    assign cache_valid             = 1'b1;
     assign cache_we                = (state_q == VICTIM) ? 1'b0 : i_cache_driver_we;
     assign cache_fe                = (state_q == VICTIM) ? 1'b0 : i_cache_driver_biu_done;
     assign o_cache_driver_hit      = cache_hit;
@@ -112,13 +111,12 @@ module cache_driver #(
         .i_cache_re(i_cache_driver_re),
         .i_cache_we(cache_we),
         .i_cache_fe(cache_fe),
-        .i_cache_valid(cache_valid_i),
+        .i_cache_valid(cache_valid),
         .i_cache_offset(cache_offset),
         .i_cache_index(cache_index),
         .i_cache_tag(cache_tag_i),
         .i_cache_fdata(i_cache_driver_biu_data),
         .i_cache_wdata(i_cache_driver_data),
-        .o_cache_valid(cache_valid_o),
         .o_cache_dirty(cache_dirty),
         .o_cache_hit(cache_hit),
         .o_cache_tag(cache_tag_o),

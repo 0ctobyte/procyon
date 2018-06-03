@@ -17,7 +17,6 @@ SC_MODULE(Driver) {
     sc_out< sc_bv<CACHE_LINE_WIDTH> > o_cache_fdata;
     sc_in<bool> i_cache_dirty;
     sc_in<bool> i_cache_hit;
-    sc_in<bool> i_cache_valid;
     sc_in<uint32_t> i_cache_tag;
     sc_in<uint32_t> i_cache_rdata;
     sc_in< sc_bv<CACHE_LINE_WIDTH> > i_cache_vdata;

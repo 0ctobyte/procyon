@@ -22,7 +22,6 @@ void Driver::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     sc_trace(tf, o_cache_fdata, module_name+".o_cache_fdata");
     sc_trace(tf, i_cache_dirty, module_name+".i_cache_dirty");
     sc_trace(tf, i_cache_hit, module_name+".i_cache_hit");
-    sc_trace(tf, i_cache_valid, module_name+".i_cache_valid");
     sc_trace(tf, i_cache_tag, module_name+".i_cache_tag");
     sc_trace(tf, i_cache_rdata, module_name+".i_cache_rdata");
     sc_trace(tf, i_cache_vdata, module_name+".i_cache_vdata");
@@ -184,7 +183,7 @@ void Driver::update_state() {
             break;
         }
         case FILL: {
-            bool victimized = i_cache_valid.read() && i_cache_dirty.read();
+            bool victimized = i_cache_dirty.read();
             m_state.write(victimized ? VICTIM : IDLE);
             break;
         }

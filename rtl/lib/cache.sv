@@ -35,12 +35,11 @@ module cache #(
     input  logic [`LIB_CACHE_LINE_WIDTH-1:0]    i_cache_fdata,
     input  logic [DATA_WIDTH-1:0]               i_cache_wdata,
 
-    // o_cache_valid, o_cache_dirty and o_cache_hit is output on every cache
+    // o_cache_dirty and o_cache_hit is output on every cache
     // access so that the consumer knows whether to write back the data.
     // o_cache_tag and o_cache_vdata are also outputted in case a cache line
     // is victimized. The old tag is needed to determine the victim address.
     // o_cache_rdata is the data requested on a read access
-    output logic                                o_cache_valid,
     output logic                                o_cache_dirty,
     output logic                                o_cache_hit,
     output logic [`LIB_CACHE_TAG_WIDTH-1:0]     o_cache_tag,
@@ -71,7 +70,7 @@ module cache #(
     logic [`LIB_CACHE_TAG_WIDTH-1:0]    tag_ram_wr_data;
 
     assign cache_line_valid    = cache_state[i_cache_index].valid;
-    assign cache_line_dirty    = cache_state[i_cache_index].dirty;
+    assign cache_line_dirty    = cache_state[i_cache_index].dirty && cache_line_valid;
     assign cache_line_hit      = (tag_ram_rd_data == i_cache_tag) && cache_line_valid;
     assign cache_we            = i_cache_we && cache_line_hit;
 
@@ -84,7 +83,6 @@ module cache #(
     assign tag_ram_wr_data     = i_cache_tag;
 
     // Assign outputs
-    assign o_cache_valid       = cache_line_valid;
     assign o_cache_dirty       = cache_line_dirty;
     assign o_cache_hit         = cache_line_hit;
     assign o_cache_tag         = tag_ram_rd_data;

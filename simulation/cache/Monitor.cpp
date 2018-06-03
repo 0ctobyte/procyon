@@ -13,7 +13,6 @@ void Monitor::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     sc_trace(tf, i_cache_index, module_name+".i_cache_index");
     sc_trace(tf, i_cache_offset, module_name+".i_cache_offset");
     sc_trace(tf, i_cache_wdata, module_name+".i_cache_wdata");
-    sc_trace(tf, i_cache_valid, module_name+".i_cache_valid");
     sc_trace(tf, i_cache_hit, module_name+".i_cache_hit");
     sc_trace(tf, i_cache_rdata, module_name+".i_cache_rdata");
 }
