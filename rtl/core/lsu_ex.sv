@@ -22,12 +22,12 @@ module lsu_ex (
     input  logic                  i_dc_hit,
 /* verilator lint_on  UNUSED */
     input  procyon_data_t         i_dc_rdata,
-    output procyon_addr_t         o_dc_addr,
+    output procyon_addr_t         o_dc_raddr,
     output logic                  o_dc_re
 );
 
     // Access D$ data
-    assign o_dc_addr  = i_addr;
+    assign o_dc_raddr = i_addr;
     assign o_dc_re    = i_valid;
 
     // Output to WB stage

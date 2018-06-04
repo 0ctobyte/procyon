@@ -33,7 +33,7 @@ int sc_main(int argc, char** argv) {
     sc_signal<bool> dc_hit;
     sc_signal<uint32_t> dc_rdata;
     sc_signal<bool> dc_re;
-    sc_signal<uint32_t> dc_addr;
+    sc_signal<uint32_t> dc_raddr;
     sc_signal<bool> sq_retire_dc_hit;
     sc_signal<bool> sq_retire_msq_full;
     sc_signal<bool> sq_retire_en;
@@ -61,7 +61,7 @@ int sc_main(int argc, char** argv) {
     dataram.o_dc_hit(dc_hit);
     dataram.o_dc_rdata(dc_rdata);
     dataram.i_dc_re(dc_re);
-    dataram.i_dc_addr(dc_addr);
+    dataram.i_dc_raddr(dc_raddr);
     dataram.o_sq_retire_dc_hit(sq_retire_dc_hit);
     dataram.o_sq_retire_msq_full(sq_retire_msq_full);
     dataram.i_sq_retire_en(sq_retire_en);
@@ -86,7 +86,7 @@ int sc_main(int argc, char** argv) {
     dut.i_dc_hit(dc_hit);
     dut.i_dc_rdata(dc_rdata);
     dut.o_dc_re(dc_re);
-    dut.o_dc_addr(dc_addr);
+    dut.o_dc_raddr(dc_raddr);
     dut.i_sq_retire_dc_hit(sq_retire_dc_hit);
     dut.i_sq_retire_msq_full(sq_retire_msq_full);
     dut.o_sq_retire_en(sq_retire_en);

@@ -52,7 +52,7 @@ module procyon_arch_test #(
     logic                  dc_hit;
     procyon_data_t         dc_rdata;
     logic                  dc_re;
-    procyon_addr_t         dc_addr;
+    procyon_addr_t         dc_raddr;
 
     // FIXME: Temporary store retire to cache interface
     logic                  sq_retire_dc_hit;
@@ -134,7 +134,7 @@ module procyon_arch_test #(
         .o_dc_hit(dc_hit),
         .o_dc_rdata(dc_rdata),
         .i_dc_re(dc_re),
-        .i_dc_addr(dc_addr),
+        .i_dc_raddr(dc_raddr),
         .o_sq_retire_dc_hit(sq_retire_dc_hit),
         .o_sq_retire_msq_full(sq_retire_msq_full),
         .i_sq_retire_en(sq_retire_en),
@@ -159,7 +159,7 @@ module procyon_arch_test #(
         .i_dc_hit(dc_hit),
         .i_dc_rdata(dc_rdata),
         .o_dc_re(dc_re),
-        .o_dc_addr(dc_addr),
+        .o_dc_raddr(dc_raddr),
         .i_sq_retire_dc_hit(sq_retire_dc_hit),
         .i_sq_retire_msq_full(sq_retire_msq_full),
         .o_sq_retire_en(sq_retire_en),

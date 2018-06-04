@@ -10,7 +10,7 @@ DataRam::~DataRam() {
 void DataRam::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     const std::string module_name = parent_name+"."+name();
     sc_trace(tf, i_dc_re, module_name+".i_dc_re");
-    sc_trace(tf, i_dc_addr, module_name+".i_dc_addr");
+    sc_trace(tf, i_dc_raddr, module_name+".i_dc_raddr");
     sc_trace(tf, o_dc_hit, module_name+".o_dc_hit");
     sc_trace(tf, o_dc_rdata, module_name+".o_dc_rdata");
     sc_trace(tf, i_sq_retire_en, module_name+".i_sq_retire_en");
@@ -30,12 +30,12 @@ void DataRam::process() {
     o_dc_hit.write(i_dc_re.read());
 
     if (i_dc_re.read()) {
-        uint32_t dc_addr = i_dc_addr.read();
+        uint32_t dc_raddr = i_dc_raddr.read();
         uint8_t byte0, byte1, byte2, byte3;
-        byte0 = dc_addr < size ? ram[dc_addr] : 0x0;
-        byte1 = (dc_addr + 1) < size ? ram[dc_addr+1] : 0x0;
-        byte2 = (dc_addr + 2) < size ? ram[dc_addr+2] : 0x0;
-        byte3 = (dc_addr + 3) < size ? ram[dc_addr+3] : 0x0;
+        byte0 = dc_raddr < size ? ram[dc_raddr] : 0x0;
+        byte1 = (dc_raddr + 1) < size ? ram[dc_raddr+1] : 0x0;
+        byte2 = (dc_raddr + 2) < size ? ram[dc_raddr+2] : 0x0;
+        byte3 = (dc_raddr + 3) < size ? ram[dc_raddr+3] : 0x0;
         o_dc_rdata.write((byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0);
     }
 

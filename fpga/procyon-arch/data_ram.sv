@@ -10,7 +10,7 @@ module data_ram #(
     output logic                  o_dc_hit,
     output procyon_data_t         o_dc_rdata,
     input  logic                  i_dc_re,
-    input  procyon_addr_t         i_dc_addr,
+    input  procyon_addr_t         i_dc_raddr,
 
     output logic                  o_sq_retire_dc_hit,
     output logic                  o_sq_retire_msq_full,
@@ -25,18 +25,18 @@ module data_ram #(
 
     logic [7:0] memory [0:MEM_SIZE-1];
 
-    logic [$clog2(MEM_SIZE)-1:0] dc_addr;
+    logic [$clog2(MEM_SIZE)-1:0] dc_raddr;
     logic [$clog2(MEM_SIZE)-1:0] sq_retire_addr;
 
-    assign dc_addr              = i_dc_addr[$clog2(MEM_SIZE)-1:0];
+    assign dc_raddr             = i_dc_raddr[$clog2(MEM_SIZE)-1:0];
     assign sq_retire_addr       = i_sq_retire_addr[$clog2(MEM_SIZE)-1:0];
 
     // FIXME: Temporary data cache interface
     assign o_dc_hit             = i_dc_re;
-    assign o_dc_rdata[7:0]      = memory[dc_addr];
-    assign o_dc_rdata[15:8]     = memory[dc_addr + 1];
-    assign o_dc_rdata[23:16]    = memory[dc_addr + 2];
-    assign o_dc_rdata[31:24]    = memory[dc_addr + 3];
+    assign o_dc_rdata[7:0]      = memory[dc_raddr];
+    assign o_dc_rdata[15:8]     = memory[dc_raddr + 1];
+    assign o_dc_rdata[23:16]    = memory[dc_raddr + 2];
+    assign o_dc_rdata[31:24]    = memory[dc_raddr + 3];
 
     // FIXME: Temporary store retire to cache interface
     assign o_sq_retire_dc_hit   = i_sq_retire_en ? 1'b1 : 1'b0;

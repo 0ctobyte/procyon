@@ -28,7 +28,7 @@ module procyon (
     input  logic                  i_dc_hit,
     input  procyon_data_t         i_dc_rdata,
     output logic                  o_dc_re,
-    output procyon_addr_t         o_dc_addr,
+    output procyon_addr_t         o_dc_raddr,
 
     // FIXME: Temporary store retire to cache interface
     input  logic                  i_sq_retire_dc_hit,
@@ -352,7 +352,7 @@ module procyon (
         .i_dc_hit(i_dc_hit),
         .i_dc_rdata(i_dc_rdata),
         .o_dc_re(o_dc_re),
-        .o_dc_addr(o_dc_addr),
+        .o_dc_raddr(o_dc_raddr),
         .i_sq_retire_dc_hit(i_sq_retire_dc_hit),
         .i_sq_retire_msq_full(i_sq_retire_msq_full),
         .o_sq_retire_en(o_sq_retire_en),
