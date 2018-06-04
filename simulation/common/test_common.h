@@ -23,7 +23,7 @@
 #define CACHE_LINE_WIDTH   (CACHE_LINE_SIZE*8)
 
 #define DC_CACHE_SIZE      (256)
-#define DC_LINE_SIZE       (32)
+#define DC_LINE_SIZE       (CACHE_LINE_SIZE)
 #define DC_WAY_COUNT       (1)
 #define DC_INDEX_COUNT     (DC_CACHE_SIZE/DC_LINE_SIZE/DC_WAY_COUNT)
 

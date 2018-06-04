@@ -30,7 +30,7 @@
     `define DC_CACHE_SIZE     (256)
 `endif
 `ifndef DC_LINE_SIZE
-    `define DC_LINE_SIZE      (32)
+    `define DC_LINE_SIZE      (`CACHE_LINE_SIZE)
 `endif
 `ifndef DC_WAY_COUNT
     `define DC_WAY_COUNT      (1)
