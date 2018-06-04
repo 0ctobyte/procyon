@@ -11,7 +11,7 @@ SC_MODULE(BootRom) {
     SC_CTOR(BootRom) {
         SC_METHOD(process);
         sensitive << i_ic_en << i_ic_pc;
-        m_bootrom = std::vector<uint32_t>();
+        m_bootrom = std::vector<uint8_t>();
     }
 
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
@@ -21,7 +21,7 @@ SC_MODULE(BootRom) {
     ~BootRom();
 
 private:
-    std::vector<uint32_t> m_bootrom;
+    std::vector<uint8_t> m_bootrom;
 
     void process();
 };

@@ -48,14 +48,6 @@ int sc_main(int argc, char** argv) {
     bootrom.o_ic_valid(ic_valid);
     bootrom.o_ic_insn(ic_insn);
 
-    std::string rom_file(argv[1]);
-    std::string suffix_str("hex");
-    if (ends_with(rom_file, suffix_str)) {
-        bootrom.load_hex(rom_file);
-    } else {
-        bootrom.load_bin(rom_file);
-    }
-
     DataRam dataram("dataram");
     dataram.trace_all(tf, top_name);
     dataram.o_dc_hit(dc_hit);
@@ -68,12 +60,6 @@ int sc_main(int argc, char** argv) {
     dataram.i_sq_retire_byte_en(sq_retire_byte_en);
     dataram.i_sq_retire_addr(sq_retire_addr);
     dataram.i_sq_retire_data(sq_retire_data);
-
-    if (ends_with(rom_file, suffix_str)) {
-        dataram.load_hex(rom_file);
-    } else {
-        dataram.load_bin(rom_file);
-    }
 
     Vdut dut("dut");
     dut.clk(clk);
@@ -93,6 +79,16 @@ int sc_main(int argc, char** argv) {
     dut.o_sq_retire_byte_en(sq_retire_byte_en);
     dut.o_sq_retire_addr(sq_retire_addr);
     dut.o_sq_retire_data(sq_retire_data);
+
+    std::string rom_file(argv[1]);
+    std::string suffix_str("hex");
+    if (ends_with(rom_file, suffix_str)) {
+        bootrom.load_hex(rom_file);
+        dataram.load_hex(rom_file);
+    } else {
+        bootrom.load_bin(rom_file);
+        dataram.load_bin(rom_file);
+    }
 
     VerilatedVcdSc tfp;
     dut.trace(&tfp, 100);

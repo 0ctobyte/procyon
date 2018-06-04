@@ -17,7 +17,7 @@ SC_MODULE(DataRam) {
     SC_CTOR(DataRam) {
         SC_METHOD(process);
         sensitive << i_dc_re << i_dc_raddr << i_sq_retire_en << i_sq_retire_byte_en << i_sq_retire_addr << i_sq_retire_data;
-        m_dataram = std::vector<uint32_t>();
+        m_dataram = std::vector<uint8_t>();
     }
 
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
@@ -27,7 +27,7 @@ SC_MODULE(DataRam) {
     ~DataRam();
 
 private:
-    std::vector<uint32_t> m_dataram;
+    std::vector<uint8_t> m_dataram;
 
     void process();
 };

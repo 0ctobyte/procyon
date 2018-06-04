@@ -22,7 +22,6 @@ void DataRam::trace_all(sc_trace_file *tf, const std::string& parent_name) {
 }
 
 void DataRam::process() {
-    uint8_t *ram = (uint8_t*)m_dataram.data();
     uint32_t size = m_dataram.size() << 2;
 
     o_sq_retire_msq_full.write(false);
@@ -32,10 +31,10 @@ void DataRam::process() {
     if (i_dc_re.read()) {
         uint32_t dc_raddr = i_dc_raddr.read();
         uint8_t byte0, byte1, byte2, byte3;
-        byte0 = dc_raddr < size ? ram[dc_raddr] : 0x0;
-        byte1 = (dc_raddr + 1) < size ? ram[dc_raddr+1] : 0x0;
-        byte2 = (dc_raddr + 2) < size ? ram[dc_raddr+2] : 0x0;
-        byte3 = (dc_raddr + 3) < size ? ram[dc_raddr+3] : 0x0;
+        byte0 = dc_raddr < size ? m_dataram[dc_raddr] : 0x0;
+        byte1 = (dc_raddr + 1) < size ? m_dataram[dc_raddr+1] : 0x0;
+        byte2 = (dc_raddr + 2) < size ? m_dataram[dc_raddr+2] : 0x0;
+        byte3 = (dc_raddr + 3) < size ? m_dataram[dc_raddr+3] : 0x0;
         o_dc_rdata.write((byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0);
     }
 
@@ -43,10 +42,10 @@ void DataRam::process() {
         uint32_t retire_addr = i_sq_retire_addr.read();
         uint32_t byte_en = i_sq_retire_byte_en.read();
         uint32_t data = i_sq_retire_data.read();
-        if (byte_en & 0x1 && retire_addr < size) ram[retire_addr] = data & 0xff;
-        if (byte_en & 0x2 && (retire_addr + 1) < size) ram[retire_addr+1] = (data >> 8) & 0xff;
-        if (byte_en & 0x4 && (retire_addr + 2) < size) ram[retire_addr+2] = (data >> 16) & 0xff;
-        if (byte_en & 0x8 && (retire_addr + 3) < size) ram[retire_addr+3] = (data >> 24) & 0xff;
+        if (byte_en & 0x1 && retire_addr < size) m_dataram[retire_addr] = data & 0xff;
+        if (byte_en & 0x2 && (retire_addr + 1) < size) m_dataram[retire_addr+1] = (data >> 8) & 0xff;
+        if (byte_en & 0x4 && (retire_addr + 2) < size) m_dataram[retire_addr+2] = (data >> 16) & 0xff;
+        if (byte_en & 0x8 && (retire_addr + 3) < size) m_dataram[retire_addr+3] = (data >> 24) & 0xff;
     }
 }
 
@@ -69,7 +68,7 @@ void DataRam::load_hex(const std::string& filename) {
 void DataRam::load_bin(const std::string& filename) {
     std::ifstream file(filename, std::ifstream::binary);
 
-    for (uint32_t insn; file.read((char*)&insn, sizeof(insn)); ) {
+    for (uint8_t insn; file.read((char*)&insn, sizeof(insn)); ) {
         m_dataram.push_back(insn);
     }
 
