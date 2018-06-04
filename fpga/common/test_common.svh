@@ -8,14 +8,15 @@
 `define WB_SRAM_BASE_ADDR     (0)
 `define WB_SRAM_FIFO_DEPTH    (8)
 
-`ifdef DATA_WIDTH_32
-    `define DATA_WIDTH        (32)
-`else
+`ifndef DATA_WIDTH
     `define DATA_WIDTH        (`WB_DATA_WIDTH)
 `endif
-`define ADDR_WIDTH            (`WB_ADDR_WIDTH)
 
-`define CACHE_SIZE            (64)
+`ifndef ADDR_WIDTH
+    `define ADDR_WIDTH        (`WB_ADDR_WIDTH)
+`endif
+
+`define CACHE_SIZE            (256)
 `define CACHE_LINE_SIZE       (32)
 
 `define CACHE_WORD_SIZE       (`DATA_WIDTH/8)
@@ -24,3 +25,32 @@
 `define CACHE_INDEX_WIDTH     ($clog2(`CACHE_INDEX_COUNT))
 `define CACHE_TAG_WIDTH       (`ADDR_WIDTH-`CACHE_INDEX_WIDTH-`CACHE_OFFSET_WIDTH)
 `define CACHE_LINE_WIDTH      (`CACHE_LINE_SIZE*8)
+
+`ifndef DC_CACHE_SIZE
+    `define DC_CACHE_SIZE     (256)
+`endif
+`ifndef DC_LINE_SIZE
+    `define DC_LINE_SIZE      (`CACHE_LINE_SIZE)
+`endif
+`ifndef DC_WAY_COUNT
+    `define DC_WAY_COUNT      (1)
+`endif
+`ifndef DC_INDEX_COUNT
+    `define DC_INDEX_COUNT    (`DC_CACHE_SIZE/`DC_LINE_SIZE/`DC_WAY_COUNT)
+`endif
+
+`ifndef DC_OFFSET_WIDTH
+    `define DC_OFFSET_WIDTH   $clog2(`DC_LINE_SIZE)
+`endif
+`ifndef DC_INDEX_WIDTH
+    `define DC_INDEX_WIDTH    $clog2(`DC_INDEX_COUNT)
+`endif
+`ifndef DC_WAY_WIDTH
+    `define DC_WAY_WIDTH      $clog2(`DC_WAY_COUNT)
+`endif
+`ifndef DC_TAG_WIDTH
+    `define DC_TAG_WIDTH      (`ADDR_WIDTH-`DC_INDEX_WIDTH-`DC_OFFSET_WIDTH)
+`endif
+`ifndef DC_LINE_WIDTH
+    `define DC_LINE_WIDTH     (`DC_LINE_SIZE*8)
+`endif
