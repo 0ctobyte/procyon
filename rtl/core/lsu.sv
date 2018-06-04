@@ -42,7 +42,7 @@ module lsu #(
 
     // FIXME: Temporary data cache interface
     input  logic                    i_dc_hit,
-    input  procyon_data_t           i_dc_data,
+    input  procyon_data_t           i_dc_rdata,
     output logic                    o_dc_re,
     output procyon_addr_t           o_dc_addr,
 
@@ -167,7 +167,7 @@ module lsu #(
         .o_tag(lsu_ex.tag),
         .o_valid(lsu_ex.valid),
         .i_dc_hit(i_dc_hit),
-        .i_dc_data(i_dc_data),
+        .i_dc_rdata(i_dc_rdata),
         .o_dc_addr(o_dc_addr),
         .o_dc_re(o_dc_re)
     );

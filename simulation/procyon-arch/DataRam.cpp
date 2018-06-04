@@ -12,7 +12,7 @@ void DataRam::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     sc_trace(tf, i_dc_re, module_name+".i_dc_re");
     sc_trace(tf, i_dc_addr, module_name+".i_dc_addr");
     sc_trace(tf, o_dc_hit, module_name+".o_dc_hit");
-    sc_trace(tf, o_dc_data, module_name+".o_dc_data");
+    sc_trace(tf, o_dc_rdata, module_name+".o_dc_rdata");
     sc_trace(tf, i_sq_retire_en, module_name+".i_sq_retire_en");
     sc_trace(tf, i_sq_retire_byte_en, module_name+".i_sq_retire_byte_en");
     sc_trace(tf, i_sq_retire_addr, module_name+".i_sq_retire_addr");
@@ -36,7 +36,7 @@ void DataRam::process() {
         byte1 = (dc_addr + 1) < size ? ram[dc_addr+1] : 0x0;
         byte2 = (dc_addr + 2) < size ? ram[dc_addr+2] : 0x0;
         byte3 = (dc_addr + 3) < size ? ram[dc_addr+3] : 0x0;
-        o_dc_data.write((byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0);
+        o_dc_rdata.write((byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0);
     }
 
     if (i_sq_retire_en.read()) {

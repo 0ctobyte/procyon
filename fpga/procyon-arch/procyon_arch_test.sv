@@ -50,7 +50,7 @@ module procyon_arch_test #(
 
     // FIXME: Temporary data cache interface
     logic                  dc_hit;
-    procyon_data_t         dc_data;
+    procyon_data_t         dc_rdata;
     logic                  dc_re;
     procyon_addr_t         dc_addr;
 
@@ -132,7 +132,7 @@ module procyon_arch_test #(
     ) data_ram_inst (
         .clk(clk),
         .o_dc_hit(dc_hit),
-        .o_dc_data(dc_data),
+        .o_dc_rdata(dc_rdata),
         .i_dc_re(dc_re),
         .i_dc_addr(dc_addr),
         .o_sq_retire_dc_hit(sq_retire_dc_hit),
@@ -157,7 +157,7 @@ module procyon_arch_test #(
         .o_ic_pc(ic_pc),
         .o_ic_en(ic_en),
         .i_dc_hit(dc_hit),
-        .i_dc_data(dc_data),
+        .i_dc_rdata(dc_rdata),
         .o_dc_re(dc_re),
         .o_dc_addr(dc_addr),
         .i_sq_retire_dc_hit(sq_retire_dc_hit),

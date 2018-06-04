@@ -26,7 +26,7 @@ module procyon (
 
     // FIXME: Temporary data cache interface
     input  logic                  i_dc_hit,
-    input  procyon_data_t         i_dc_data,
+    input  procyon_data_t         i_dc_rdata,
     output logic                  o_dc_re,
     output procyon_addr_t         o_dc_addr,
 
@@ -350,7 +350,7 @@ module procyon (
         .o_rob_retire_stall(lsu_retire_stall),
         .o_rob_retire_mis_speculated(lsu_retire_mis_speculated),
         .i_dc_hit(i_dc_hit),
-        .i_dc_data(i_dc_data),
+        .i_dc_rdata(i_dc_rdata),
         .o_dc_re(o_dc_re),
         .o_dc_addr(o_dc_addr),
         .i_sq_retire_dc_hit(i_sq_retire_dc_hit),

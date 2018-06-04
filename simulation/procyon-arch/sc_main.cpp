@@ -31,7 +31,7 @@ int sc_main(int argc, char** argv) {
     sc_signal<uint32_t> ic_pc;
     sc_signal<bool> ic_en;
     sc_signal<bool> dc_hit;
-    sc_signal<uint32_t> dc_data;
+    sc_signal<uint32_t> dc_rdata;
     sc_signal<bool> dc_re;
     sc_signal<uint32_t> dc_addr;
     sc_signal<bool> sq_retire_dc_hit;
@@ -59,7 +59,7 @@ int sc_main(int argc, char** argv) {
     DataRam dataram("dataram");
     dataram.trace_all(tf, top_name);
     dataram.o_dc_hit(dc_hit);
-    dataram.o_dc_data(dc_data);
+    dataram.o_dc_rdata(dc_rdata);
     dataram.i_dc_re(dc_re);
     dataram.i_dc_addr(dc_addr);
     dataram.o_sq_retire_dc_hit(sq_retire_dc_hit);
@@ -84,7 +84,7 @@ int sc_main(int argc, char** argv) {
     dut.o_ic_pc(ic_pc);
     dut.o_ic_en(ic_en);
     dut.i_dc_hit(dc_hit);
-    dut.i_dc_data(dc_data);
+    dut.i_dc_rdata(dc_rdata);
     dut.o_dc_re(dc_re);
     dut.o_dc_addr(dc_addr);
     dut.i_sq_retire_dc_hit(sq_retire_dc_hit);

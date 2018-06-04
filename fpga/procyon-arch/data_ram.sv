@@ -8,7 +8,7 @@ module data_ram #(
     input  logic                  clk,
 
     output logic                  o_dc_hit,
-    output procyon_data_t         o_dc_data,
+    output procyon_data_t         o_dc_rdata,
     input  logic                  i_dc_re,
     input  procyon_addr_t         i_dc_addr,
 
@@ -33,10 +33,10 @@ module data_ram #(
 
     // FIXME: Temporary data cache interface
     assign o_dc_hit             = i_dc_re;
-    assign o_dc_data[7:0]       = memory[dc_addr];
-    assign o_dc_data[15:8]      = memory[dc_addr + 1];
-    assign o_dc_data[23:16]     = memory[dc_addr + 2];
-    assign o_dc_data[31:24]     = memory[dc_addr + 3];
+    assign o_dc_rdata[7:0]      = memory[dc_addr];
+    assign o_dc_rdata[15:8]     = memory[dc_addr + 1];
+    assign o_dc_rdata[23:16]    = memory[dc_addr + 2];
+    assign o_dc_rdata[31:24]    = memory[dc_addr + 3];
 
     // FIXME: Temporary store retire to cache interface
     assign o_sq_retire_dc_hit   = i_sq_retire_en ? 1'b1 : 1'b0;

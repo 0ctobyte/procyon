@@ -21,7 +21,7 @@ module lsu_ex (
 /* verilator lint_off UNUSED */
     input  logic                  i_dc_hit,
 /* verilator lint_on  UNUSED */
-    input  procyon_data_t         i_dc_data,
+    input  procyon_data_t         i_dc_rdata,
     output procyon_addr_t         o_dc_addr,
     output logic                  o_dc_re
 );
@@ -39,12 +39,12 @@ module lsu_ex (
     // extends to 32 bits.
     always_comb begin
         case (i_lsu_func)
-            LSU_FUNC_LB:  o_data = {{(`DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            LSU_FUNC_LH:  o_data = {{(`DATA_WIDTH-16){i_dc_data[15]}}, i_dc_data[15:0]};
-            LSU_FUNC_LW:  o_data = i_dc_data;
-            LSU_FUNC_LBU: o_data = {{(`DATA_WIDTH-8){1'b0}}, i_dc_data[7:0]};
-            LSU_FUNC_LHU: o_data = {{(`DATA_WIDTH-16){1'b0}}, i_dc_data[15:0]};
-            default:      o_data = i_dc_data;
+            LSU_FUNC_LB:  o_data = {{(`DATA_WIDTH-8){i_dc_rdata[7]}}, i_dc_rdata[7:0]};
+            LSU_FUNC_LH:  o_data = {{(`DATA_WIDTH-16){i_dc_rdata[15]}}, i_dc_rdata[15:0]};
+            LSU_FUNC_LW:  o_data = i_dc_rdata;
+            LSU_FUNC_LBU: o_data = {{(`DATA_WIDTH-8){1'b0}}, i_dc_rdata[7:0]};
+            LSU_FUNC_LHU: o_data = {{(`DATA_WIDTH-16){1'b0}}, i_dc_rdata[15:0]};
+            default:      o_data = i_dc_rdata;
         endcase
     end
 

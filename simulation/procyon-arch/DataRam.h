@@ -6,7 +6,7 @@ SC_MODULE(DataRam) {
     sc_in<bool> i_dc_re;
     sc_in<uint32_t> i_dc_addr;
     sc_out<bool> o_dc_hit;
-    sc_out<uint32_t> o_dc_data;
+    sc_out<uint32_t> o_dc_rdata;
     sc_in<bool> i_sq_retire_en;
     sc_in<uint32_t> i_sq_retire_byte_en;
     sc_in<uint32_t> i_sq_retire_addr;
