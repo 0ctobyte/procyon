@@ -1,3 +1,5 @@
+#include <iomanip>
+
 #include "Monitor.h"
 
 Monitor::~Monitor() {
@@ -23,7 +25,14 @@ void Monitor::process() {
         addr = i_biu_addr.read();
         write_data = i_biu_data_i.read();
         while (!i_biu_en.read() || !i_biu_done.read() || i_biu_we.read()) wait();
-        printf("%s - %s = %s from %#010x\n", sc_time_stamp().to_string().c_str(), i_biu_data_o.read().to_string(SC_HEX).c_str(), write_data.to_string(SC_HEX).c_str(), addr.to_uint());
+
+        std::cout << sc_time_stamp() << " - "
+            << i_biu_data_o.read().to_string(SC_HEX) << " = "
+            << write_data.to_string(SC_HEX) << " from "
+            << std::setw(10) << std::internal << std::hex << std::showbase << std::setfill('0')
+            << addr.to_uint()
+            << std::endl;
+
         if (write_data != i_biu_data_o.read()) sc_stop();
     }
 }
