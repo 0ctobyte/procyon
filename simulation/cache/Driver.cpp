@@ -15,6 +15,7 @@ void Driver::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     sc_trace(tf, o_cache_we, module_name+".o_cache_we");
     sc_trace(tf, o_cache_fe, module_name+".o_cache_fe");
     sc_trace(tf, o_cache_valid, module_name+".o_cache_valid");
+    sc_trace(tf, o_cache_dirty, module_name+".o_cache_dirty");
     sc_trace(tf, o_cache_tag, module_name+".o_cache_tag");
     sc_trace(tf, o_cache_index, module_name+".o_cache_index");
     sc_trace(tf, o_cache_offset, module_name+".o_cache_offset");
@@ -40,6 +41,7 @@ void Driver::reset() {
     o_cache_we.write(false);
     o_cache_fe.write(false);
     o_cache_valid.write(false);
+    o_cache_dirty.write(false);
     o_cache_tag.write(0);
     o_cache_index.write(0);
     o_cache_offset.write(0);
@@ -55,12 +57,13 @@ void Driver::reset() {
 void Driver::cache_write(sc_uint<ADDR_WIDTH> addr, sc_uint<DATA_WIDTH> data) {
     uint32_t offset = addr.range(CACHE_OFFSET_WIDTH-1, 0).to_uint();
     uint32_t index = addr.range(CACHE_INDEX_WIDTH+CACHE_OFFSET_WIDTH-1, CACHE_OFFSET_WIDTH).to_uint();
-    uint32_t tag = addr.range(ADDR_WIDTH-1, ADDR_WIDTH-CACHE_TAG_WIDTH);
+    uint32_t tag = addr.range(ADDR_WIDTH-1, ADDR_WIDTH-CACHE_TAG_WIDTH).to_uint();
 
     o_cache_we.write(true);
     o_cache_re.write(false);
     o_cache_fe.write(false);
     o_cache_valid.write(true);
+    o_cache_dirty.write(false);
     o_cache_tag.write(tag);
     o_cache_index.write(index);
     o_cache_offset.write(offset);
@@ -76,6 +79,7 @@ void Driver::cache_read(sc_uint<ADDR_WIDTH> addr) {
     o_cache_re.write(true);
     o_cache_fe.write(false);
     o_cache_valid.write(true);
+    o_cache_dirty.write(false);
     o_cache_tag.write(tag);
     o_cache_index.write(index);
     o_cache_offset.write(offset);
@@ -90,6 +94,7 @@ void Driver::cache_fill(sc_uint<ADDR_WIDTH> addr, sc_bv<CACHE_LINE_WIDTH> fdata)
     o_cache_re.write(false);
     o_cache_fe.write(true);
     o_cache_valid.write(true);
+    o_cache_dirty.write(false);
     o_cache_tag.write(tag);
     o_cache_index.write(index);
     o_cache_offset.write(offset);

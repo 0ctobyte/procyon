@@ -10,6 +10,7 @@ SC_MODULE(Driver) {
     sc_out<bool> o_cache_we;
     sc_out<bool> o_cache_fe;
     sc_out<bool> o_cache_valid;
+    sc_out<bool> o_cache_dirty;
     sc_out<uint32_t> o_cache_tag;
     sc_out<uint32_t> o_cache_index;
     sc_out<uint32_t> o_cache_offset;

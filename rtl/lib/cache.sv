@@ -20,7 +20,7 @@ module cache #(
     // i_cache_re = read enable
     // i_cache_we = write enable
     // i_cache_fe = fill enable
-    // i_cache_valid will be written to the valid bit when fill enable is
+    // i_cache_valid and i_cache_dirty will be written to the valid bit when fill enable is
     // asserted. i_cache_offset is the byte offset into the cache line.
     // i_cache_index chooses the index into the cache and i_cache_tag is used
     // for tag comparisons. i_cache_fdata is the fill data when writing an
@@ -29,6 +29,7 @@ module cache #(
     input  logic                                i_cache_we,
     input  logic                                i_cache_fe,
     input  logic                                i_cache_valid,
+    input  logic                                i_cache_dirty,
     input  logic [`LIB_CACHE_OFFSET_WIDTH-1:0]  i_cache_offset,
     input  logic [`LIB_CACHE_INDEX_WIDTH-1:0]   i_cache_index,
     input  logic [`LIB_CACHE_TAG_WIDTH-1:0]     i_cache_tag,
@@ -147,7 +148,7 @@ module cache #(
                 cache_state[i].dirty <= 1'b0;
             end
         end else if (i_cache_fe) begin
-            cache_state[i_cache_index].dirty <= 1'b0;
+            cache_state[i_cache_index].dirty <= i_cache_dirty;
         end else if (cache_we) begin
             cache_state[i_cache_index].dirty <= 1'b1;
         end
