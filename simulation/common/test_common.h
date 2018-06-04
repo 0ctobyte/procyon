@@ -5,12 +5,12 @@
 #define WB_ADDR_WIDTH      (32)
 #define WB_DATA_WIDTH      (16)
 
-#ifdef DATA_WIDTH_32
-    #define DATA_WIDTH     (32)
-#else
+#ifndef DATA_WIDTH
     #define DATA_WIDTH     (WB_DATA_WIDTH)
 #endif
-#define ADDR_WIDTH         (WB_ADDR_WIDTH)
+#ifndef ADDR_WIDTH
+    #define ADDR_WIDTH     (WB_ADDR_WIDTH)
+#endif
 
 #define CACHE_SIZE         (256)
 #define CACHE_LINE_SIZE    (32)
