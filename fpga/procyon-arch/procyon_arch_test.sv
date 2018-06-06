@@ -1,26 +1,34 @@
-`include "../../rtl/core/common.svh"
+`include "../common/test_common.svh"
 
 import procyon_types::*;
 
 module procyon_arch_test #(
     parameter HEX_FILE = ""
 ) (
-    input  logic         CLOCK_50,
-    input  logic [17:17] SW,
+    input  logic                         CLOCK_50,
+    input  logic [17:17]                 SW,
 
-    input  logic [0:0]   KEY,
+    input  logic [0:0]                   KEY,
 
-    output logic [17:0]  LEDR,
-    output logic [7:0]   LEDG,
+    output logic [17:0]                  LEDR,
+    output logic [7:0]                   LEDG,
 
-    output logic [6:0]   HEX0,
-    output logic [6:0]   HEX1,
-    output logic [6:0]   HEX2,
-    output logic [6:0]   HEX3,
-    output logic [6:0]   HEX4,
-    output logic [6:0]   HEX5,
-    output logic [6:0]   HEX6,
-    output logic [6:0]   HEX7
+    inout  wire  [`SRAM_DATA_WIDTH-1:0]  SRAM_DQ,
+    output logic [`SRAM_ADDR_WIDTH-1:0]  SRAM_ADDR,
+    output logic                         SRAM_CE_N,
+    output logic                         SRAM_WE_N,
+    output logic                         SRAM_OE_N,
+    output logic                         SRAM_LB_N,
+    output logic                         SRAM_UB_N,
+
+    output logic [6:0]                   HEX0,
+    output logic [6:0]                   HEX1,
+    output logic [6:0]                   HEX2,
+    output logic [6:0]                   HEX3,
+    output logic [6:0]                   HEX4,
+    output logic [6:0]                   HEX5,
+    output logic [6:0]                   HEX6,
+    output logic [6:0]                   HEX7
 );
     typedef enum logic {
         RUN  = 1'b0,
@@ -48,25 +56,26 @@ module procyon_arch_test #(
     procyon_addr_t         ic_pc;
     logic                  ic_en;
 
-    // FIXME: Temporary data cache interface
-    logic                  dc_hit;
-    procyon_data_t         dc_rdata;
-    logic                  dc_re;
-    procyon_addr_t         dc_raddr;
+    // Wishbone interface
+    logic                  wb_clk;
+    logic                  wb_rst;
+    logic                  wb_ack;
+    logic                  wb_stall;
+    wb_data_t              wb_data_i;
+    logic                  wb_cyc;
+    logic                  wb_stb;
+    logic                  wb_we;
+    wb_byte_select_t       wb_sel;
+    wb_addr_t              wb_addr;
+    wb_data_t              wb_data_o;
 
-    // FIXME: Temporary store retire to cache interface
-    logic                  sq_retire_dc_hit;
-    logic                  sq_retire_msq_full;
-    logic                  sq_retire_en;
-    procyon_byte_select_t  sq_retire_byte_en;
-    procyon_addr_t         sq_retire_addr;
-    procyon_data_t         sq_retire_data;
-
-    logic           key0;
-    logic           key_pulse;
-    logic [6:0]     o_hex [0:7];
+    logic                  key0;
+    logic                  key_pulse;
+    logic [6:0]            o_hex [0:7];
 
     assign n_rst            = SW[17];
+    assign wb_clk           = CLOCK_50;
+    assign wb_rst           = n_rst;
 
     assign key0             = ~KEY[0];
     assign LEDR[17]         = SW[17];
@@ -127,22 +136,6 @@ module procyon_arch_test #(
         .i_ic_en(ic_en)
     );
 
-    data_ram #(
-        .HEX_FILE(HEX_FILE)
-    ) data_ram_inst (
-        .clk(clk),
-        .o_dc_hit(dc_hit),
-        .o_dc_rdata(dc_rdata),
-        .i_dc_re(dc_re),
-        .i_dc_raddr(dc_raddr),
-        .o_sq_retire_dc_hit(sq_retire_dc_hit),
-        .o_sq_retire_msq_full(sq_retire_msq_full),
-        .i_sq_retire_en(sq_retire_en),
-        .i_sq_retire_byte_en(sq_retire_byte_en),
-        .i_sq_retire_addr(sq_retire_addr),
-        .i_sq_retire_data(sq_retire_data)
-    );
-
     procyon procyon (
         .clk(clk),
         .n_rst(n_rst),
@@ -156,16 +149,42 @@ module procyon_arch_test #(
         .i_ic_valid(ic_valid),
         .o_ic_pc(ic_pc),
         .o_ic_en(ic_en),
-        .i_dc_hit(dc_hit),
-        .i_dc_rdata(dc_rdata),
-        .o_dc_re(dc_re),
-        .o_dc_raddr(dc_raddr),
-        .i_sq_retire_dc_hit(sq_retire_dc_hit),
-        .i_sq_retire_msq_full(sq_retire_msq_full),
-        .o_sq_retire_en(sq_retire_en),
-        .o_sq_retire_byte_en(sq_retire_byte_en),
-        .o_sq_retire_addr(sq_retire_addr),
-        .o_sq_retire_data(sq_retire_data)
+        .i_wb_clk(wb_clk),
+        .i_wb_rst(wb_rst),
+        .i_wb_ack(wb_ack),
+        .i_wb_stall(wb_stall),
+        .i_wb_data(wb_data_i),
+        .o_wb_cyc(wb_cyc),
+        .o_wb_stb(wb_stb),
+        .o_wb_we(wb_we),
+        .o_wb_sel(wb_sel),
+        .o_wb_addr(wb_addr),
+        .o_wb_data(wb_data_o)
     );
 
+    wb_sram #(
+        .DATA_WIDTH(`WB_DATA_WIDTH),
+        .ADDR_WIDTH(`WB_ADDR_WIDTH),
+        .BASE_ADDR(`WB_SRAM_BASE_ADDR),
+        .FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
+    ) wb_sram_inst (
+        .i_wb_clk(wb_clk),
+        .i_wb_rst(wb_rst),
+        .i_wb_cyc(wb_cyc),
+        .i_wb_stb(wb_stb),
+        .i_wb_we(wb_we),
+        .i_wb_sel(wb_sel),
+        .i_wb_addr(wb_addr),
+        .i_wb_data(wb_data_o),
+        .o_wb_data(wb_data_i),
+        .o_wb_ack(wb_ack),
+        .o_wb_stall(wb_stall),
+        .io_sram_dq(SRAM_DQ),
+        .o_sram_addr(SRAM_ADDR),
+        .o_sram_ce_n(SRAM_CE_N),
+        .o_sram_oe_n(SRAM_OE_N),
+        .o_sram_we_n(SRAM_WE_N),
+        .o_sram_ub_n(SRAM_UB_N),
+        .o_sram_lb_n(SRAM_LB_N)
+    );
 endmodule

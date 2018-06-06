@@ -8,50 +8,38 @@ module data_ram #(
     input  logic                  clk,
 
     output logic                  o_dc_hit,
-    output procyon_data_t         o_dc_rdata,
-    input  logic                  i_dc_re,
-    input  procyon_addr_t         i_dc_raddr,
-
-    output logic                  o_sq_retire_dc_hit,
-    output logic                  o_sq_retire_msq_full,
-    input  logic                  i_sq_retire_en,
-    input  procyon_byte_select_t  i_sq_retire_byte_en,
-    input  procyon_addr_t         i_sq_retire_addr,
-    input  procyon_data_t         i_sq_retire_data
-
+    output procyon_data_t         o_dc_data,
+    input  logic                  i_dc_we,
+    input  procyon_addr_t         i_dc_addr,
+    input  procyon_data_t         i_dc_data,
+    input  procyon_byte_select_t  i_dc_byte_select
 );
-    
+
     localparam MEM_SIZE = 64;
 
     logic [7:0] memory [0:MEM_SIZE-1];
 
-    logic [$clog2(MEM_SIZE)-1:0] dc_raddr;
-    logic [$clog2(MEM_SIZE)-1:0] sq_retire_addr;
+    logic [$clog2(MEM_SIZE)-1:0] dc_addr;
 
-    assign dc_raddr             = i_dc_raddr[$clog2(MEM_SIZE)-1:0];
-    assign sq_retire_addr       = i_sq_retire_addr[$clog2(MEM_SIZE)-1:0];
+    assign dc_addr             = i_dc_addr[$clog2(MEM_SIZE)-1:0];
 
     // FIXME: Temporary data cache interface
-    assign o_dc_hit             = i_dc_re;
-    assign o_dc_rdata[7:0]      = memory[dc_raddr];
-    assign o_dc_rdata[15:8]     = memory[dc_raddr + 1];
-    assign o_dc_rdata[23:16]    = memory[dc_raddr + 2];
-    assign o_dc_rdata[31:24]    = memory[dc_raddr + 3];
-
-    // FIXME: Temporary store retire to cache interface
-    assign o_sq_retire_dc_hit   = i_sq_retire_en ? 1'b1 : 1'b0;
-    assign o_sq_retire_msq_full = 1'b0;
+    assign o_dc_hit            = 1'b1;
+    assign o_dc_data[7:0]      = memory[dc_addr];
+    assign o_dc_data[15:8]     = memory[dc_addr + 1];
+    assign o_dc_data[23:16]    = memory[dc_addr + 2];
+    assign o_dc_data[31:24]    = memory[dc_addr + 3];
 
     initial begin
         $readmemh(HEX_FILE, memory);
     end
 
     always @(posedge clk) begin
-        if (i_sq_retire_en) begin
-            memory[sq_retire_addr]     <= i_sq_retire_byte_en[0] ? i_sq_retire_data[7:0]   : memory[sq_retire_addr];
-            memory[sq_retire_addr + 1] <= i_sq_retire_byte_en[1] ? i_sq_retire_data[15:8]  : memory[sq_retire_addr + 1];
-            memory[sq_retire_addr + 2] <= i_sq_retire_byte_en[2] ? i_sq_retire_data[23:16] : memory[sq_retire_addr + 2];
-            memory[sq_retire_addr + 3] <= i_sq_retire_byte_en[3] ? i_sq_retire_data[31:24] : memory[sq_retire_addr + 3];
+        if (i_dc_we) begin
+            memory[dc_addr]     <= i_dc_byte_select[0] ? i_dc_data[7:0]   : memory[dc_addr];
+            memory[dc_addr + 1] <= i_dc_byte_select[1] ? i_dc_data[15:8]  : memory[dc_addr + 1];
+            memory[dc_addr + 2] <= i_dc_byte_select[2] ? i_dc_data[23:16] : memory[dc_addr + 2];
+            memory[dc_addr + 3] <= i_dc_byte_select[3] ? i_dc_data[31:24] : memory[dc_addr + 3];
         end
     end
 

@@ -25,8 +25,8 @@
 #define DC_CACHE_SIZE      (256)
 #define DC_LINE_SIZE       (CACHE_LINE_SIZE)
 #define DC_WAY_COUNT       (1)
-#define DC_INDEX_COUNT     (DC_CACHE_SIZE/DC_LINE_SIZE/DC_WAY_COUNT)
 
+#define DC_INDEX_COUNT     (DC_CACHE_SIZE/DC_LINE_SIZE/DC_WAY_COUNT)
 #define DC_OFFSET_WIDTH    ((uint32_t)ceil(log2(DC_LINE_SIZE)))
 #define DC_INDEX_WIDTH     ((uint32_t)ceil(log2(DC_INDEX_COUNT)))
 #define DC_WAY_WIDTH       ((uint32_t)ceil(log2(DC_WAY_COUNT)))

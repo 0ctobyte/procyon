@@ -24,19 +24,18 @@ module procyon (
     output procyon_addr_t         o_ic_pc,
     output logic                  o_ic_en,
 
-    // FIXME: Temporary data cache interface
-    input  logic                  i_dc_hit,
-    input  procyon_data_t         i_dc_rdata,
-    output logic                  o_dc_re,
-    output procyon_addr_t         o_dc_raddr,
-
-    // FIXME: Temporary store retire to cache interface
-    input  logic                  i_sq_retire_dc_hit,
-    input  logic                  i_sq_retire_msq_full,
-    output logic                  o_sq_retire_en,
-    output procyon_byte_select_t  o_sq_retire_byte_en,
-    output procyon_addr_t         o_sq_retire_addr,
-    output procyon_data_t         o_sq_retire_data
+    // Wishbone bus interface
+    input  logic                  i_wb_clk,
+    input  logic                  i_wb_rst,
+    input  logic                  i_wb_ack,
+    input  logic                  i_wb_stall,
+    input  wb_data_t              i_wb_data,
+    output logic                  o_wb_cyc,
+    output logic                  o_wb_stb,
+    output logic                  o_wb_we,
+    output wb_byte_select_t       o_wb_sel,
+    output wb_addr_t              o_wb_addr,
+    output wb_data_t              o_wb_data
 );
 
     // Module signals
@@ -106,6 +105,19 @@ module procyon (
     logic                          lsu_retire_mis_speculated;
     procyon_tag_t                  lsu_retire_tag;
 
+    logic                          mhq_full;
+    logic                          mhq_fill;
+    procyon_mhq_tag_t              mhq_fill_tag;
+    logic                          mhq_fill_dirty;
+    procyon_addr_t                 mhq_fill_addr;
+    procyon_cacheline_t            mhq_fill_data;
+    procyon_mhq_tag_t              mhq_enq_tag;
+    logic                          mhq_enq_en;
+    logic                          mhq_enq_we;
+    procyon_addr_t                 mhq_enq_addr;
+    procyon_data_t                 mhq_enq_data;
+    procyon_byte_select_t          mhq_enq_byte_select;
+
     logic                          rob_redirect;
     procyon_addr_t                 rob_redirect_addr;
 
@@ -157,7 +169,6 @@ module procyon (
 
     dispatch dispatch_inst (
         .clk(clk),
-        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_insn_fifo_empty(insn_fifo_empty),
         .i_insn_fifo_data(insn_fifo_rd_data),
@@ -246,15 +257,13 @@ module procyon (
     );
 
     reservation_station #(
-        .RS_DEPTH(`RS_DEPTH)
+        .RS_DEPTH(`RS_IEU_DEPTH)
     ) rs_ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_cdb_en(cdb_en),
-        .i_cdb_redirect(cdb_redirect),
         .i_cdb_data(cdb_data),
-        .i_cdb_addr(cdb_addr),
         .i_cdb_tag(cdb_tag),
         .i_rs_en(rs_en_m[0]),
         .i_rs_opcode(rs_opcode),
@@ -295,15 +304,13 @@ module procyon (
     );
 
     reservation_station #(
-        .RS_DEPTH(`RS_DEPTH)
+        .RS_DEPTH(`RS_LSU_DEPTH)
     ) rs_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_cdb_en(cdb_en),
-        .i_cdb_redirect(cdb_redirect),
         .i_cdb_data(cdb_data),
-        .i_cdb_addr(cdb_addr),
         .i_cdb_tag(cdb_tag),
         .i_rs_en(rs_en_m[1]),
         .i_rs_opcode(rs_opcode),
@@ -324,10 +331,7 @@ module procyon (
         .o_fu_tag(fu_tag[1])
     );
 
-    lsu #(
-        .LQ_DEPTH(`LQ_DEPTH),
-        .SQ_DEPTH(`SQ_DEPTH)
-    ) lsu_inst (
+    lsu lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -349,16 +353,46 @@ module procyon (
         .i_rob_retire_sq_en(lsu_retire_sq_en),
         .o_rob_retire_stall(lsu_retire_stall),
         .o_rob_retire_mis_speculated(lsu_retire_mis_speculated),
-        .i_dc_hit(i_dc_hit),
-        .i_dc_rdata(i_dc_rdata),
-        .o_dc_re(o_dc_re),
-        .o_dc_raddr(o_dc_raddr),
-        .i_sq_retire_dc_hit(i_sq_retire_dc_hit),
-        .i_sq_retire_msq_full(i_sq_retire_msq_full),
-        .o_sq_retire_en(o_sq_retire_en),
-        .o_sq_retire_byte_en(o_sq_retire_byte_en),
-        .o_sq_retire_addr(o_sq_retire_addr),
-        .o_sq_retire_data(o_sq_retire_data)
+        .i_mhq_full(mhq_full),
+        .i_mhq_fill(mhq_fill),
+        .i_mhq_fill_tag(mhq_fill_tag),
+        .i_mhq_fill_dirty(mhq_fill_dirty),
+        .i_mhq_fill_addr(mhq_fill_addr),
+        .i_mhq_fill_data(mhq_fill_data),
+        .i_mhq_enq_tag(mhq_enq_tag),
+        .o_mhq_enq_en(mhq_enq_en),
+        .o_mhq_enq_we(mhq_enq_we),
+        .o_mhq_enq_addr(mhq_enq_addr),
+        .o_mhq_enq_data(mhq_enq_data),
+        .o_mhq_enq_byte_select(mhq_enq_byte_select)
+    );
+
+    ccu ccu_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .o_mhq_full(mhq_full),
+        .o_mhq_fill(mhq_fill),
+        .o_mhq_fill_tag(mhq_fill_tag),
+        .o_mhq_fill_dirty(mhq_fill_dirty),
+        .o_mhq_fill_addr(mhq_fill_addr),
+        .o_mhq_fill_data(mhq_fill_data),
+        .i_mhq_enq_en(mhq_enq_en),
+        .i_mhq_enq_we(mhq_enq_we),
+        .i_mhq_enq_addr(mhq_enq_addr),
+        .i_mhq_enq_data(mhq_enq_data),
+        .i_mhq_enq_byte_select(mhq_enq_byte_select),
+        .o_mhq_enq_tag(mhq_enq_tag),
+        .i_wb_clk(i_wb_clk),
+        .i_wb_rst(i_wb_rst),
+        .i_wb_ack(i_wb_ack),
+        .i_wb_stall(i_wb_stall),
+        .i_wb_data(i_wb_data),
+        .o_wb_cyc(o_wb_cyc),
+        .o_wb_stb(o_wb_stb),
+        .o_wb_we(o_wb_we),
+        .o_wb_sel(o_wb_sel),
+        .o_wb_addr(o_wb_addr),
+        .o_wb_data(o_wb_data)
     );
 
 endmodule

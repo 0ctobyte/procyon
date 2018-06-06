@@ -1,4 +1,4 @@
-`define DATA_WIDTH_32
+`define DATA_WIDTH (32)
 `include "../common/test_common.svh"
 
 module wb_sram_test (

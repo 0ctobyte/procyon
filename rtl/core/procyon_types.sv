@@ -10,15 +10,18 @@ package procyon_types;
     typedef logic [`REG_ADDR_WIDTH-1:0]         procyon_reg_t;
     typedef logic [`WORD_SIZE-1:0]              procyon_byte_select_t;
 
-    typedef logic [`DC_OFFSET_WIDTH-1:0]        procyon_dc_offset_t;
-    typedef logic [`DC_INDEX_WIDTH-1:0]         procyon_dc_index_t;
-    typedef logic [`DC_TAG_WIDTH-1:0]           procyon_dc_tag_t;
-    typedef logic [`DC_LINE_WIDTH-1:0]          procyon_dc_data_t;
-
     typedef logic [`TAG_WIDTH:0]                procyon_tagp_t;
     typedef logic [`ADDR_WIDTH+`DATA_WIDTH-1:0] procyon_addr_data_t;
     typedef logic signed [`DATA_WIDTH-1:0]      procyon_signed_data_t;
     typedef logic [4:0]                         procyon_shamt_t;
+
+    typedef logic [`MHQ_TAG_WIDTH-1:0]          procyon_mhq_tag_t;
+
+    typedef logic [`DC_LINE_WIDTH-1:0]          procyon_cacheline_t;
+
+    typedef logic [`WB_ADDR_WIDTH-1:0]          wb_addr_t;
+    typedef logic [`WB_DATA_WIDTH-1:0]          wb_data_t;
+    typedef logic [`WB_DATA_WIDTH/8-1:0]        wb_byte_select_t;
 
     typedef enum logic [1:0] {
         ROB_OP_INT = 2'b00,

@@ -1,9 +1,15 @@
 `define SRAM_ADDR_WIDTH       (20)
 `define SRAM_DATA_WIDTH       (16)
 
-`define WB_DATA_WIDTH         (16)
-`define WB_ADDR_WIDTH         (32)
-`define WB_WORD_SIZE          (`WB_DATA_WIDTH/8)
+`ifndef WB_DATA_WIDTH
+    `define WB_DATA_WIDTH     (16)
+`endif
+`ifndef WB_ADDR_WIDTH
+    `define WB_ADDR_WIDTH     (32)
+`endif
+`ifndef WB_WORD_SIZE
+    `define WB_WORD_SIZE      (`WB_DATA_WIDTH/8)
+`endif
 
 `define WB_SRAM_BASE_ADDR     (0)
 `define WB_SRAM_FIFO_DEPTH    (8)
@@ -35,10 +41,10 @@
 `ifndef DC_WAY_COUNT
     `define DC_WAY_COUNT      (1)
 `endif
+
 `ifndef DC_INDEX_COUNT
     `define DC_INDEX_COUNT    (`DC_CACHE_SIZE/`DC_LINE_SIZE/`DC_WAY_COUNT)
 `endif
-
 `ifndef DC_OFFSET_WIDTH
     `define DC_OFFSET_WIDTH   $clog2(`DC_LINE_SIZE)
 `endif

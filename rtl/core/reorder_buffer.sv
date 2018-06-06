@@ -6,7 +6,6 @@
 `include "common.svh"
 import procyon_types::*;
 
-/* verilator lint_off MULTIDRIVEN */
 module reorder_buffer (
     input  logic             clk,
     input  logic             n_rst,
@@ -90,10 +89,12 @@ module reorder_buffer (
         logic                            full;
         logic                            empty;
     } rob_t;
- 
+
     procyon_tagp_t               rob_head;
     procyon_tagp_t               rob_tail;
+/* verilator lint_off MULTIDRIVEN */
     rob_entry_t [`ROB_DEPTH-1:0] rob_entries;
+/* verilator lint_on  MULTIDRIVEN */
     rob_t                        rob;
     logic                        redirect;
     logic                        rob_dispatch_en;
@@ -243,4 +244,3 @@ module reorder_buffer (
     end
 
 endmodule
-/* verilator lint_on  MULTIDRIVEN */

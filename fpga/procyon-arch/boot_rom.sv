@@ -10,7 +10,7 @@ module boot_rom #(
     input  procyon_addr_t  i_ic_pc,
     input  logic           i_ic_en
 );
-    
+
     localparam MEM_SIZE = 2048;
 
     logic [7:0] memory [0:MEM_SIZE-1];

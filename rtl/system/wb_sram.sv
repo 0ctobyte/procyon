@@ -120,9 +120,9 @@ module wb_sram #(
     // Update state
     always_comb begin
         case (state_q)
-            IDLE:    state = wb_slave_fifo_empty && ~i_wb_cyc ? IDLE : ACK0;
-            ACK0:    state = wb_slave_fifo_empty && ~i_wb_cyc ? IDLE : (unaligned ? ACK1 : ACK0);
-            ACK1:    state = wb_slave_fifo_empty && ~i_wb_cyc ? IDLE : ACK0;
+            IDLE:    state = wb_slave_fifo_empty || ~i_wb_cyc ? IDLE : ACK0;
+            ACK0:    state = wb_slave_fifo_empty || ~i_wb_cyc ? IDLE : (unaligned ? ACK1 : ACK0);
+            ACK1:    state = wb_slave_fifo_empty || ~i_wb_cyc ? IDLE : ACK0;
             default: state = IDLE;
         endcase
     end

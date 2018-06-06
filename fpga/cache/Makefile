@@ -22,7 +22,7 @@ program: $(PROJECT).sof
 clean:
 	-$(QUARTUS_SH) --clean $(PROJECT)
 	rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf
-	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf
+	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
 
 $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "# Load Quartus Prime Tcl project package" >> $@

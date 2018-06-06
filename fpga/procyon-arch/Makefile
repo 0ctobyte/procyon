@@ -12,7 +12,7 @@ DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := de2-115.pin.tcl
 
 # Directory where source files are located
-SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/core/*.sv boot_rom.sv data_ram.sv procyon_arch_test.sv)
+SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
 
 # Load code from hex file
 HEX_FILE ?= "tests/rv32ui-u-add.hex"

@@ -7,23 +7,18 @@
 `include "common.svh"
 import procyon_types::*;
 
-/* verilator lint_off MULTIDRIVEN */
 module reservation_station #(
-    parameter RS_DEPTH = `RS_DEPTH
+    parameter RS_DEPTH = RS_DEPTH
 ) (
     input  logic              clk,
-/* verilator lint_off UNUSED */
     input  logic              n_rst,
 
     input  logic              i_flush,
 
     // Common Data Bus networks
     input  logic              i_cdb_en       [0:`CDB_DEPTH-1],
-    input  logic              i_cdb_redirect [0:`CDB_DEPTH-1],
     input  procyon_data_t     i_cdb_data     [0:`CDB_DEPTH-1],
-    input  procyon_addr_t     i_cdb_addr     [0:`CDB_DEPTH-1],
     input  procyon_tag_t      i_cdb_tag      [0:`CDB_DEPTH-1],
-/* verilator lint_on  UNUSED */
 
     // Dispatch interface
     input  logic              i_rs_en,
@@ -47,27 +42,29 @@ module reservation_station #(
     output procyon_tag_t      o_fu_tag
 );
     typedef struct packed {
-        logic            [$clog2(RS_DEPTH)-1:0] age;
-        procyon_opcode_t                        opcode;
-        procyon_addr_t                          iaddr;
-        procyon_data_t                          insn;
-        logic            [1:0]                  src_rdy;
-        procyon_data_t   [1:0]                  src_data;
-        procyon_tag_t    [1:0]                  src_tag;
-        procyon_tag_t                           dst_tag;
-        logic                                   empty;
+        logic            [$clog2(RS_DEPTH)-1:0]  age;
+        procyon_opcode_t                         opcode;
+        procyon_addr_t                           iaddr;
+        procyon_data_t                           insn;
+        logic            [1:0]                   src_rdy;
+        procyon_data_t   [1:0]                   src_data;
+        procyon_tag_t    [1:0]                   src_tag;
+        procyon_tag_t                            dst_tag;
+        logic                                    empty;
     } rs_slot_t;
 
     typedef struct packed {
-        logic                                   full;
-        logic     [RS_DEPTH-1:0]                empty;
-        logic     [RS_DEPTH-1:0]                issue_ready;
-        logic     [RS_DEPTH-1:0]                issue_select;
-        logic     [RS_DEPTH-1:0]                dispatch_select;
-        logic     [RS_DEPTH-1:0] [RS_DEPTH-1:0] age_matrix;
+        logic                                     full;
+        logic     [RS_DEPTH-1:0]                  empty;
+        logic     [RS_DEPTH-1:0]                  issue_ready;
+        logic     [RS_DEPTH-1:0]                  issue_select;
+        logic     [RS_DEPTH-1:0]                  dispatch_select;
+        logic     [RS_DEPTH-1:0] [RS_DEPTH-1:0]   age_matrix;
     } rs_t;
 
+/* verilator lint_off MULTIDRIVEN */
     rs_slot_t [RS_DEPTH-1:0]         rs_slots;
+/* verilator lint_on  MULTIDRIVEN */
 /* verilator lint_off UNOPTFLAT */
     rs_t                             rs;
 /* verilator lint_on  UNOPTFLAT */
@@ -207,4 +204,3 @@ module reservation_station #(
     end
 
 endmodule
-/* verilator lint_on  MULTIDRIVEN */

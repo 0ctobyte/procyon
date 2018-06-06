@@ -1,8 +1,5 @@
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-
 #include "BootRom.h"
+#include "utils.h"
 
 BootRom::~BootRom() {
 }
@@ -27,29 +24,13 @@ void BootRom::process() {
 }
 
 void BootRom::load_hex(const std::string& filename) {
-    std::ifstream file(filename);
-
-    for (std::string line; std::getline(file, line); ) {
-        std::string hex;
-        std::istringstream iss(line);
-        if (!(iss >> hex)) break;
-        if (hex == "//") continue;
-        m_bootrom.push_back(std::stol(hex, NULL, 16));
-    }
-
-    // for (auto const& values : m_bootrom) {
-    //     std::cout << std::setw(8) << std::setfill('0') << std::hex << values << std::endl;
-    // }
+    procyon::utils::load_hex(filename, m_bootrom);
 }
 
 void BootRom::load_bin(const std::string& filename) {
-    std::ifstream file(filename, std::ifstream::binary);
+    procyon::utils::load_bin(filename, m_bootrom);
+}
 
-    for (uint8_t insn; file.read((char*)&insn, sizeof(insn)); ) {
-        m_bootrom.push_back(insn);
-    }
-
-    // for (auto const& values : m_bootrom) {
-    //     std::cout << std::setw(8) << std::setfill('0') << std::hex << values << std::endl;
-    // }
+void BootRom::dump_mem() {
+    procyon::utils::dump_mem(m_bootrom);
 }

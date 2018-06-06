@@ -5,7 +5,6 @@
 `include "common.svh"
 import procyon_types::*;
 
-/* verilator lint_off MULTIDRIVEN */
 module ieu (
     input  logic             clk,
     input  logic             n_rst,
@@ -50,10 +49,12 @@ module ieu (
         logic                valid;
     } ieu_ex_t;
 
+/* verilator lint_off MULTIDRIVEN */
     ieu_id_t ieu_id;
     ieu_id_t ieu_id_q;
     ieu_ex_t ieu_ex;
     ieu_ex_t ieu_ex_q;
+/* verilator lint_on  MULTIDRIVEN */
 
     assign o_fu_stall      = 1'b0;
 
@@ -145,4 +146,3 @@ module ieu (
     );
 
 endmodule
-/* verilator lint_on  MULTIDRIVEN */

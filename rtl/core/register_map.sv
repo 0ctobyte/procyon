@@ -3,7 +3,6 @@
 `include "common.svh"
 import procyon_types::*;
 
-/* verilator lint_off MULTIDRIVEN */
 module register_map (
     input  logic           clk,
     input  logic           n_rst,
@@ -42,8 +41,10 @@ module register_map (
         logic          rdy;
     } regmap_t;
 
+/* verilator lint_off MULTIDRIVEN */
     // Register r0 is special and should never be changed
     regmap_t                  regmap [`REGMAP_DEPTH-1:0];
+/* verilator lint_on  MULTIDRIVEN */
     logic                     dest_wr_en;
     logic                     tag_wr_en;
     logic [`REGMAP_DEPTH-1:0] dest_wr_select;
@@ -124,4 +125,3 @@ module register_map (
     end
 
 endmodule
-/* verilator lint_on  MULTIDRIVEN */

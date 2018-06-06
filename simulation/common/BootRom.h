@@ -17,6 +17,7 @@ SC_MODULE(BootRom) {
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
     void load_hex(const std::string& filename);
     void load_bin(const std::string& filename);
+    void dump_mem();
 
     ~BootRom();
 

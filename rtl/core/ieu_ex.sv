@@ -43,7 +43,6 @@ module ieu_ex (
     assign o_valid    = i_valid;
 
     // ALU
-    /* verilator lint_off WIDTH */
     always_comb begin
         case (i_alu_func)
             ALU_FUNC_ADD: result = i_src_a + i_src_b;
@@ -53,6 +52,7 @@ module ieu_ex (
             ALU_FUNC_XOR: result = i_src_a ^ i_src_b;
             ALU_FUNC_SLL: result = i_src_a << i_shamt;
             ALU_FUNC_SRL: result = i_src_a >> i_shamt;
+/* verilator lint_off WIDTH */
             ALU_FUNC_SRA: result = e_src_a >> i_shamt;
             ALU_FUNC_EQ:  result = i_src_a == i_src_b;
             ALU_FUNC_NE:  result = i_src_a != i_src_b;
@@ -60,9 +60,9 @@ module ieu_ex (
             ALU_FUNC_LTU: result = i_src_a < i_src_b;
             ALU_FUNC_GE:  result = s_src_a >= s_src_b;
             ALU_FUNC_GEU: result = i_src_a >= i_src_b;
+/* verilator lint_on  WIDTH */
             default:      result = 'b0;
         endcase
     end
-    /* verilator lint_on  WIDTH */
 
 endmodule
