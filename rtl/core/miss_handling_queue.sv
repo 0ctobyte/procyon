@@ -12,6 +12,9 @@ module miss_handling_queue (
     input  logic                   clk,
     input  logic                   n_rst,
 
+    // Pipeline flush/redirect
+    input  logic                   i_flush,
+
     // Indicate if MHQ is full
     output logic                   o_mhq_full,
 
@@ -155,9 +158,12 @@ module miss_handling_queue (
 
     // Update the MHQ entry on a new enqueue request
     // We need to clear the valid bit on a fill
+    // Also clear the valid bit on a flush for all entries except for the head entry
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
             if (~n_rst) begin
+                mhq_entries[i].valid <= 1'b0;
+            end if (i_flush && i[`MHQ_TAG_WIDTH-1:0] != mhq.head_addr) begin
                 mhq_entries[i].valid <= 1'b0;
             end else if (filling && mhq.fill_select[i]) begin
                 mhq_entries[i].valid <= 1'b0;
@@ -204,9 +210,13 @@ module miss_handling_queue (
 
     // Increment the tail pointer if a new request is being enqueued but there
     // was no entry that the request can be merged with
+    // On a flush, Set the tail pointer to the head pointer + 1 if head is
+    // valid or set tail pointer to head if head is not valid
     always_ff @(posedge clk, negedge n_rst) begin
         if (~n_rst) begin
             mhq_tail <= {{(`MHQ_TAG_WIDTH+1){1'b0}}};
+        end else if (i_flush) begin
+            mhq_tail <= mhq_entries[mhq.head_addr].valid ? mhq_head + 1'b1 : mhq_head;
         end else if (allocating) begin
             mhq_tail <= mhq_tail + 1'b1;
         end

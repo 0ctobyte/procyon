@@ -270,14 +270,17 @@ module lsu_lq (
         end
     end
 
-    // Update mis-speculated bit for mis-speculated loads
+    // Update mis-speculated bit for mis-speculated loads, only if the loads
+    // don't need replaying (i.e. they didn't miss in the cache)
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (~n_rst) begin
                 lq_slots[i].mis_speculated <= 1'b0;
             end else if (allocating && lq.allocate_select[i]) begin
                 lq_slots[i].mis_speculated <= 1'b0;
-            end else if (i_sq_retire_en && lq.mis_speculated_select[i]) begin
+            end else if (updating && lq.update_select[i]) begin
+                lq_slots[i].mis_speculated <= 1'b0;
+            end else if (i_sq_retire_en && ~lq_slots[i].needs_replay && lq.mis_speculated_select[i]) begin
                 lq_slots[i].mis_speculated <= 1'b1;
             end
         end
