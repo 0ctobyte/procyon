@@ -59,15 +59,16 @@ package procyon_types;
         ALU_FUNC_GEU  = 4'b1101
     } procyon_alu_func_t;
 
-    typedef enum logic [2:0] {
-        LSU_FUNC_LB   = 3'b000,
-        LSU_FUNC_LH   = 3'b001,
-        LSU_FUNC_LW   = 3'b010,
-        LSU_FUNC_LBU  = 3'b011,
-        LSU_FUNC_LHU  = 3'b100,
-        LSU_FUNC_SB   = 3'b101,
-        LSU_FUNC_SH   = 3'b110,
-        LSU_FUNC_SW   = 3'b111
+    typedef enum logic [3:0] {
+        LSU_FUNC_LB   = 4'b0000,
+        LSU_FUNC_LH   = 4'b0001,
+        LSU_FUNC_LW   = 4'b0010,
+        LSU_FUNC_LBU  = 4'b0011,
+        LSU_FUNC_LHU  = 4'b0100,
+        LSU_FUNC_SB   = 4'b0101,
+        LSU_FUNC_SH   = 4'b0110,
+        LSU_FUNC_SW   = 4'b0111,
+        LSU_FUNC_FILL = 4'b1000
     } procyon_lsu_func_t;
 
 endpackage

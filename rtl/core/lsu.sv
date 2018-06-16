@@ -54,10 +54,11 @@ module lsu (
     typedef struct packed {
         procyon_lsu_func_t   lsu_func;
         procyon_addr_t       addr;
-        procyon_data_t       data;
+        procyon_cacheline_t  data;
         procyon_tag_t        tag;
         logic                valid;
         logic                retire;
+        logic                dirty;
     } lsu_id_t;
 
     typedef struct packed {
@@ -73,8 +74,8 @@ module lsu (
     lsu_ex_t                 lsu_ex_q;
 /* verilator lint_on  MULTIDRIVEN */
     lsu_id_t                 lsu_id_mux;
-    logic                    lsu_ex_stall;
-    logic                    st_miss_stall;
+    //logic                    lsu_ex_stall;
+    //logic                    st_miss_stall;
     procyon_lsu_func_t       lsu_id_lsu_func;
     procyon_addr_t           lsu_id_addr;
     procyon_tag_t            lsu_id_tag;
@@ -100,12 +101,13 @@ module lsu (
     logic                    update_lq_retry;
     procyon_mhq_tag_t        update_lq_mhq_tag;
     logic                    dc_we;
+    logic                    dc_fe;
     procyon_addr_t           dc_addr;
     procyon_data_t           dc_data_r;
     procyon_byte_select_t    dc_byte_select;
-    logic                    dc_busy;
+    logic                    dc_fill_dirty;
     logic                    dc_hit;
-    procyon_data_t           dc_data_w;
+    procyon_cacheline_t      dc_data_w;
     logic                    lq_full;
     logic                    sq_full;
 
@@ -120,14 +122,14 @@ module lsu (
     // 5. The cache is being filled
     // 6. A store is attempting to be written out but misses in the cache when
     // the MHQ is full
-    assign st_miss_stall    = (lsu_id_q.retire && ~dc_hit && i_mhq_full);
-    assign lsu_ex_stall     = st_miss_stall || dc_busy;
-    assign o_fu_stall       = lq_full || sq_full || lq_replay_en || sq_retire_en || lsu_ex_stall;
+    //assign st_miss_stall    = (lsu_id_q.retire && ~dc_hit && i_mhq_full);
+    //assign lsu_ex_stall     = st_miss_stall || i_mhq_fill;
+    assign o_fu_stall       = lq_full || sq_full || lq_replay_en || sq_retire_en || i_mhq_fill;
 
     // Stall retiring stores if there is a pipeline stall
     // Stall replaying loads if a store is retiring or if there is a pipeline stall
-    assign sq_retire_stall  = lsu_ex_stall;
-    assign lq_replay_stall  = sq_retire_en || lsu_ex_stall;
+    assign sq_retire_stall  = i_mhq_fill;
+    assign lq_replay_stall  = sq_retire_en || i_mhq_fill;
 
     // Retry loads when MHQ is no longer full
     assign update_lq_retry  = i_mhq_full;
@@ -140,10 +142,15 @@ module lsu (
 
     // Mux to ID -> EX pipeline register depending on lq_replay_en and/or sq_replay_en
     always_comb begin
-        lsu_id_mux.data   = sq_retire_data;
+        lsu_id_mux.data   = i_mhq_fill ? i_mhq_fill_data : {{(`DC_LINE_WIDTH-`DATA_WIDTH){1'b0}}, sq_retire_data};
         lsu_id_mux.retire = sq_retire_en;
-        lsu_id_mux.valid  = lsu_id_valid || lq_replay_en || sq_retire_en;
-        if (sq_retire_en) begin
+        lsu_id_mux.valid  = lsu_id_valid || lq_replay_en || sq_retire_en || i_mhq_fill;
+        lsu_id_mux.dirty  = i_mhq_fill_dirty;
+        if (i_mhq_fill) begin
+            lsu_id_mux.lsu_func = LSU_FUNC_FILL;
+            lsu_id_mux.addr     = i_mhq_fill_addr;
+            lsu_id_mux.tag      = {{(`TAG_WIDTH){1'b0}}};
+        end else if (sq_retire_en) begin
             lsu_id_mux.lsu_func = sq_retire_lsu_func;
             lsu_id_mux.addr     = sq_retire_addr;
             lsu_id_mux.tag      = sq_retire_tag;
@@ -159,15 +166,13 @@ module lsu (
     end
 
     // ID -> EX pipeline
-    // Don't overwrite register if dcache is busy doing a cache fill
     always_ff @(posedge clk) begin
-        if (~lsu_ex_stall) begin
-            lsu_id_q.lsu_func <= lsu_id_mux.lsu_func;
-            lsu_id_q.addr     <= lsu_id_mux.addr;
-            lsu_id_q.data     <= lsu_id_mux.data;
-            lsu_id_q.tag      <= lsu_id_mux.tag;
-            lsu_id_q.retire   <= lsu_id_mux.retire;
-        end
+        lsu_id_q.lsu_func <= lsu_id_mux.lsu_func;
+        lsu_id_q.addr     <= lsu_id_mux.addr;
+        lsu_id_q.data     <= lsu_id_mux.data;
+        lsu_id_q.tag      <= lsu_id_mux.tag;
+        lsu_id_q.retire   <= lsu_id_mux.retire;
+        lsu_id_q.dirty    <= lsu_id_mux.dirty;
     end
 
     always_ff @(posedge clk, negedge n_rst) begin
@@ -175,7 +180,7 @@ module lsu (
             lsu_id_q.valid <= 1'b0;
         end else if (i_flush) begin
             lsu_id_q.valid <= 1'b0;
-        end else if (~lsu_ex_stall) begin
+        end else begin
             lsu_id_q.valid <= lsu_id_mux.valid;
         end
     end
@@ -223,6 +228,7 @@ module lsu (
         .i_tag(lsu_id_q.tag),
         .i_valid(lsu_id_q.valid),
         .i_retire(lsu_id_q.retire),
+        .i_dirty(lsu_id_q.dirty),
         .o_data(lsu_ex.data),
         .o_addr(lsu_ex.addr),
         .o_tag(lsu_ex.tag),
@@ -230,12 +236,13 @@ module lsu (
         .o_update_lq_en(update_lq_en),
         .o_update_lq_mhq_tag(update_lq_mhq_tag),
         .i_dc_hit(dc_hit),
-        .i_dc_busy(dc_busy),
         .i_dc_data(dc_data_r),
         .o_dc_we(dc_we),
+        .o_dc_fe(dc_fe),
         .o_dc_addr(dc_addr),
         .o_dc_data(dc_data_w),
         .o_dc_byte_select(dc_byte_select),
+        .o_dc_fill_dirty(dc_fill_dirty),
         .i_mhq_enq_tag(i_mhq_enq_tag),
         .o_mhq_enq_en(o_mhq_enq_en),
         .o_mhq_enq_we(o_mhq_enq_we),
@@ -296,16 +303,13 @@ module lsu (
         .clk(clk),
         .n_rst(n_rst),
         .i_dc_we(dc_we),
+        .i_dc_fe(dc_fe),
         .i_dc_addr(dc_addr),
         .i_dc_data(dc_data_w),
         .i_dc_byte_select(dc_byte_select),
-        .o_dc_busy(dc_busy),
+        .i_dc_fill_dirty(dc_fill_dirty),
         .o_dc_hit(dc_hit),
-        .o_dc_data(dc_data_r),
-        .i_dc_fill(i_mhq_fill),
-        .i_dc_fill_dirty(i_mhq_fill_dirty),
-        .i_dc_fill_addr(i_mhq_fill_addr),
-        .i_dc_fill_data(i_mhq_fill_data)
+        .o_dc_data(dc_data_r)
     );
 
 endmodule

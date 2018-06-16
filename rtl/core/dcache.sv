@@ -8,17 +8,13 @@ module dcache (
     input  logic                   n_rst,
 
     input  logic                   i_dc_we,
+    input  logic                   i_dc_fe,
     input  procyon_addr_t          i_dc_addr,
-    input  procyon_data_t          i_dc_data,
+    input  procyon_cacheline_t     i_dc_data,
     input  procyon_byte_select_t   i_dc_byte_select,
-    output logic                   o_dc_busy,
-    output logic                   o_dc_hit,
-    output procyon_data_t          o_dc_data,
-
-    input  logic                   i_dc_fill,
     input  logic                   i_dc_fill_dirty,
-    input  procyon_addr_t          i_dc_fill_addr,
-    input  procyon_cacheline_t     i_dc_fill_data
+    output logic                   o_dc_hit,
+    output procyon_data_t          o_dc_data
 );
 
     logic [`DC_OFFSET_WIDTH-1:0] cache_offset;
@@ -34,34 +30,15 @@ module dcache (
     procyon_cacheline_t          cache_victim_data;
     /* verilator lint_on  UNUSED */
 
-    logic [`DC_OFFSET_WIDTH-1:0] dc_offset;
-    logic [`DC_INDEX_WIDTH-1:0]  dc_index;
-    logic [`DC_TAG_WIDTH-1:0]    dc_tag;
-    logic [`DC_OFFSET_WIDTH-1:0] fill_offset;
-    logic [`DC_INDEX_WIDTH-1:0]  fill_index;
-    logic [`DC_TAG_WIDTH-1:0]    fill_tag;
-
     // Splice the input read/write address into tag, index, offset
-    assign dc_offset    = i_dc_addr[`DC_OFFSET_WIDTH-1:0];
-    assign dc_index     = i_dc_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
-    assign dc_tag       = i_dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
-
-    // Splice the input fill address into tag, index, offset
-    assign fill_offset  = i_dc_fill_addr[`DC_OFFSET_WIDTH-1:0];
-    assign fill_index   = i_dc_fill_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
-    assign fill_tag     = i_dc_fill_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
+    assign cache_re     = ~i_dc_we;
+    assign cache_offset = i_dc_addr[`DC_OFFSET_WIDTH-1:0];
+    assign cache_index  = i_dc_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
+    assign cache_tag    = i_dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
 
     // If a cache fill is in progress then signal that the cache is busy
     // Output cache read data
-    assign o_dc_busy    = i_dc_fill;
     assign o_dc_data    = cache_rdata;
-
-    // Select between read/write address bits or fill address bits depending
-    // on i_dc_fill
-    assign cache_re     = ~i_dc_we;
-    assign cache_offset = i_dc_fill ? fill_offset : dc_offset;
-    assign cache_index  = i_dc_fill ? fill_index : dc_index;
-    assign cache_tag    = i_dc_fill ? fill_tag : dc_tag;
 
     always_comb begin
         for (int i = 0; i < `WORD_SIZE; i++) begin
@@ -79,13 +56,13 @@ module dcache (
         .n_rst(n_rst),
         .i_cache_re(cache_re),
         .i_cache_we(i_dc_we),
-        .i_cache_fe(i_dc_fill),
-        .i_cache_valid(i_dc_fill),
+        .i_cache_fe(i_dc_fe),
+        .i_cache_valid(i_dc_fe),
         .i_cache_dirty(i_dc_fill_dirty),
         .i_cache_offset(cache_offset),
         .i_cache_index(cache_index),
         .i_cache_tag(cache_tag),
-        .i_cache_fdata(i_dc_fill_data),
+        .i_cache_fdata(i_dc_data),
         .i_cache_wdata(cache_wdata),
         .o_cache_hit(o_dc_hit),
         .o_cache_dirty(cache_victim_dirty),

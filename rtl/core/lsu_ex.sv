@@ -8,10 +8,11 @@ module lsu_ex (
     // Inputs from last stage in the LSU pipeline
     input  procyon_lsu_func_t     i_lsu_func,
     input  procyon_addr_t         i_addr,
-    input  procyon_data_t         i_data,
+    input  procyon_cacheline_t    i_data,
     input  procyon_tag_t          i_tag,
     input  logic                  i_valid,
     input  logic                  i_retire,
+    input  logic                  i_dirty,
 
     // Output to writeback stage
     output procyon_data_t         o_data,
@@ -25,12 +26,13 @@ module lsu_ex (
 
     // Access D$ data memory for load data and tag hit
     input  logic                  i_dc_hit,
-    input  logic                  i_dc_busy,
     input  procyon_data_t         i_dc_data,
     output logic                  o_dc_we,
+    output logic                  o_dc_fe,
     output procyon_addr_t         o_dc_addr,
-    output procyon_data_t         o_dc_data,
+    output procyon_cacheline_t    o_dc_data,
     output procyon_byte_select_t  o_dc_byte_select,
+    output logic                  o_dc_fill_dirty,
 
     // Enqueue into MHQ on cache misses
     input  procyon_mhq_tag_t      i_mhq_enq_tag,
@@ -43,14 +45,16 @@ module lsu_ex (
 
     logic                 cache_miss;
     logic                 load_or_store;
+    logic                 not_fill;
     procyon_byte_select_t byte_select;
 
     // Determine if op is load or store
-    assign load_or_store         = (i_lsu_func == LSU_FUNC_SB) | (i_lsu_func == LSU_FUNC_SH) | (i_lsu_func == LSU_FUNC_SW);
-    assign cache_miss            = i_valid && ~i_dc_hit && ~i_dc_busy;
+    assign load_or_store         = (i_lsu_func == LSU_FUNC_SB) || (i_lsu_func == LSU_FUNC_SH) || (i_lsu_func == LSU_FUNC_SW);
+    assign not_fill              = i_lsu_func != LSU_FUNC_FILL;
+    assign cache_miss            = i_valid && ~i_dc_hit && not_fill;
 
     // Access D$
-    assign o_dc_we               = i_valid && i_retire;
+    assign o_dc_we               = i_valid && not_fill && i_retire;
     assign o_dc_addr             = i_addr;
     assign o_dc_data             = i_data;
     assign o_dc_byte_select      = byte_select;
@@ -60,7 +64,11 @@ module lsu_ex (
     // Stores are "valid" if they aren't being retired (i.e. on the first pass through here)
     assign o_addr                = i_addr;
     assign o_tag                 = i_tag;
-    assign o_valid               = i_valid && (load_or_store ? ~i_retire : i_dc_hit && ~i_dc_busy);
+    assign o_valid               = i_valid && (load_or_store ? ~i_retire : i_dc_hit && not_fill);
+
+    // Output to dcache on a cache fill
+    assign o_dc_fe               = ~not_fill;
+    assign o_dc_fill_dirty       = i_dirty;
 
     // Output to LQ
     assign o_update_lq_en        = cache_miss && ~load_or_store;
@@ -71,7 +79,7 @@ module lsu_ex (
     assign o_mhq_enq_en          = cache_miss && (~load_or_store || i_retire);
     assign o_mhq_enq_we          = i_retire;
     assign o_mhq_enq_addr        = i_addr;
-    assign o_mhq_enq_data        = i_data;
+    assign o_mhq_enq_data        = i_data[`DATA_WIDTH-1:0];
     assign o_mhq_enq_byte_select = byte_select;
 
     // SW writes to all 4 bytes, SH writes to 2 bytes and SB writes to 1 byte
