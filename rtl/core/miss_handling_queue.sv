@@ -163,7 +163,7 @@ module miss_handling_queue (
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
             if (~n_rst) begin
                 mhq_entries[i].valid <= 1'b0;
-            end if (i_flush && i[`MHQ_TAG_WIDTH-1:0] != mhq.head_addr) begin
+            end else if (i_flush && ~mhq.fill_select[i]) begin
                 mhq_entries[i].valid <= 1'b0;
             end else if (filling && mhq.fill_select[i]) begin
                 mhq_entries[i].valid <= 1'b0;

@@ -3,7 +3,8 @@
 import procyon_types::*;
 
 module procyon_arch_test #(
-    parameter HEX_FILE = ""
+    parameter HEX_FILE = "",
+    parameter HEX_SIZE = 0
 ) (
     input  logic                         CLOCK_50,
     input  logic [17:17]                 SW,
@@ -128,7 +129,8 @@ module procyon_arch_test #(
     );
 
     boot_rom #(
-        .HEX_FILE(HEX_FILE)
+        .HEX_FILE(HEX_FILE),
+        .HEX_SIZE(HEX_SIZE)
     ) boot_rom_inst (
         .o_ic_insn(ic_insn),
         .o_ic_valid(ic_valid),

@@ -16,6 +16,7 @@ SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv 
 
 # Load code from hex file
 HEX_FILE ?= "tests/rv32ui-u-add.hex"
+HEX_SIZE := $(shell wc -l < $(HEX_FILE))
 
 all: $(PROJECT).sof
 
@@ -49,6 +50,7 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "" >> $@
 	echo "# Set HEX_FILE parameter for top-level entity" >> $@
 	echo "set_parameter -name HEX_FILE \"$(HEX_FILE)\"" >> $@
+	echo "set_parameter -name HEX_SIZE $(HEX_SIZE)" >> $@
 	echo "" >> $@
 	echo "# Set pin assignments" >> $@
 	echo "source \"$(PIN_ASSIGNMENTS_FILE)\"" >> $@
