@@ -4,6 +4,9 @@
 #include "BootRom.h"
 #include "Sram.h"
 
+#define PASS 0x4a33
+#define FAIL 0xfae1
+
 bool ends_with(const std::string& str, const std::string& suffix) {
     return (str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0);
 }
@@ -92,7 +95,7 @@ int sc_main(int argc, char** argv) {
     tfp.open("dut.vcd");
 
     uint64_t retired_insns = 0, cycles = 0;
-    while (sim_tp != 0xfffffbd2 && sim_tp != 0xfffffae5 && sc_get_status() != SC_STOPPED) {
+    while (sim_tp != PASS && sim_tp != FAIL && sc_get_status() != SC_STOPPED) {
         if (sc_time_stamp() >= sc_time(1, SC_NS)) n_rst = 1;
         sc_start(1, SC_NS);
         if (sim_retire) retired_insns++;
@@ -104,7 +107,7 @@ int sc_main(int argc, char** argv) {
         << " IPC: " << std::dec << (double)retired_insns/(double)cycles << std::endl;
 
     int err = 0;
-    if (sim_tp == 0xfffffbd2 && sc_get_status() != SC_STOPPED) {
+    if (sim_tp == PASS && sc_get_status() != SC_STOPPED) {
         std::cout << "\n\n" << "*********************************    PASS    *********************************" << std::endl;
     } else {
         std::cout << "\n\n" << "*********************************    FAIL    *********************************" << std::endl;
