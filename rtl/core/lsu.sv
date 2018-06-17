@@ -73,8 +73,6 @@ module lsu (
     lsu_ex_t                 lsu_ex_q;
 /* verilator lint_on  MULTIDRIVEN */
     lsu_id_t                 lsu_id_mux;
-    //logic                    lsu_ex_stall;
-    //logic                    st_miss_stall;
     procyon_lsu_func_t       lsu_id_lsu_func;
     procyon_addr_t           lsu_id_addr;
     procyon_tag_t            lsu_id_tag;
@@ -114,17 +112,10 @@ module lsu (
 
     // Stall the LSU pipeline if either of these conditions apply:
     // 1. There is a cache fill in progress
-    // 2. LSU_EX is trying to retire a store that misses in the cache and the MHQ is full
-    // Stall the reservation station from issuing if the any of the following conditions apply:
-    // 1. Load queue is full
-    // 2. Store queue is full
-    // 3. A store needs to be retired
-    // 4. A load needs to be replayed
-    // 5. The cache is being filled
-    // 6. A store is attempting to be written out but misses in the cache when
-    // the MHQ is full
-    //assign st_miss_stall    = (lsu_id_q.retire && ~dc_hit && i_mhq_full);
-    //assign lsu_ex_stall     = st_miss_stall || i_mhq_fill;
+    // 2. Load queue is full
+    // 3. Store queue is full
+    // 4. A store needs to be retired
+    // 5. A load needs to be replayed
     assign o_fu_stall       = lq_full || sq_full || lq_replay_en || sq_retire_en || i_mhq_fill;
 
     // Stall retiring stores if there is a cache fill request
@@ -135,8 +126,7 @@ module lsu (
     // Retry loads when MHQ is no longer full
     assign update_lq_retry  = i_mhq_full;
 
-    // Retry store retires when MHQ is full and the store missed in the cache
-    // or on a pipeline flush
+    // Retry store retires when MHQ is full and the store missed in the cache or on a pipeline flush
     assign update_sq_en     = lsu_id_q.retire && lsu_id_q.valid;
     assign update_sq_retry  = (~dc_hit && i_mhq_full) || i_flush;
 

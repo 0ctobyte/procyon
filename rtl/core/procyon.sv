@@ -367,7 +367,6 @@ module procyon (
     ccu ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(rob_redirect),
         .o_mhq_full(mhq_full),
         .o_mhq_fill(mhq_fill),
         .o_mhq_fill_tag(mhq_fill_tag),
