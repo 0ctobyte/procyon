@@ -46,7 +46,7 @@ module lsu_lq (
     // ROB signal that a load has been retired
     input  procyon_tag_t         i_rob_retire_tag,
     input  logic                 i_rob_retire_en,
-    output logic                 o_rob_retire_mis_speculated
+    output logic                 o_rob_retire_misspeculated
 );
 
     // Each entry in the LQ contains the following
@@ -58,7 +58,7 @@ module lsu_lq (
     // replay_rdy:        Indicates that load is ready to be replayed
     // replay_retry:      Indicates if load was marked as needing to be replayed when the MHQ was full
     // replay_mhq_tag:    MHQ entry which corresponds to the cacheline that this load is waiting for
-    // mis_speculated:    Indicates if load has been mis-speculatively executed
+    // misspeculated:     Indicates if load has been mis-speculatively executed
     typedef struct packed {
         procyon_addr_t           addr;
         procyon_tag_t            tag;
@@ -68,7 +68,7 @@ module lsu_lq (
         logic                    replay_rdy;
         logic                    replay_retry;
         procyon_mhq_tag_t        replay_mhq_tag;
-        logic                    mis_speculated;
+        logic                    misspeculated;
     } lq_slot_t;
 
     typedef struct packed {
@@ -76,7 +76,7 @@ module lsu_lq (
         logic     [`LQ_DEPTH-1:0] empty;
         logic     [`LQ_DEPTH-1:0] replay;
         logic     [`LQ_DEPTH-1:0] allocate_select;
-        logic     [`LQ_DEPTH-1:0] mis_speculated_select;
+        logic     [`LQ_DEPTH-1:0] misspeculated_select;
         logic     [`LQ_DEPTH-1:0] retire_select;
         logic     [`LQ_DEPTH-1:0] replay_select;
         logic     [`LQ_DEPTH-1:0] update_select;
@@ -108,8 +108,8 @@ module lsu_lq (
         end
 
         // Compare retired store address with all valid load addresses to detect mis-speculated loads
-        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_MIS_SPECULATED_LOAD_VECTORS
-            assign lq.mis_speculated_select[gvar] = ((lq_slots[gvar].addr >= sq_retire_addr_start) && (lq_slots[gvar].addr < sq_retire_addr_end));
+        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_MISSPECULATED_LOAD_VECTORS
+            assign lq.misspeculated_select[gvar] = ((lq_slots[gvar].addr >= sq_retire_addr_start) && (lq_slots[gvar].addr < sq_retire_addr_end));
         end
 
         for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_EMPTY_VECTORS
@@ -133,7 +133,8 @@ module lsu_lq (
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    assign o_rob_retire_mis_speculated  = lq_slots[retire_slot].mis_speculated;
+    // Bypass misspeculated signal if a store is retiring on the same cycle
+    assign o_rob_retire_misspeculated   = lq_slots[retire_slot].misspeculated || (i_sq_retire_en && lq.misspeculated_select[retire_slot]);
     assign retiring                     = i_rob_retire_en;
 
     // Update only if lq is not empty and LSU_EX sends the update signal
@@ -275,13 +276,13 @@ module lsu_lq (
     always_ff @(posedge clk, negedge n_rst) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (~n_rst) begin
-                lq_slots[i].mis_speculated <= 1'b0;
+                lq_slots[i].misspeculated <= 1'b0;
             end else if (allocating && lq.allocate_select[i]) begin
-                lq_slots[i].mis_speculated <= 1'b0;
+                lq_slots[i].misspeculated <= 1'b0;
             end else if (updating && lq.update_select[i]) begin
-                lq_slots[i].mis_speculated <= 1'b0;
-            end else if (i_sq_retire_en && ~lq_slots[i].needs_replay && lq.mis_speculated_select[i]) begin
-                lq_slots[i].mis_speculated <= 1'b1;
+                lq_slots[i].misspeculated <= 1'b0;
+            end else if (i_sq_retire_en && ~lq_slots[i].needs_replay && lq.misspeculated_select[i]) begin
+                lq_slots[i].misspeculated <= 1'b1;
             end
         end
     end

@@ -33,8 +33,7 @@ module lsu (
     input  procyon_tag_t            i_rob_retire_tag,
     input  logic                    i_rob_retire_lq_en,
     input  logic                    i_rob_retire_sq_en,
-    output logic                    o_rob_retire_stall,
-    output logic                    o_rob_retire_mis_speculated,
+    output logic                    o_rob_retire_misspeculated,
 
     // FIXME: Temporary MHQ interface
     input  logic                    i_mhq_full,
@@ -91,12 +90,14 @@ module lsu (
     procyon_tag_t            lq_replay_tag;
     procyon_addr_t           lq_replay_addr;
     logic                    lq_replay_en;
-    logic                    sq_retire_stall;
     procyon_data_t           sq_retire_data;
     procyon_addr_t           sq_retire_addr;
     procyon_tag_t            sq_retire_tag;
     procyon_lsu_func_t       sq_retire_lsu_func;
     logic                    sq_retire_en;
+    logic                    sq_retire_stall;
+    logic                    update_sq_en;
+    logic                    update_sq_retry;
     logic                    update_lq_en;
     logic                    update_lq_retry;
     procyon_mhq_tag_t        update_lq_mhq_tag;
@@ -126,13 +127,18 @@ module lsu (
     //assign lsu_ex_stall     = st_miss_stall || i_mhq_fill;
     assign o_fu_stall       = lq_full || sq_full || lq_replay_en || sq_retire_en || i_mhq_fill;
 
-    // Stall retiring stores if there is a pipeline stall
-    // Stall replaying loads if a store is retiring or if there is a pipeline stall
+    // Stall retiring stores if there is a cache fill request
+    // Stall replaying loads if a store is retiring or if a cache fill is requested
     assign sq_retire_stall  = i_mhq_fill;
     assign lq_replay_stall  = sq_retire_en || i_mhq_fill;
 
     // Retry loads when MHQ is no longer full
     assign update_lq_retry  = i_mhq_full;
+
+    // Retry store retires when MHQ is full and the store missed in the cache
+    // or on a pipeline flush
+    assign update_sq_en     = lsu_id_q.retire && lsu_id_q.valid;
+    assign update_sq_retry  = (~dc_hit && i_mhq_full) || i_flush;
 
     assign o_cdb_data       = lsu_ex_q.data;
     assign o_cdb_addr       = lsu_ex_q.addr;
@@ -275,7 +281,7 @@ module lsu (
         .i_sq_retire_en(sq_retire_en),
         .i_rob_retire_tag(i_rob_retire_tag),
         .i_rob_retire_en(i_rob_retire_lq_en),
-        .o_rob_retire_mis_speculated(o_rob_retire_mis_speculated)
+        .o_rob_retire_misspeculated(o_rob_retire_misspeculated)
     );
 
     lsu_sq lsu_sq_inst (
@@ -288,6 +294,8 @@ module lsu (
         .i_alloc_addr(alloc_addr),
         .i_alloc_lsu_func(alloc_lsu_func),
         .i_alloc_en(alloc_sq_en),
+        .i_update_sq_en(update_sq_en),
+        .i_update_sq_retry(update_sq_retry),
         .i_sq_retire_stall(sq_retire_stall),
         .o_sq_retire_data(sq_retire_data),
         .o_sq_retire_addr(sq_retire_addr),
@@ -295,8 +303,7 @@ module lsu (
         .o_sq_retire_lsu_func(sq_retire_lsu_func),
         .o_sq_retire_en(sq_retire_en),
         .i_rob_retire_tag(i_rob_retire_tag),
-        .i_rob_retire_en(i_rob_retire_sq_en),
-        .o_rob_retire_stall(o_rob_retire_stall)
+        .i_rob_retire_en(i_rob_retire_sq_en)
     );
 
     dcache dcache_inst (

@@ -57,8 +57,7 @@ module reorder_buffer (
     output procyon_reg_t     o_regmap_lookup_rsrc    [0:1],
 
     // Interface to LSU to retire loads/stores
-    input  logic             i_lsu_retire_stall,
-    input  logic             i_lsu_retire_mis_speculated,
+    input  logic             i_lsu_retire_misspeculated,
     output logic             o_lsu_retire_lq_en,
     output logic             o_lsu_retire_sq_en,
     output procyon_tag_t     o_lsu_retire_tag
@@ -100,21 +99,19 @@ module reorder_buffer (
     logic                        rob_dispatch_en;
     logic                        rob_retire_rdy;
     logic                        rob_retire_en;
-    logic                        lsu_retire_stall;
-    logic                        lsu_retire_mis_speculated;
+    logic                        lsu_retire_misspeculated;
     logic       [`ROB_DEPTH-1:0] rob_dispatch_select;
     logic       [`ROB_DEPTH-1:0] cdb_tag_select [0:`CDB_DEPTH-1];
 
     assign rob_dispatch_select           = 1 << rob.tail_addr;
 
     assign rob_dispatch_en               = i_rob_en && ~rob.full;
-    assign lsu_retire_stall              = i_lsu_retire_stall && (rob_entries[rob.head_addr].op == ROB_OP_ST);
     assign rob_retire_rdy                = rob_entries[rob.head_addr].rdy && ~rob.empty;
-    assign rob_retire_en                 = rob_retire_rdy && ~lsu_retire_stall;
+    assign rob_retire_en                 = rob_retire_rdy;
 
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
-    assign lsu_retire_mis_speculated     = i_lsu_retire_mis_speculated && (rob_entries[rob.head_addr].op == ROB_OP_LD);
-    assign redirect                      = rob_retire_en && (rob_entries[rob.head_addr].redirect || lsu_retire_mis_speculated);
+    assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated && (rob_entries[rob.head_addr].op == ROB_OP_LD);
+    assign redirect                      = rob_retire_en && (rob_entries[rob.head_addr].redirect || lsu_retire_misspeculated);
     assign o_redirect                    = redirect;
     assign o_redirect_addr               = (rob_entries[rob.head_addr].op == ROB_OP_BR) ? rob_entries[rob.head_addr].addr : rob_entries[rob.head_addr].iaddr;
 
