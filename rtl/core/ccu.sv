@@ -9,8 +9,6 @@ module ccu (
     input  logic                   clk,
     input  logic                   n_rst,
 
-    input  logic                   i_flush,
-
     // Indicate if MHQ is full
     output logic                   o_mhq_full,
 
@@ -92,7 +90,6 @@ module ccu (
     miss_handling_queue mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_flush(i_flush),
         .o_mhq_full(o_mhq_full),
         .o_mhq_fill(o_mhq_fill),
         .o_mhq_fill_tag(o_mhq_fill_tag),
