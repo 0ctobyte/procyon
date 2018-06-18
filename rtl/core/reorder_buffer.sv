@@ -58,6 +58,7 @@ module reorder_buffer (
 
     // Interface to LSU to retire loads/stores
     input  logic             i_lsu_retire_misspeculated,
+    input  logic             i_lsu_retire_launched,
     output logic             o_lsu_retire_lq_en,
     output logic             o_lsu_retire_sq_en,
     output procyon_tag_t     o_lsu_retire_tag
@@ -97,7 +98,9 @@ module reorder_buffer (
     rob_t                        rob;
     logic                        redirect;
     logic                        rob_dispatch_en;
-    logic                        rob_retire_rdy;
+    logic                        rob_retire_is_load;
+    logic                        rob_retire_is_store;
+    logic                        rob_retire_load_stall;
     logic                        rob_retire_en;
     logic                        lsu_retire_misspeculated;
     logic       [`ROB_DEPTH-1:0] rob_dispatch_select;
@@ -106,8 +109,10 @@ module reorder_buffer (
     assign rob_dispatch_select           = 1 << rob.tail_addr;
 
     assign rob_dispatch_en               = i_rob_en && ~rob.full;
-    assign rob_retire_rdy                = rob_entries[rob.head_addr].rdy && ~rob.empty;
-    assign rob_retire_en                 = rob_retire_rdy;
+    assign rob_retire_is_load            = (rob_entries[rob.head_addr].op == ROB_OP_LD);
+    assign rob_retire_is_store           = (rob_entries[rob.head_addr].op == ROB_OP_ST);
+    assign rob_retire_load_stall         = rob_retire_is_load && i_lsu_retire_launched;
+    assign rob_retire_en                 = rob_entries[rob.head_addr].rdy && ~rob.empty && ~rob_retire_load_stall;
 
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
     assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated && (rob_entries[rob.head_addr].op == ROB_OP_LD);
@@ -137,8 +142,8 @@ module reorder_buffer (
 
     // Assign outputs to LSU
     assign o_lsu_retire_tag              = rob.head_addr;
-    assign o_lsu_retire_sq_en            = (rob_entries[rob.head_addr].op == ROB_OP_ST) && rob_retire_rdy;
-    assign o_lsu_retire_lq_en            = (rob_entries[rob.head_addr].op == ROB_OP_LD) && rob_retire_rdy;
+    assign o_lsu_retire_sq_en            = rob_retire_is_store && rob_retire_en;
+    assign o_lsu_retire_lq_en            = rob_retire_is_load && rob_retire_en;
 
     genvar gvar;
     generate

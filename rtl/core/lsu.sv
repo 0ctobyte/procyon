@@ -34,6 +34,7 @@ module lsu (
     input  logic                    i_rob_retire_lq_en,
     input  logic                    i_rob_retire_sq_en,
     output logic                    o_rob_retire_misspeculated,
+    output logic                    o_rob_retire_launched,
 
     // FIXME: Temporary MHQ interface
     input  logic                    i_mhq_full,
@@ -116,30 +117,32 @@ module lsu (
     // 3. Store queue is full
     // 4. A store needs to be retired
     // 5. A load needs to be replayed
-    assign o_fu_stall       = lq_full || sq_full || lq_replay_en || sq_retire_en || i_mhq_fill;
+    assign o_fu_stall            = lq_full || sq_full || lq_replay_en || sq_retire_en || i_mhq_fill;
 
-    // Stall retiring stores if there is a cache fill request
+    // Stall retiring stores if there is a cache fill request or if the pipeline is getting flushed
     // Stall replaying loads if a store is retiring or if a cache fill is requested
-    assign sq_retire_stall  = i_mhq_fill;
-    assign lq_replay_stall  = sq_retire_en || i_mhq_fill;
+    assign sq_retire_stall       = i_mhq_fill || i_flush;
+    assign lq_replay_stall       = sq_retire_en || i_mhq_fill;
 
     // Retry loads when MHQ is no longer full
-    assign update_lq_retry  = i_mhq_full;
+    assign update_lq_retry       = i_mhq_full;
 
     // Retry store retires when MHQ is full and the store missed in the cache or on a pipeline flush
-    assign update_sq_en     = lsu_id_q.retire && lsu_id_q.valid;
-    assign update_sq_retry  = (~dc_hit && i_mhq_full) || i_flush;
+    assign update_sq_retry       = (~dc_hit && i_mhq_full) || i_flush;
 
-    assign o_cdb_data       = lsu_ex_q.data;
-    assign o_cdb_addr       = lsu_ex_q.addr;
-    assign o_cdb_tag        = lsu_ex_q.tag;
-    assign o_cdb_redirect   = 1'b0;
-    assign o_cdb_en         = lsu_ex_q.valid;
+    // Signal to the ROB to stall retiring loads if a retired store is being launched on the same cycle
+    assign o_rob_retire_launched = sq_retire_en;
+
+    assign o_cdb_data            = lsu_ex_q.data;
+    assign o_cdb_addr            = lsu_ex_q.addr;
+    assign o_cdb_tag             = lsu_ex_q.tag;
+    assign o_cdb_redirect        = 1'b0;
+    assign o_cdb_en              = lsu_ex_q.valid;
 
     // Mux to ID -> EX pipeline register depending on lq_replay_en and/or sq_replay_en
     always_comb begin
         lsu_id_mux.data   = i_mhq_fill ? i_mhq_fill_data : {{(`DC_LINE_WIDTH-`DATA_WIDTH){1'b0}}, sq_retire_data};
-        lsu_id_mux.retire = sq_retire_en;
+        lsu_id_mux.retire = ~i_mhq_fill && sq_retire_en;
         lsu_id_mux.valid  = lsu_id_valid || lq_replay_en || sq_retire_en || i_mhq_fill;
         lsu_id_mux.dirty  = i_mhq_fill_dirty;
         if (i_mhq_fill) begin
@@ -231,6 +234,7 @@ module lsu (
         .o_valid(lsu_ex.valid),
         .o_update_lq_en(update_lq_en),
         .o_update_lq_mhq_tag(update_lq_mhq_tag),
+        .o_update_sq_en(update_sq_en),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_data_r),
         .o_dc_we(dc_we),

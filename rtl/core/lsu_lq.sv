@@ -133,8 +133,7 @@ module lsu_lq (
     assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
 
     // Let ROB know that retired load was mis-speculated
-    // Bypass misspeculated signal if a store is retiring on the same cycle
-    assign o_rob_retire_misspeculated   = lq_slots[retire_slot].misspeculated || (i_sq_retire_en && lq.misspeculated_select[retire_slot]);
+    assign o_rob_retire_misspeculated   = lq_slots[retire_slot].misspeculated;
     assign retiring                     = i_rob_retire_en;
 
     // Update only if lq is not empty and LSU_EX sends the update signal
@@ -248,12 +247,16 @@ module lsu_lq (
     // fill tag matches the fill tag they are waiting on
     // 2. If they need replaying due to a cache miss while the MHQ is full
     // then mark replay_rdy on any fill broadcasted by the MHQ (i.e. when replay_retry is set)
+    // Clear replay_rdy when the LSU signals that the replay failed, but don't clear it if the MHQ signals a fill on the same cycle
+    // for the same MHQ tag that this load will be waiting on
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (allocating && lq.allocate_select[i]) begin
                 lq_slots[i].replay_rdy <= 1'b0;
             end else if (replaying && lq.replay_select[i]) begin
                 lq_slots[i].replay_rdy <= 1'b0;
+            end else if (updating && lq.update_select[i]) begin
+                lq_slots[i].replay_rdy <= i_mhq_fill && (i_mhq_fill_tag == i_update_lq_mhq_tag);
             end else if (i_mhq_fill && lq_slots[i].needs_replay) begin
                 lq_slots[i].replay_rdy <= lq_slots[i].replay_retry || (i_mhq_fill_tag == lq_slots[i].replay_mhq_tag);
             end
@@ -281,8 +284,8 @@ module lsu_lq (
                 lq_slots[i].misspeculated <= 1'b0;
             end else if (updating && lq.update_select[i]) begin
                 lq_slots[i].misspeculated <= 1'b0;
-            end else if (i_sq_retire_en && ~lq_slots[i].needs_replay && lq.misspeculated_select[i]) begin
-                lq_slots[i].misspeculated <= 1'b1;
+            end else if (i_sq_retire_en && lq.misspeculated_select[i]) begin
+                lq_slots[i].misspeculated <= ~lq_slots[i].needs_replay;
             end
         end
     end

@@ -58,7 +58,6 @@ module procyon_arch_test #(
     logic                  ic_en;
 
     // Wishbone interface
-    logic                  wb_clk;
     logic                  wb_rst;
     logic                  wb_ack;
     logic                  wb_stall;
@@ -75,7 +74,6 @@ module procyon_arch_test #(
     logic [6:0]            o_hex [0:7];
 
     assign n_rst            = SW[17];
-    assign wb_clk           = CLOCK_50;
     assign wb_rst           = n_rst;
 
     assign key0             = ~KEY[0];
@@ -151,7 +149,7 @@ module procyon_arch_test #(
         .i_ic_valid(ic_valid),
         .o_ic_pc(ic_pc),
         .o_ic_en(ic_en),
-        .i_wb_clk(wb_clk),
+        .i_wb_clk(clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),
         .i_wb_stall(wb_stall),
@@ -170,7 +168,7 @@ module procyon_arch_test #(
         .BASE_ADDR(`WB_SRAM_BASE_ADDR),
         .FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
     ) wb_sram_inst (
-        .i_wb_clk(wb_clk),
+        .i_wb_clk(clk),
         .i_wb_rst(wb_rst),
         .i_wb_cyc(wb_cyc),
         .i_wb_stb(wb_stb),

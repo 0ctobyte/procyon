@@ -78,6 +78,7 @@ module lsu_sq (
 /* verilator lint_on  UNOPTFLAT */
     logic                             allocating;
     logic                             retiring;
+    logic                             can_retire;
     logic     [`SQ_DEPTH-1:0]         update_select_q;
     logic     [$clog2(`SQ_DEPTH)-1:0] retire_slot;
 
@@ -109,7 +110,8 @@ module lsu_sq (
     assign allocating                 = ^(sq.allocate_select) && ~sq.full && i_alloc_en;
 
     // Retire stores that are non-speculative
-    assign retiring                   = |(sq.retirable) && ~i_sq_retire_stall;
+    assign can_retire                 = |(sq.retirable);
+    assign retiring                   = can_retire && ~i_sq_retire_stall;
     assign sq.retire_select           = sq.retirable & ~(sq.retirable - 1'b1);
 
     assign sq.update_select           = update_select_q;
@@ -121,7 +123,7 @@ module lsu_sq (
     assign o_sq_retire_addr           = sq_slots[retire_slot].addr;
     assign o_sq_retire_tag            = sq_slots[retire_slot].tag;
     assign o_sq_retire_lsu_func       = sq_slots[retire_slot].lsu_func;
-    assign o_sq_retire_en             = retiring;
+    assign o_sq_retire_en             = can_retire;
 
     // Output full signal
     assign o_full                     = sq.full;
@@ -141,9 +143,7 @@ module lsu_sq (
     // Save the retire select so we know which entry to update on the next
     // cycle when the LSU signals a successful/not successful retired store
     always_ff @(posedge clk) begin
-        if (retiring) begin
-            update_select_q <= sq.retire_select;
-        end
+        update_select_q <= sq.retire_select;
     end
 
     // Set the valid bit for a slot only if new store op is being allocated
@@ -155,11 +155,11 @@ module lsu_sq (
             if (~n_rst) begin
                 sq_slots[i].valid <= 1'b0;
             end else if (i_flush) begin
-                sq_slots[i].valid <= sq_slots[i].nonspeculative ? sq_slots[i].valid : 1'b0;
+                sq_slots[i].valid <= sq_slots[i].nonspeculative && sq_slots[i].valid;
             end else if (allocating && sq.allocate_select[i]) begin
                 sq_slots[i].valid <= 1'b1;
-            end else if (i_update_sq_en && ~i_update_sq_retry && sq.update_select[i]) begin
-                sq_slots[i].valid <= 1'b0;
+            end else if (i_update_sq_en && sq.update_select[i]) begin
+                sq_slots[i].valid <= i_update_sq_retry;
             end
         end
     end
@@ -170,10 +170,10 @@ module lsu_sq (
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             if (allocating && sq.allocate_select[i]) begin
                 sq_slots[i].launched <= 1'b0;
-            end else if (retiring && ~i_flush && sq.retire_select[i]) begin
+            end else if (retiring && sq.retire_select[i]) begin
                 sq_slots[i].launched <= 1'b1;
-            end else if (i_update_sq_en && i_update_sq_retry && sq.update_select[i]) begin
-                sq_slots[i].launched <= 1'b0;
+            end else if (i_update_sq_en && sq.update_select[i]) begin
+                sq_slots[i].launched <= ~i_update_sq_retry;
             end
         end
     end

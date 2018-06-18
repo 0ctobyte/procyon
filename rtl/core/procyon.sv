@@ -102,6 +102,7 @@ module procyon (
     logic                          lsu_retire_lq_en;
     logic                          lsu_retire_sq_en;
     logic                          lsu_retire_misspeculated;
+    logic                          lsu_retire_launched;
     procyon_tag_t                  lsu_retire_tag;
 
     logic                          mhq_full;
@@ -231,6 +232,7 @@ module procyon (
         .i_regmap_lookup_data(regmap_lookup_data),
         .o_regmap_lookup_rsrc(regmap_lookup_rsrc),
         .i_lsu_retire_misspeculated(lsu_retire_misspeculated),
+        .i_lsu_retire_launched(lsu_retire_launched),
         .o_lsu_retire_lq_en(lsu_retire_lq_en),
         .o_lsu_retire_sq_en(lsu_retire_sq_en),
         .o_lsu_retire_tag(lsu_retire_tag)
@@ -350,6 +352,7 @@ module procyon (
         .i_rob_retire_lq_en(lsu_retire_lq_en),
         .i_rob_retire_sq_en(lsu_retire_sq_en),
         .o_rob_retire_misspeculated(lsu_retire_misspeculated),
+        .o_rob_retire_launched(lsu_retire_launched),
         .i_mhq_full(mhq_full),
         .i_mhq_fill(mhq_fill),
         .i_mhq_fill_tag(mhq_fill_tag),
@@ -367,6 +370,7 @@ module procyon (
     ccu ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .i_flush(rob_redirect),
         .o_mhq_full(mhq_full),
         .o_mhq_fill(mhq_fill),
         .o_mhq_fill_tag(mhq_fill_tag),

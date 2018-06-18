@@ -24,6 +24,9 @@ module lsu_ex (
     output logic                  o_update_lq_en,
     output procyon_mhq_tag_t      o_update_lq_mhq_tag,
 
+    // Update SQ entry for retired stores to indicate success/failure
+    output logic                  o_update_sq_en,
+
     // Access D$ data memory for load data and tag hit
     input  logic                  i_dc_hit,
     input  procyon_data_t         i_dc_data,
@@ -73,6 +76,9 @@ module lsu_ex (
     // Output to LQ
     assign o_update_lq_en        = cache_miss && ~load_or_store;
     assign o_update_lq_mhq_tag   = i_mhq_enq_tag;
+
+    // Output to SQ
+    assign o_update_sq_en        = i_retire && i_valid;
 
     // Output to MHQ
     // Only output retired stores to MHQ on a cache miss
