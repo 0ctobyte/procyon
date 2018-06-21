@@ -31,16 +31,16 @@ module ieu_ex (
     procyon_signed_data_t     s_src_a;
     procyon_signed_data_t     s_src_b;
 
-    assign e_src_a = {{(`DATA_WIDTH){i_src_a[`DATA_WIDTH-1]}}, i_src_a};
-    assign s_src_a = i_src_a;
-    assign s_src_b = i_src_b;
+    assign e_src_a            = {{(`DATA_WIDTH){i_src_a[`DATA_WIDTH-1]}}, i_src_a};
+    assign s_src_a            = i_src_a;
+    assign s_src_b            = i_src_b;
 
     // Assign outputs
-    assign o_data     = i_jmp ? i_iaddr + 4 : result;
-    assign o_addr     = i_jmp ? result : (i_br ? i_iaddr + i_imm_b : 'b0);
-    assign o_redirect = i_jmp ? 1'b1 : (i_br ? result[0] : 1'b0);
-    assign o_tag      = i_tag;
-    assign o_valid    = i_valid;
+    assign o_data             = i_jmp ? i_iaddr + 4 : result;
+    assign o_addr             = i_jmp ? result : i_iaddr + i_imm_b;
+    assign o_redirect         = i_jmp | (i_br & result[0]);
+    assign o_tag              = i_tag;
+    assign o_valid            = i_valid;
 
     // ALU
     always_comb begin
@@ -61,7 +61,7 @@ module ieu_ex (
             ALU_FUNC_GE:  result = s_src_a >= s_src_b;
             ALU_FUNC_GEU: result = i_src_a >= i_src_b;
 /* verilator lint_on  WIDTH */
-            default:      result = 'b0;
+            default:      result = {(`DATA_WIDTH){1'b0}};
         endcase
     end
 

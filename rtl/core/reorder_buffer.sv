@@ -64,6 +64,8 @@ module reorder_buffer (
     output procyon_tag_t     o_lsu_retire_tag
 );
 
+    typedef logic [`ROB_DEPTH-1:0] rob_vec_t;
+
     // ROB entry consists of the following:
     // rdy:      Is the data valid/ready?
     // redirect: Asserted by branches or instructions that cause exceptions
@@ -82,167 +84,187 @@ module reorder_buffer (
         procyon_reg_t                    rdest;
     } rob_entry_t;
 
-    typedef struct packed {
-        // It's convenient to add an extra bit for the head and tail pointers so that they may wrap around and allow for easier queue full/empty detection
-        procyon_tag_t                    head_addr;
-        procyon_tag_t                    tail_addr;
-        logic                            full;
-        logic                            empty;
-    } rob_t;
-
-    procyon_tagp_t               rob_head;
-    procyon_tagp_t               rob_tail;
 /* verilator lint_off MULTIDRIVEN */
-    rob_entry_t [`ROB_DEPTH-1:0] rob_entries;
+    rob_entry_t     [`ROB_DEPTH-1:0]     rob_entries;
 /* verilator lint_on  MULTIDRIVEN */
-    rob_t                        rob;
-    logic                        redirect;
-    logic                        rob_dispatch_en;
-    logic                        rob_retire_is_load;
-    logic                        rob_retire_is_store;
-    logic                        rob_retire_load_stall;
-    logic                        rob_retire_en;
-    logic                        lsu_retire_misspeculated;
-    logic       [`ROB_DEPTH-1:0] rob_dispatch_select;
-    logic       [`ROB_DEPTH-1:0] cdb_tag_select [0:`CDB_DEPTH-1];
+    procyon_tagp_t                       rob_head;
+    procyon_tagp_t                       rob_tail;
+    // It's convenient to add an extra bit for the head and tail pointers so that they may wrap around and allow for easier queue full/empty detection
+    procyon_tag_t                        rob_head_addr;
+    procyon_tag_t                        rob_tail_addr;
+    logic                                rob_full;
+    logic                                rob_empty;
+    logic                                redirect;
+    logic                                rob_dispatch_en;
+    logic                                rob_retire_is_load;
+    logic                                rob_retire_is_store;
+    logic                                rob_retire_load_stall;
+    logic                                rob_retire_en;
+    logic                                lsu_retire_misspeculated;
+    rob_vec_t                            rob_dispatch_select;
+    rob_vec_t                            cdb_tag_select [0:`CDB_DEPTH-1];
+    logic          [1:0]                 cdb_lookup_bypass [0:`CDB_DEPTH-1];
+    rob_vec_t                            dispatch_en;
+    rob_vec_t                            rob_entries_redirect;
+    rob_vec_t                            rob_entries_rdy;
+    procyon_addr_t [`ROB_DEPTH-1:0]      rob_entries_addr;
+    procyon_data_t [`ROB_DEPTH-1:0]      rob_entries_data;
+    procyon_data_t                       rob_src_data [0:1];
+    procyon_tag_t                        rob_src_tag  [0:1];
+    logic                                rob_src_rdy  [0:1];
 
-    assign rob_dispatch_select           = 1 << rob.tail_addr;
-
-    assign rob_dispatch_en               = i_rob_en && ~rob.full;
-    assign rob_retire_is_load            = (rob_entries[rob.head_addr].op == ROB_OP_LD);
-    assign rob_retire_is_store           = (rob_entries[rob.head_addr].op == ROB_OP_ST);
-    assign rob_retire_load_stall         = rob_retire_is_load && i_lsu_retire_launched;
-    assign rob_retire_en                 = rob_entries[rob.head_addr].rdy && ~rob.empty && ~rob_retire_load_stall;
+    assign dispatch_en                   = {(`ROB_DEPTH){rob_dispatch_en}} & rob_dispatch_select;
+    assign rob_dispatch_select           = 1 << rob_tail_addr;
+    assign rob_dispatch_en               = i_rob_en & ~rob_full;
+    assign rob_retire_is_load            = (rob_entries[rob_head_addr].op == ROB_OP_LD);
+    assign rob_retire_is_store           = (rob_entries[rob_head_addr].op == ROB_OP_ST);
+    assign rob_retire_load_stall         = rob_retire_is_load & i_lsu_retire_launched;
+    assign rob_retire_en                 = rob_entries[rob_head_addr].rdy & ~rob_empty & ~rob_retire_load_stall;
 
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
-    assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated && (rob_entries[rob.head_addr].op == ROB_OP_LD);
-    assign redirect                      = rob_retire_en && (rob_entries[rob.head_addr].redirect || lsu_retire_misspeculated);
+    assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated & (rob_entries[rob_head_addr].op == ROB_OP_LD);
+    assign redirect                      = rob_retire_en & (rob_entries[rob_head_addr].redirect | lsu_retire_misspeculated);
     assign o_redirect                    = redirect;
-    assign o_redirect_addr               = (rob_entries[rob.head_addr].op == ROB_OP_BR) ? rob_entries[rob.head_addr].addr : rob_entries[rob.head_addr].iaddr;
+    assign o_redirect_addr               = (rob_entries[rob_head_addr].op == ROB_OP_BR) ? rob_entries[rob_head_addr].addr : rob_entries[rob_head_addr].iaddr;
 
-    assign rob.tail_addr                 = rob_tail[`TAG_WIDTH-1:0];
-    assign rob.head_addr                 = rob_head[`TAG_WIDTH-1:0];
-    assign rob.full                      = ({~rob_tail[`TAG_WIDTH], rob_tail[`TAG_WIDTH-1:0]} == rob_head);
-    assign rob.empty                     = (rob_tail == rob_head);
+    assign rob_tail_addr                 = rob_tail[`TAG_WIDTH-1:0];
+    assign rob_head_addr                 = rob_head[`TAG_WIDTH-1:0];
+    assign rob_full                      = ({~rob_tail[`TAG_WIDTH], rob_tail[`TAG_WIDTH-1:0]} == rob_head);
+    assign rob_empty                     = (rob_tail == rob_head);
 
     // Assign outputs to regmap
-    assign o_regmap_retire_data          = rob_entries[rob.head_addr].data;
-    assign o_regmap_retire_rdest         = rob_entries[rob.head_addr].rdest;
-    assign o_regmap_retire_tag           = rob.head_addr;
+    assign o_regmap_retire_data          = rob_entries[rob_head_addr].data;
+    assign o_regmap_retire_rdest         = rob_entries[rob_head_addr].rdest;
+    assign o_regmap_retire_tag           = rob_head_addr;
     assign o_regmap_retire_wr_en         = rob_retire_en;
 
-    assign o_regmap_rename_tag           = rob.tail_addr;
+    assign o_regmap_rename_tag           = rob_tail_addr;
     assign o_regmap_rename_rdest         = i_rob_rdest;
     assign o_regmap_rename_wr_en         = rob_dispatch_en;
 
     // Assign outputs to dispatcher
     // Stall if the ROB is full
-    assign o_rob_stall                   = rob.full;
-    assign o_rob_tag                     = rob.tail_addr;
+    assign o_rob_stall                   = rob_full;
+    assign o_rob_tag                     = rob_tail_addr;
+    assign o_rob_src_data                = rob_src_data;
+    assign o_rob_src_tag                 = rob_src_tag;
+    assign o_rob_src_rdy                 = rob_src_rdy;
 
     // Assign outputs to LSU
-    assign o_lsu_retire_tag              = rob.head_addr;
-    assign o_lsu_retire_sq_en            = rob_retire_is_store && rob_retire_en;
-    assign o_lsu_retire_lq_en            = rob_retire_is_load && rob_retire_en;
+    assign o_lsu_retire_tag              = rob_head_addr;
+    assign o_lsu_retire_sq_en            = rob_retire_is_store & rob_retire_en;
+    assign o_lsu_retire_lq_en            = rob_retire_is_load & rob_retire_en;
 
-    genvar gvar;
-    generate
-        for (gvar = 0; gvar < 2; gvar++) begin : ASSIGN_REGMAP_LOOKUP_RSRC
-            assign o_regmap_lookup_rsrc[gvar] = i_rob_rsrc[gvar];
-        end
+    // Lookup source data from register map
+    assign o_regmap_lookup_rsrc          = i_rob_rsrc;
 
-        for (gvar = 0; gvar < `CDB_DEPTH; gvar++) begin : ASSIGN_CDB_SELECT_SIGNALS
-            assign cdb_tag_select[gvar]       = 1 << i_cdb_tag[gvar];
-        end
-    endgenerate
-
-    // Getting the right source register tags/data is tricky
-    // If the register map has ready data then that must be used
-    // Otherwise the ROB entry corresponding to the tag in the register map for the
-    // source register is looked up and the data, if available, is retrieved from that
-    // entry. If it's not available then the instruction must wait for the tag to be broadcast
-    // on the CDB. Now if there is something available on the CDB in the same cycle and it
-    // matches the tag from the register map, then that value must be used over the ROB data.
+    // Check if we need to bypass source data from the CDB when dispatching a new instruction
+    // But only if the register map does not have up to date data
     always_comb begin
-        for (int i = 0; i < 2; i++) begin
-            {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {rob_entries[i_regmap_lookup_tag[i]].data, i_regmap_lookup_tag[i], rob_entries[i_regmap_lookup_tag[i]].rdy};
-            if (i_regmap_lookup_rdy[i]) begin
-                {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_regmap_lookup_data[i], i_regmap_lookup_tag[i], i_regmap_lookup_rdy[i]};
-            end else begin
-                for (int j = 0; j < `CDB_DEPTH; j++) begin
-                    if (i_cdb_en[j] && (i_cdb_tag[j] == i_regmap_lookup_tag[i])) begin
-                        {o_rob_src_data[i], o_rob_src_tag[i], o_rob_src_rdy[i]} = {i_cdb_data[j], i_cdb_tag[j], 1'b1};
-                    end
+        for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
+            for (int src_idx = 0; src_idx < 2; src_idx++) begin
+                cdb_lookup_bypass[cdb_idx][src_idx] = ~i_regmap_lookup_rdy[src_idx] & i_cdb_en[cdb_idx] & (i_cdb_tag[cdb_idx] == i_regmap_lookup_tag[src_idx]);
+            end
+        end
+    end
+
+    // Getting the right source register tags/data is tricky. If the register map has ready data then that must be used
+    // Otherwise the ROB entry corresponding to the tag in the register map for the source register is looked up and the data,
+    // if available, is retrieved from that entry. If it's not available then the instruction must wait for the tag to be broadcast
+    // on the CDB. Now if there is something available on the CDB in the same cycle and it matches the tag from the register map,
+    // then that value must be used over the ROB data.
+    always_comb begin
+        for (int src_idx = 0; src_idx < 2; src_idx++) begin
+            rob_src_rdy[src_idx]  = i_regmap_lookup_rdy[src_idx] | rob_entries[i_regmap_lookup_tag[src_idx]].rdy;
+
+            for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
+                rob_src_rdy[src_idx] = cdb_lookup_bypass[cdb_idx][src_idx] | rob_src_rdy[src_idx];
+            end
+        end
+    end
+
+    always_comb begin
+        for (int src_idx = 0; src_idx < 2; src_idx++) begin
+            rob_src_data[src_idx] = i_regmap_lookup_rdy[src_idx] ? i_regmap_lookup_data[src_idx] : rob_entries[i_regmap_lookup_tag[src_idx]].data;
+            rob_src_tag[src_idx]  = i_regmap_lookup_tag[src_idx];
+
+            for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
+                if (cdb_lookup_bypass[cdb_idx][src_idx]) begin
+                    rob_src_data[src_idx] = i_cdb_data[cdb_idx];
+                    rob_src_tag[src_idx]  = i_cdb_tag[cdb_idx];
+                end
+             end
+        end
+    end
+
+    // Generate enable bits for each CDB for each ROB entry when updating entry due to CDB broadcast
+    always_comb begin
+        for (int i = 0; i < `CDB_DEPTH; i++) begin
+            cdb_tag_select[i] = {(`ROB_DEPTH){i_cdb_en[i]}} & (1 << i_cdb_tag[i]);
+        end
+    end
+
+    // Set the redirect bit for an entry if the CDB broadcast asserts the redirect signal
+    // Set the rdy bit if any of the CDB busses broadcasts a valid ROB tag
+    always_comb begin
+        for (int rob_idx = 0; rob_idx < `ROB_DEPTH; rob_idx++) begin
+            rob_entries_redirect[rob_idx] = rob_entries[rob_idx].redirect;
+            rob_entries_rdy[rob_idx]      = rob_entries[rob_idx].rdy;
+
+            for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
+                rob_entries_redirect[rob_idx] = (cdb_tag_select[cdb_idx][rob_idx] & i_cdb_redirect[cdb_idx]) | rob_entries_redirect[rob_idx];
+                rob_entries_rdy[rob_idx]      = cdb_tag_select[cdb_idx][rob_idx] | rob_entries_rdy[rob_idx];
+            end
+        end
+    end
+
+    // Priority mux the CDB address and data for each entry
+    always_comb begin
+        for (int rob_idx = 0; rob_idx < `ROB_DEPTH; rob_idx++) begin
+            rob_entries_addr[rob_idx] = rob_entries[rob_idx].addr;
+            rob_entries_data[rob_idx] = rob_entries[rob_idx].data;
+
+            for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
+                if (cdb_tag_select[cdb_idx][rob_idx]) begin
+                    rob_entries_addr[rob_idx] = i_cdb_addr[cdb_idx];
+                    rob_entries_data[rob_idx] = i_cdb_data[cdb_idx];
                 end
             end
         end
     end
 
-    // Now update the ROB entry with the newly dispatched instruction
-    // Or with the data broadcast over the CDB
+    // Now update the ROB entry with the newly dispatched instruction Or with the data broadcast over the CDB
     always_ff @(posedge clk) begin
         for (int i = 0; i < `ROB_DEPTH; i++) begin
-            if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                {rob_entries[i].op, rob_entries[i].iaddr, rob_entries[i].rdest} <= {i_rob_op, i_rob_iaddr, i_rob_rdest};
-            end
-        end
-    end
-
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < `ROB_DEPTH; i++) begin
-            if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                {rob_entries[i].redirect, rob_entries[i].addr, rob_entries[i].data} <= {1'b0, i_rob_addr, i_rob_data};
-            end else begin
-                for (int j = 0; j < `CDB_DEPTH; j++) begin
-                    if (i_cdb_en[j] && cdb_tag_select[j][i]) begin
-                        {rob_entries[i].redirect, rob_entries[i].addr, rob_entries[i].data} <= {i_cdb_redirect[j], i_cdb_addr[j], i_cdb_data[j]};
-                    end
-                end
-            end
+            rob_entries[i].redirect <= ~dispatch_en[i] & rob_entries_redirect[i];
+            rob_entries[i].addr     <= dispatch_en[i] ? i_rob_addr  : rob_entries_addr[i];
+            rob_entries[i].data     <= dispatch_en[i] ? i_rob_data  : rob_entries_data[i];
+            rob_entries[i].op       <= dispatch_en[i] ? i_rob_op    : rob_entries[i].op;
+            rob_entries[i].iaddr    <= dispatch_en[i] ? i_rob_iaddr : rob_entries[i].iaddr;;
+            rob_entries[i].rdest    <= dispatch_en[i] ? i_rob_rdest : rob_entries[i].rdest;
         end
     end
 
     // Clear the ready bits on a flush or reset
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         for (int i = 0; i < `ROB_DEPTH; i++) begin
-            if (~n_rst) begin
-                rob_entries[i].rdy <= 1'b0;
-            end else if (redirect) begin
-                rob_entries[i].rdy <= 1'b0;
-            end else if (rob_dispatch_en && rob_dispatch_select[i]) begin
-                rob_entries[i].rdy <= i_rob_rdy;
-            end else begin
-                for (int j = 0; j < `CDB_DEPTH; j++) begin
-                    if (i_cdb_en[j] && cdb_tag_select[j][i]) begin
-                        rob_entries[i].rdy <= 1'b1;
-                    end
-                end
-            end
+            if (~n_rst) rob_entries[i].rdy <= 1'b0;
+            else        rob_entries[i].rdy <= mux4_1b(rob_entries_rdy[i], i_rob_rdy, 1'b0, 1'b0, {redirect, dispatch_en[i]});
         end
     end
 
     // Increment the tail pointer if the dispatcher signals a new instruction to be enqueued
     // and the ROB is not full. Reset if redirect asserted
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            rob_tail <= 'b0;
-        end else if (redirect) begin
-            rob_tail <= 'b0;
-        end else if (rob_dispatch_en) begin
-            rob_tail <= rob_tail + 1'b1;
-        end
+    always_ff @(posedge clk) begin
+        if (~n_rst) rob_tail <= {(`TAG_WIDTH+1){1'b0}};
+        else        rob_tail <= redirect ? {(`TAG_WIDTH+1){1'b0}} : rob_dispatch_en ? rob_tail + 1'b1 : rob_tail;
     end
 
     // Increment the head pointer if the instruction to be retired is ready and the ROB is not
     // empty (of course this should never be the case). Reset if redirect asserted
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            rob_head <= 'b0;
-        end else if (redirect) begin
-            rob_head <= 'b0;
-        end else if (rob_retire_en) begin
-            rob_head <= rob_head + 1'b1;
-        end
+    always_ff @(posedge clk) begin
+        if (~n_rst) rob_head <= {(`TAG_WIDTH+1){1'b0}};
+        else        rob_head <= redirect ? {(`TAG_WIDTH+1){1'b0}} : rob_retire_en ? rob_head + 1'b1 : rob_head;
     end
 
 endmodule

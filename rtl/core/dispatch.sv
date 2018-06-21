@@ -44,16 +44,46 @@ module dispatch (
     output procyon_reg_t          o_rob_rsrc     [0:1]
 );
 
-    logic [6:0]           opcode;
-    procyon_data_t        insn;
-    procyon_addr_t        iaddr;
-    procyon_reg_t         rdest;
-    procyon_reg_t         rsrc [0:1];
-    logic                 insn_fifo_rdy;
-    logic                 rob_rdy;
-    logic                 rs_rdy;
-    procyon_addr_data_t   insn_fifo_data;
-    logic                 insn_fifo_empty;
+    logic [6:0]                opcode;
+    logic                      is_opimm;
+    logic                      is_lui;
+    logic                      is_auipc;
+    logic                      is_op;
+    logic                      is_jal;
+    logic                      is_jalr;
+    logic                      is_branch;
+    logic                      is_load;
+    logic                      is_store;
+    procyon_data_t             insn;
+    procyon_addr_t             iaddr;
+    procyon_reg_t              rdest;
+    procyon_reg_t              rsrc [0:1];
+    logic [1:0]                rob_op_sel;
+    logic                      rob_rdest_sel;
+    logic                      rob_rdy;
+    logic [1:0]                rs_src_rdy;
+    logic                      rs_rdy;
+    procyon_addr_data_t        insn_fifo_data;
+    logic                      insn_fifo_empty;
+    logic                      insn_fifo_en;
+    logic [1:0]                insn_fifo_empty_sel;
+    logic                      insn_fifo_rdy;
+
+    assign is_opimm            = (opcode == OPCODE_OPIMM);
+    assign is_lui              = (opcode == OPCODE_LUI);
+    assign is_auipc            = (opcode == OPCODE_AUIPC);
+    assign is_op               = (opcode == OPCODE_OP);
+    assign is_jal              = (opcode == OPCODE_JAL);
+    assign is_jalr             = (opcode == OPCODE_JALR);
+    assign is_branch           = (opcode == OPCODE_BRANCH);
+    assign is_load             = (opcode == OPCODE_LOAD);
+    assign is_store            = (opcode == OPCODE_STORE);
+
+    assign rs_src_rdy[0]       = is_opimm | is_op | is_jalr | is_branch | is_load | is_store;
+    assign rs_src_rdy[1]       = is_op | is_branch | is_store;
+    assign rob_op_sel          = {is_store | is_branch | is_jal | is_jalr, is_load | is_branch | is_jal | is_jalr};
+    assign rob_rdest_sel       = is_opimm | is_lui | is_auipc | is_op | is_jal | is_jalr | is_load;
+    assign insn_fifo_empty_sel = {i_flush, insn_fifo_en};
 
     // Pull out the signals from the insn FIFO
     assign insn                = insn_fifo_data[`DATA_WIDTH-1:0];
@@ -70,87 +100,35 @@ module dispatch (
     assign rob_rdy             = ~i_rob_stall;
     assign rs_rdy              = ~i_rs_stall;
     assign insn_fifo_rdy       = ~insn_fifo_empty;
+    assign insn_fifo_en        = rob_rdy & rs_rdy;
 
-    assign o_insn_fifo_rd_en   = rob_rdy && rs_rdy;
-    assign o_rs_en             = insn_fifo_rdy && rob_rdy;
-    assign o_rob_en            = insn_fifo_rdy && rs_rdy;
+    assign o_insn_fifo_rd_en   = insn_fifo_en;
+    assign o_rs_en             = insn_fifo_rdy & rob_rdy;
+    assign o_rob_en            = insn_fifo_rdy & rs_rdy;
 
+    assign o_rob_rdy           = 1'b0;
     assign o_rob_iaddr         = iaddr;
-    assign o_rob_addr          = 'b0;
-    assign o_rob_data          = 'b0;
+    assign o_rob_addr          = {(`ADDR_WIDTH){1'b0}};
+    assign o_rob_data          = {(`DATA_WIDTH){1'b0}};
+    assign o_rob_rdest         = rob_rdest_sel ? rdest : {(`REG_ADDR_WIDTH){1'b0}};
+    assign o_rob_op            = procyon_rob_op_t'(mux4_2b(ROB_OP_INT, ROB_OP_LD, ROB_OP_ST, ROB_OP_BR, rob_op_sel));
+    assign o_rob_rsrc          = '{rsrc[0], rsrc[1]};
 
+    assign o_rs_opcode         = procyon_opcode_t'(opcode);
     assign o_rs_iaddr          = iaddr;
     assign o_rs_insn           = insn;
     assign o_rs_dst_tag        = i_rob_tag;
-
-    genvar i;
-    generate
-        for (i = 0; i < 2; i++) begin : ASSIGN_RS_AND_ROB_OUTPUTS
-            assign o_rob_rsrc[i]    = rsrc[i];
-            assign o_rs_src_tag[i]  = i_rob_src_tag[i];
-            assign o_rs_src_data[i] = i_rob_src_data[i];
-        end
-    endgenerate
+    assign o_rs_src_tag        = '{i_rob_src_tag[0], i_rob_src_tag[1]};
+    assign o_rs_src_data       = '{i_rob_src_data[0], i_rob_src_data[1]};
+    assign o_rs_src_rdy        = '{~rs_src_rdy[0] | i_rob_src_rdy[0], ~rs_src_rdy[1] | i_rob_src_rdy[1]};
 
     // Staging flops for insn fifo data & empty signal
     always_ff @(posedge clk) begin
-        if (rob_rdy && rs_rdy) begin
-            insn_fifo_data  <= i_insn_fifo_data;
-        end
+        if (insn_fifo_en) insn_fifo_data <= i_insn_fifo_data;
     end
 
     always_ff @(posedge clk) begin
-        if (i_flush) begin
-            insn_fifo_empty <= 1'b1;
-        end else if (rob_rdy && rs_rdy) begin
-            insn_fifo_empty <= i_insn_fifo_empty;
-        end
-    end
-
-    // Dispatch interface to reorder buffer and reservation stations
-    always_comb begin
-        case (opcode)
-            OPCODE_OPIMM: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_OPIMM, i_rob_src_rdy[0], 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_INT, rdest, 1'b0};
-            end
-            OPCODE_LUI: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_LUI, 1'b1, 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_INT, rdest, 1'b0};
-            end
-            OPCODE_AUIPC: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_AUIPC, 1'b1, 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_INT, rdest, 1'b0};
-            end
-            OPCODE_OP: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_OP, i_rob_src_rdy[0], i_rob_src_rdy[1]};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_INT, rdest, 1'b0};
-            end
-            OPCODE_JAL: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_JAL, 1'b1, 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_BR, rdest, 1'b0};
-            end
-            OPCODE_JALR: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_JALR, i_rob_src_rdy[0], 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_BR, rdest, 1'b0};
-            end
-            OPCODE_BRANCH: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_BRANCH, i_rob_src_rdy[0], i_rob_src_rdy[1]};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_BR, {(`REG_ADDR_WIDTH){1'b0}}, 1'b0};
-            end
-            OPCODE_LOAD: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_LOAD, i_rob_src_rdy[0], 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_LD, rdest, 1'b0};
-            end
-            OPCODE_STORE: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_STORE, i_rob_src_rdy[0], i_rob_src_rdy[1]};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_ST, {(`REG_ADDR_WIDTH){1'b0}}, 1'b0};
-            end
-            default: begin
-                {o_rs_opcode, o_rs_src_rdy[0], o_rs_src_rdy[1]} = {OPCODE_OPIMM, 1'b1, 1'b1};
-                {o_rob_op, o_rob_rdest, o_rob_rdy}              = {ROB_OP_INT, {(`REG_ADDR_WIDTH){1'b0}}, 1'b0};
-            end
-        endcase
+        insn_fifo_empty <= mux4_1b(insn_fifo_empty, i_insn_fifo_empty, 1'b1, 1'b1, insn_fifo_empty_sel);
     end
 
 endmodule

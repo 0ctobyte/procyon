@@ -32,6 +32,25 @@ module ieu_id (
     procyon_data_t      imm_j;
     procyon_alu_func_t  alu_func_srx;
     procyon_alu_func_t  alu_func_asx;
+    procyon_alu_func_t  alu_func;
+    logic [1:0]         alu_func_sel;
+    logic               is_br;
+    logic               is_jal;
+    logic               is_jalr;
+    logic               is_op;
+    logic               is_opimm;
+    logic               is_lui;
+    logic               is_auipc;
+
+    assign is_br        = i_opcode == OPCODE_BRANCH;
+    assign is_jal       = i_opcode == OPCODE_JAL;
+    assign is_jalr      = i_opcode == OPCODE_JALR;
+    assign is_op        = i_opcode == OPCODE_OP;
+    assign is_opimm     = i_opcode == OPCODE_OPIMM;
+    assign is_lui       = i_opcode == OPCODE_LUI;
+    assign is_auipc     = i_opcode == OPCODE_AUIPC;
+
+    assign alu_func_sel = {is_br, is_op | is_opimm};
 
     // Determine ALU FUNC for certain ops depending on instruction bit 30
     assign alu_func_srx = i_insn[30] ? ALU_FUNC_SRA : ALU_FUNC_SRL;
@@ -49,49 +68,24 @@ module ieu_id (
     assign o_tag        = i_tag;
     assign o_valid      = i_valid;
 
+    assign o_br         = is_br & (i_insn[14:12] != 3'b010) & (i_insn[14:12] != 3'b011);
+    assign o_jmp        = is_jal | is_jalr;
+    assign o_shamt      = is_op ? i_src_b[4:0] : i_insn[24:20];
+    assign o_src_a      = mux4_data(i_src_a, {(`DATA_WIDTH){1'b0}}, i_iaddr, i_src_a, {is_auipc | is_jal, is_lui});
+    assign o_src_b      = mux4_data(is_jal ? imm_j : imm_u, imm_i, i_src_b, i_src_b, {is_op | is_br, is_opimm | is_jalr});
+    assign o_alu_func   = alu_func;
+
     // Decode based on opcode and funct3 fields
     always_comb begin
-        case (i_opcode)
-            OPCODE_OPIMM: begin
-                case (i_insn[14:12])
-                    3'b000: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b001: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_SLL, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b010: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LT,  i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b011: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LTU, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b100: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_XOR, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b101: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {alu_func_srx, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b110: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_OR,  i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                    3'b111: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_AND, i_src_a, imm_i, i_insn[24:20], 1'b0, 1'b0};
-                endcase
-            end
-            OPCODE_OP: begin
-                case (i_insn[14:12])
-                    3'b000: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {alu_func_asx, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b001: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_SLL, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b010: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LT,  i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b011: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LTU, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b100: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_XOR, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b101: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {alu_func_srx, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b110: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_OR,  i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                    3'b111: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_AND, i_src_a, i_src_b, i_src_b[4:0], 1'b0, 1'b0};
-                endcase
-            end
-            OPCODE_BRANCH: begin
-                case (i_insn[14:12])
-                    3'b000:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_EQ,  i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    3'b001:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_NE,  i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    3'b100:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LT,  i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    3'b101:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_GE,  i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    3'b110:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_LTU, i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    3'b111:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_GEU, i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b1};
-                    default: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b0};
-                endcase
-            end
-            OPCODE_LUI:   {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, {(`DATA_WIDTH){1'b0}}, imm_u, i_insn[24:20], 1'b0, 1'b0};
-            OPCODE_AUIPC: {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_iaddr, imm_u, i_insn[24:20], 1'b0, 1'b0};
-            OPCODE_JAL:   {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_iaddr, imm_j, i_insn[24:20], 1'b1, 1'b0};
-            OPCODE_JALR:  {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, imm_i, i_insn[24:20], 1'b1, 1'b0};
-            default:      {o_alu_func, o_src_a, o_src_b, o_shamt, o_jmp, o_br} = {ALU_FUNC_ADD, i_src_a, i_src_b, i_insn[24:20], 1'b0, 1'b0};
+        case (i_insn[14:12])
+            3'b000: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, alu_func_asx, ALU_FUNC_EQ, ALU_FUNC_ADD, {is_br, is_op}));
+            3'b001: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_SLL, ALU_FUNC_NE, ALU_FUNC_ADD, alu_func_sel));
+            3'b010: alu_func = is_op | is_opimm ? ALU_FUNC_LT : ALU_FUNC_ADD;
+            3'b011: alu_func = is_op | is_opimm ? ALU_FUNC_LTU : ALU_FUNC_ADD;
+            3'b100: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_XOR, ALU_FUNC_LT, ALU_FUNC_ADD, alu_func_sel));
+            3'b101: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, alu_func_srx, ALU_FUNC_GE, ALU_FUNC_ADD, alu_func_sel));
+            3'b110: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_OR, ALU_FUNC_LTU, ALU_FUNC_ADD, alu_func_sel));
+            3'b111: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_AND, ALU_FUNC_GEU, ALU_FUNC_ADD, alu_func_sel));
         endcase
     end
 

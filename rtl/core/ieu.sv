@@ -18,6 +18,7 @@ module ieu (
     output procyon_addr_t    o_cdb_addr,
     output procyon_tag_t     o_cdb_tag,
 
+    // Reservation station interface
     input  logic             i_fu_valid,
     input  procyon_opcode_t  i_fu_opcode,
     input  procyon_addr_t    i_fu_iaddr,
@@ -50,10 +51,10 @@ module ieu (
     } ieu_ex_t;
 
 /* verilator lint_off MULTIDRIVEN */
-    ieu_id_t ieu_id;
-    ieu_id_t ieu_id_q;
-    ieu_ex_t ieu_ex;
-    ieu_ex_t ieu_ex_q;
+    ieu_id_t               ieu_id;
+    ieu_id_t               ieu_id_q;
+    ieu_ex_t               ieu_ex;
+    ieu_ex_t               ieu_ex_q;
 /* verilator lint_on  MULTIDRIVEN */
 
     assign o_fu_stall      = 1'b0;
@@ -66,24 +67,14 @@ module ieu (
     assign o_cdb_data      = ieu_ex_q.data;
 
     // Make sure valid bit is set to false on flush or reset
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            ieu_id_q.valid <= 'b0;
-        end else if (i_flush) begin
-            ieu_id_q.valid <= 'b0;
-        end else begin
-            ieu_id_q.valid <= ieu_id.valid;
-        end
+    always_ff @(posedge clk) begin
+        if (~n_rst) ieu_id_q.valid <= 1'b0;
+        else        ieu_id_q.valid <= ~i_flush & ieu_id.valid;
     end
 
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            ieu_ex_q.valid <= 'b0;
-        end else if (i_flush) begin
-            ieu_ex_q.valid <= 'b0;
-        end else begin
-            ieu_ex_q.valid <= ieu_ex.valid;
-        end
+    always_ff @(posedge clk) begin
+        if (~n_rst) ieu_ex_q.valid <= 1'b0;
+        else        ieu_ex_q.valid <= ~i_flush & ieu_ex.valid;
     end
 
     // ID -> EX pipelined registers

@@ -22,22 +22,26 @@ module fetch (
     output logic                     o_insn_fifo_wr_en
 );
 
-    procyon_addr_t pc;
+    procyon_addr_t             pc;
+    procyon_addr_t             next_pc;
+    procyon_addr_t             pc_plus_4;
+    logic [1:0]                pc_sel;
 
-    assign o_en                = ~i_insn_fifo_full && ~i_redirect;
+    assign o_en                = ~i_insn_fifo_full & ~i_redirect;
     assign o_pc                = pc;
 
     assign o_insn_fifo_wr_en   = i_data_valid;
     assign o_insn_fifo_data    = {pc, i_insn};
 
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            pc <= 'b0;
-        end else if (i_redirect) begin
-            pc <= i_redirect_addr;
-        end else if (i_data_valid) begin
-            pc <= pc + 4;
-        end
+    assign pc_sel              = {i_redirect, i_data_valid};
+    assign pc_plus_4           = pc + 4;
+
+    // PC mux
+    assign next_pc             = mux4_addr(pc, pc_plus_4, i_redirect_addr, i_redirect_addr, pc_sel);
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) pc <= {(`ADDR_WIDTH){1'b0}};
+        else        pc <= next_pc;
     end
 
 endmodule

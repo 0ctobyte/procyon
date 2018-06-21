@@ -71,4 +71,89 @@ package procyon_types;
         LSU_FUNC_FILL = 4'b1000
     } procyon_lsu_func_t;
 
+    function logic mux4_1b (
+        input logic       i_data0,
+        input logic       i_data1,
+        input logic       i_data2,
+        input logic       i_data3,
+        input logic [1:0] i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_1b = i_data0;
+            2'b01: mux4_1b = i_data1;
+            2'b10: mux4_1b = i_data2;
+            2'b11: mux4_1b = i_data3;
+        endcase
+
+    endfunction
+
+    function logic [1:0] mux4_2b (
+        input logic [1:0] i_data0,
+        input logic [1:0] i_data1,
+        input logic [1:0] i_data2,
+        input logic [1:0] i_data3,
+        input logic [1:0] i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_2b = i_data0;
+            2'b01: mux4_2b = i_data1;
+            2'b10: mux4_2b = i_data2;
+            2'b11: mux4_2b = i_data3;
+        endcase
+
+    endfunction
+
+    function logic [3:0] mux4_4b (
+        input logic [3:0] i_data0,
+        input logic [3:0] i_data1,
+        input logic [3:0] i_data2,
+        input logic [3:0] i_data3,
+        input logic [1:0] i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_4b = i_data0;
+            2'b01: mux4_4b = i_data1;
+            2'b10: mux4_4b = i_data2;
+            2'b11: mux4_4b = i_data3;
+        endcase
+
+    endfunction
+
+    function logic [`ADDR_WIDTH-1:0] mux4_addr (
+        input logic [`ADDR_WIDTH-1:0] i_data0,
+        input logic [`ADDR_WIDTH-1:0] i_data1,
+        input logic [`ADDR_WIDTH-1:0] i_data2,
+        input logic [`ADDR_WIDTH-1:0] i_data3,
+        input logic [1:0]             i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_addr = i_data0;
+            2'b01: mux4_addr = i_data1;
+            2'b10: mux4_addr = i_data2;
+            2'b11: mux4_addr = i_data3;
+        endcase
+
+    endfunction
+
+    function logic [`DATA_WIDTH-1:0] mux4_data (
+        input logic [`DATA_WIDTH-1:0] i_data0,
+        input logic [`DATA_WIDTH-1:0] i_data1,
+        input logic [`DATA_WIDTH-1:0] i_data2,
+        input logic [`DATA_WIDTH-1:0] i_data3,
+        input logic [1:0]             i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_data = i_data0;
+            2'b01: mux4_data = i_data1;
+            2'b10: mux4_data = i_data2;
+            2'b11: mux4_data = i_data3;
+        endcase
+
+    endfunction
+
 endpackage
