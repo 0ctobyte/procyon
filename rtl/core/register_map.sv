@@ -43,34 +43,29 @@ module register_map (
 
 /* verilator lint_off MULTIDRIVEN */
     // Register r0 is special and should never be changed
-    regmap_t                  regmap [`REGMAP_DEPTH-1:0];
+    regmap_t                    regmap [`REGMAP_DEPTH-1:0];
 /* verilator lint_on  MULTIDRIVEN */
-    logic                     dest_wr_en;
-    logic                     tag_wr_en;
-    logic [`REGMAP_DEPTH-1:0] dest_wr_select;
-    logic [`REGMAP_DEPTH-1:0] tag_wr_select;
+    logic                       dest_wr_en;
+    logic                       tag_wr_en;
+    logic [`REGMAP_DEPTH-1:0]   dest_wr_select;
+    logic [`REGMAP_DEPTH-1:0]   tag_wr_select;
 
     // We don't want to touch register r0 since it should always contain zero and cannot be changed
     // If any instruction tries to write to r0, it effectively means that instruction is throwing away the result
-    assign dest_wr_en     = i_regmap_retire_wr_en && (i_regmap_retire_rdest != 'b0);
-    assign tag_wr_en      = i_regmap_rename_wr_en && (i_regmap_rename_rdest != 'b0);
+    assign dest_wr_en           = i_regmap_retire_wr_en & (i_regmap_retire_rdest != ({(`REG_ADDR_WIDTH){1'b0}}));
+    assign tag_wr_en            = i_regmap_rename_wr_en & (i_regmap_rename_rdest != ({(`REG_ADDR_WIDTH){1'b0}}));
 
     // Select vectors to enable writing to the registers whose select bit is set
-    assign dest_wr_select = 1 << i_regmap_retire_rdest;
-    assign tag_wr_select  = 1 << i_regmap_rename_rdest;
-
-    // FIXME: Output this register for architectural simulation test pass/fail detection
-    assign o_sim_tp       = regmap[4].data;
+    assign dest_wr_select       = {(`REGMAP_DEPTH){dest_wr_en}} & (1 << i_regmap_retire_rdest);
+    assign tag_wr_select        = {(`REGMAP_DEPTH){tag_wr_en}} & (1 << i_regmap_rename_rdest);
 
     // The ROB will lookup tags/data for the source operands of the newly dispatched instruction
-    genvar gvar;
-    generate
-        for (gvar = 0; gvar < 2; gvar++) begin : ASSIGN_REGMAP_LOOKUP_OUTPUTS
-            assign o_regmap_lookup_rdy[gvar]  = regmap[i_regmap_lookup_rsrc[gvar]].rdy;
-            assign o_regmap_lookup_data[gvar] = regmap[i_regmap_lookup_rsrc[gvar]].data;
-            assign o_regmap_lookup_tag[gvar]  = regmap[i_regmap_lookup_rsrc[gvar]].tag;
-        end
-    endgenerate
+    assign o_regmap_lookup_rdy  = '{regmap[i_regmap_lookup_rsrc[0]].rdy, regmap[i_regmap_lookup_rsrc[1]].rdy};
+    assign o_regmap_lookup_data = '{regmap[i_regmap_lookup_rsrc[0]].data, regmap[i_regmap_lookup_rsrc[1]].data};
+    assign o_regmap_lookup_tag  = '{regmap[i_regmap_lookup_rsrc[0]].tag, regmap[i_regmap_lookup_rsrc[1]].tag};
+
+    // FIXME: Output this register for architectural simulation test pass/fail detection
+    assign o_sim_tp             = regmap[4].data;
 
     // The tags correspond to the ROB entry that will produce the value for that register
     // This is looked up for the source registers by each new instruction that is dispatched
@@ -78,7 +73,7 @@ module register_map (
     // flops should be inferred as rams by the synthesizer
     always_ff @(posedge clk) begin
         for (int i = 1; i < `REGMAP_DEPTH; i++) begin
-            if (tag_wr_en && tag_wr_select[i]) begin
+            if (tag_wr_select[i]) begin
                 regmap[i].tag <= i_regmap_rename_tag;
             end
         end
@@ -87,33 +82,24 @@ module register_map (
     // The ROB updates the value of the destination register of the next retired instruction
     always_ff @(posedge clk) begin
         for (int i = 1; i < `REGMAP_DEPTH; i++) begin
-            if (dest_wr_en && dest_wr_select[i]) begin
+           if (dest_wr_select[i]) begin
                 regmap[i].data <= i_regmap_retire_data;
             end
         end
     end
 
-    // The ready bit should be inferred as flip flops since they need to be reset to a value of 1
-    always_ff @(posedge clk, negedge n_rst) begin
+    // If an exception/branch occurs then we need to throw away all the tags as those tags belong to instructions
+    // that are now flushed and so won't produce the data. Luckily the register map already holds the latest
+    // correct data for each register before the exception occurred and so all we need to do is set the ready bits
+    // Tag updates take priority over retired instructions
+    // The value from the retired instruction doesn't matter if the same register will be updated by a next instruction dispatched
+    // When an instruction is retired, the destination register value is valid and the ready bit can be set
+    // But only if the latest tag for the register matches the tag of the retiring instruction
+    // Otherwise the data is not ready because a newer instruction will provide it
+    always_ff @(posedge clk) begin
         for (int i = 1; i < `REGMAP_DEPTH; i++) begin
-            if (~n_rst) begin
-                regmap[i].rdy <= 1'b1;
-            end else if (i_flush) begin
-                // If an exception/branch occurs then we need to throw away all the tags as those tags belong to instructions
-                // that are now flushed and so won't produce the data. Luckily the register map already holds the latest
-                // correct data for each register before the exception occurred and so all we need to do is set the ready bits
-                regmap[i].rdy <= 1'b1;
-            end else if (tag_wr_en && tag_wr_select[i]) begin
-                // Tag updates take priority over retired instructions
-                // The value from the retired instruction doesn't matter if the same register will be updated
-                // by a next instruction dispatched
-                regmap[i].rdy <= 1'b0;
-            end else if (dest_wr_en && dest_wr_select[i]) begin
-                // When an instruction is retired, the destination register value is valid and the ready bit can be set
-                // But only if the latest tag for the register matches the tag of the retiring instruction
-                // Otherwise the data is not ready because a newer instruction will provide it
-                regmap[i].rdy <= (i_regmap_retire_tag == regmap[i].tag) ? 1'b1 : 1'b0;
-            end
+            if (~n_rst) regmap[i].rdy <= 1'b1;
+            else        regmap[i].rdy <= i_flush | mux4_1b(regmap[i].rdy, 1'b0, i_regmap_retire_tag == regmap[i].tag, 1'b0, {dest_wr_select[i], tag_wr_select[i]});
         end
     end
 

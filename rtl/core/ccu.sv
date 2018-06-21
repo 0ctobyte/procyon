@@ -48,42 +48,39 @@ module ccu (
         DONE = 2'b11
     } state_t;
 
-    state_t                 state;
-    state_t                 state_q;
-    logic                   ccu_en;
-    logic                   ccu_done;
-    logic                   biu_done;
-    logic                   biu_busy;
-    procyon_cacheline_t     biu_data_r;
-    procyon_cacheline_t     biu_data_w;
-    procyon_addr_t          biu_addr;
-    logic                   biu_we;
-    logic                   biu_en;
+    state_t               next_state;
+    state_t               state_q;
+    logic                 ccu_en;
+    logic                 ccu_done;
+    logic                 biu_done;
+    logic                 biu_busy;
+    procyon_cacheline_t   biu_data_r;
+    procyon_cacheline_t   biu_data_w;
+    procyon_addr_t        biu_addr;
+    logic                 biu_we;
+    logic                 biu_en;
 
     // Output to BIU
-    assign biu_data_w   = {{(`DC_LINE_WIDTH){1'b0}}};
-    assign biu_we       = 1'b0;
-    assign biu_en       = state_q == REQ || state_q == WAIT;
+    assign biu_data_w     = {{(`DC_LINE_WIDTH){1'b0}}};
+    assign biu_we         = 1'b0;
+    assign biu_en         = state_q == REQ | state_q == WAIT;
 
     // Output done signal
-    assign ccu_done     = state_q == DONE;
+    assign ccu_done       = state_q == DONE;
 
     // Latch next state
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            state_q <= IDLE;
-        end else begin
-            state_q <= state;
-        end
+    always_ff @(posedge clk) begin
+        if (~n_rst) state_q <= IDLE;
+        else        state_q <= next_state;
     end
 
     // Update state
     always_comb begin
         case (state_q)
-            IDLE: state = (ccu_en && ~biu_busy) ? REQ : IDLE;
-            REQ:  state = WAIT;
-            WAIT: state = biu_done ? DONE : WAIT;
-            DONE: state = IDLE;
+            IDLE: next_state = (ccu_en & ~biu_busy) ? REQ : IDLE;
+            REQ:  next_state = WAIT;
+            WAIT: next_state = biu_done ? DONE : WAIT;
+            DONE: next_state = IDLE;
         endcase
     end
 

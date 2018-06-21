@@ -46,18 +46,19 @@ module lsu_ex (
     output procyon_byte_select_t  o_mhq_enq_byte_select
 );
 
-    logic                 cache_miss;
-    logic                 load_or_store;
-    logic                 not_fill;
-    procyon_byte_select_t byte_select;
+    logic                        cache_miss;
+    logic                        load_or_store;
+    logic                        not_fill;
+    procyon_byte_select_t        byte_select;
+    procyon_data_t               load_data;
 
     // Determine if op is load or store
-    assign load_or_store         = (i_lsu_func == LSU_FUNC_SB) || (i_lsu_func == LSU_FUNC_SH) || (i_lsu_func == LSU_FUNC_SW);
+    assign load_or_store         = (i_lsu_func == LSU_FUNC_SB) | (i_lsu_func == LSU_FUNC_SH) | (i_lsu_func == LSU_FUNC_SW);
     assign not_fill              = i_lsu_func != LSU_FUNC_FILL;
-    assign cache_miss            = i_valid && ~i_dc_hit && not_fill;
+    assign cache_miss            = i_valid & ~i_dc_hit & not_fill;
 
     // Access D$
-    assign o_dc_we               = i_valid && not_fill && i_retire;
+    assign o_dc_we               = i_valid & not_fill & i_retire;
     assign o_dc_addr             = i_addr;
     assign o_dc_data             = i_data;
     assign o_dc_byte_select      = byte_select;
@@ -67,22 +68,23 @@ module lsu_ex (
     // Stores are "valid" if they aren't being retired (i.e. on the first pass through here)
     assign o_addr                = i_addr;
     assign o_tag                 = i_tag;
-    assign o_valid               = i_valid && (load_or_store ? ~i_retire : i_dc_hit && not_fill);
+    assign o_valid               = i_valid & (load_or_store ? ~i_retire : i_dc_hit & not_fill);
+    assign o_data                = load_data;
 
     // Output to dcache on a cache fill
     assign o_dc_fe               = ~not_fill;
     assign o_dc_fill_dirty       = i_dirty;
 
     // Output to LQ
-    assign o_update_lq_en        = cache_miss && ~load_or_store;
+    assign o_update_lq_en        = cache_miss & ~load_or_store;
     assign o_update_lq_mhq_tag   = i_mhq_enq_tag;
 
     // Output to SQ
-    assign o_update_sq_en        = i_retire && i_valid;
+    assign o_update_sq_en        = i_retire & i_valid;
 
     // Output to MHQ
     // Only output retired stores to MHQ on a cache miss
-    assign o_mhq_enq_en          = cache_miss && (~load_or_store || i_retire);
+    assign o_mhq_enq_en          = cache_miss & (~load_or_store | i_retire);
     assign o_mhq_enq_we          = i_retire;
     assign o_mhq_enq_addr        = i_addr;
     assign o_mhq_enq_data        = i_data[`DATA_WIDTH-1:0];
@@ -103,12 +105,12 @@ module lsu_ex (
     // extends to 32 bits.
     always_comb begin
         case (i_lsu_func)
-            LSU_FUNC_LB:  o_data = {{(`DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            LSU_FUNC_LH:  o_data = {{(`DATA_WIDTH-16){i_dc_data[15]}}, i_dc_data[15:0]};
-            LSU_FUNC_LW:  o_data = i_dc_data;
-            LSU_FUNC_LBU: o_data = {{(`DATA_WIDTH-8){1'b0}}, i_dc_data[7:0]};
-            LSU_FUNC_LHU: o_data = {{(`DATA_WIDTH-16){1'b0}}, i_dc_data[15:0]};
-            default:      o_data = i_dc_data;
+            LSU_FUNC_LB:  load_data = {{(`DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
+            LSU_FUNC_LH:  load_data = {{(`DATA_WIDTH-16){i_dc_data[15]}}, i_dc_data[15:0]};
+            LSU_FUNC_LW:  load_data = i_dc_data;
+            LSU_FUNC_LBU: load_data = {{(`DATA_WIDTH-8){1'b0}}, i_dc_data[7:0]};
+            LSU_FUNC_LHU: load_data = {{(`DATA_WIDTH-16){1'b0}}, i_dc_data[15:0]};
+            default:      load_data = i_dc_data;
         endcase
     end
 

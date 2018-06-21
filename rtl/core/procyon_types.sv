@@ -156,4 +156,21 @@ package procyon_types;
 
     endfunction
 
+    function logic [`TAG_WIDTH-1:0] mux4_tag (
+        input logic [`TAG_WIDTH-1:0] i_data0,
+        input logic [`TAG_WIDTH-1:0] i_data1,
+        input logic [`TAG_WIDTH-1:0] i_data2,
+        input logic [`TAG_WIDTH-1:0] i_data3,
+        input logic [1:0]             i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_tag = i_data0;
+            2'b01: mux4_tag = i_data1;
+            2'b10: mux4_tag = i_data2;
+            2'b11: mux4_tag = i_data3;
+        endcase
+
+    endfunction
+
 endpackage
