@@ -69,13 +69,11 @@ module reservation_station #(
     rs_vec_t                                              rs_issue_select;
     rs_vec_t                                              rs_dispatch_select;
     rs_vec_t       [RS_DEPTH-1:0]                         rs_age_matrix;
-    rs_vec_t                                              rs_slots_empty_m;
     rs_age_t       [RS_DEPTH-1:0]                         rs_slots_age_m;
     procyon_data_t [RS_DEPTH-1:0] [1:0]                   rs_slots_src_data;
     logic          [RS_DEPTH-1:0] [1:0]                   rs_slots_src_rdy;
     logic          [RS_DEPTH-1:0] [1:0] [`CDB_DEPTH-1:0]  cdb_select;
     logic                                                 dispatching;
-    rs_vec_t                                              dispatch_en;
     logic                                                 issuing;
     rs_idx_t                                              issue_slot;
     genvar                                                gvar0;
@@ -83,12 +81,11 @@ module reservation_station #(
 
     // This will produce a one-hot vector of the slot that will be used
     // to store the dispatched instruction
-    assign rs_dispatch_select                             = rs_empty & ~(rs_empty - 1'b1);
-    assign rs_full                                        = ~|(rs_empty);
+    assign rs_dispatch_select                             = {(RS_DEPTH){i_rs_en}} & (rs_empty & ~(rs_empty - 1'b1));
+    assign rs_full                                        = rs_empty == {(RS_DEPTH){1'b0}};
 
     assign dispatching                                    = ~rs_full & i_rs_en;
-    assign issuing                                        = ^(rs_issue_select) & ~i_fu_stall;
-    assign dispatch_en                                    = {(RS_DEPTH){dispatching}} & rs_dispatch_select;
+    assign issuing                                        = (rs_issue_select != {(RS_DEPTH){1'b0}});
 
     // The reservation station is full if there are no empty slots
     // Assert the stall signal in this situation
@@ -114,19 +111,23 @@ module reservation_station #(
                     assign rs_age_matrix[gvar0][gvar1] = rs_slots[gvar0].age > rs_slots[gvar1].age;
             end
         end
+    endgenerate
 
-        for (gvar0 = 0; gvar0 < RS_DEPTH; gvar0++) begin : ASSIGN_RS_VECTORS
-            assign rs_empty[gvar0]           = rs_slots[gvar0].empty;
+    always_comb begin
+        for (int i = 0; i < RS_DEPTH; i++) begin
+            rs_empty[i]        = rs_slots[i].empty;
 
             // A slot is ready to issue if it is not empty and has both it's source operands
-            assign rs_issue_ready[gvar0]     = ~rs_slots[gvar0].empty & rs_slots[gvar0].src_rdy[0] & rs_slots[gvar0].src_rdy[1];
+            rs_issue_ready[i]  = ~rs_slots[i].empty & rs_slots[i].src_rdy[0] & rs_slots[i].src_rdy[1];
+        end
 
+        for (int i = 0; i < RS_DEPTH; i++) begin
             // Select the oldest slot that is ready to issue. The OR with the
             // complement of the issue_ready vector is to discard age comparisons
             // with slots that aren't ready to issue
-            assign rs_issue_select[gvar0]    = &(rs_age_matrix[gvar0] | ~rs_issue_ready) & rs_issue_ready[gvar0];
+            rs_issue_select[i] = ~i_fu_stall & &(rs_age_matrix[i] | ~rs_issue_ready) & rs_issue_ready[i];
         end
-    endgenerate
+    end
 
     // Priority encoder to convert one-hot issue_select vector to binary RS slot #
     always_comb begin
@@ -134,25 +135,17 @@ module reservation_station #(
 
         for (int i = 0; i < RS_DEPTH; i++) begin
             if (rs_issue_select[i]) begin
-                issue_slot = i[$clog2(RS_DEPTH)-1:0];
+                issue_slot = rs_idx_t'(i);
             end
         end
     end
 
     // The empty bit is only cleared if the slot will be used to hold the next
     // dispatched instruction. Set it if the slot is issuing or on a pipeline flush
-    always_comb begin
-        for (int i = 0; i < RS_DEPTH; i++) begin
-            logic [1:0] rs_slot_empty_sel;
-            rs_slot_empty_sel   = {i_flush | rs_issue_select[i], rs_dispatch_select[i]};
-            rs_slots_empty_m[i] = mux4_1b(rs_slots[i].empty, ~dispatching, issuing | i_flush, i_flush, rs_slot_empty_sel);
-        end
-    end
-
     always_ff @(posedge clk) begin
         for (int i = 0; i < RS_DEPTH; i++) begin
             if (~n_rst) rs_slots[i].empty <= 'b1;
-            else        rs_slots[i].empty <= rs_slots_empty_m[i];
+            else        rs_slots[i].empty <= i_flush | mux4_1b(rs_slots[i].empty, 1'b0, 1'b1, 1'b1, {rs_issue_select[i], rs_dispatch_select[i]});
         end
     end
 
@@ -180,7 +173,7 @@ module reservation_station #(
     // Update slot for newly dispatched instruction
     always_ff @(posedge clk) begin
         for (int i = 0; i < RS_DEPTH; i++) begin
-            if (dispatch_en[i]) begin
+            if (rs_dispatch_select[i]) begin
                 rs_slots[i].opcode     <= i_rs_opcode;
                 rs_slots[i].iaddr      <= i_rs_iaddr;
                 rs_slots[i].insn       <= i_rs_insn;
@@ -237,8 +230,8 @@ module reservation_station #(
     always_ff @(posedge clk) begin
         for (int rs_idx = 0; rs_idx < RS_DEPTH; rs_idx++) begin
             for (int src_idx = 0; src_idx < 2; src_idx++) begin
-                rs_slots[rs_idx].src_rdy[src_idx]  <= dispatch_en[rs_idx] ? i_rs_src_rdy[src_idx]  : rs_slots_src_rdy[rs_idx][src_idx];
-                rs_slots[rs_idx].src_data[src_idx] <= dispatch_en[rs_idx] ? i_rs_src_data[src_idx] : rs_slots_src_data[rs_idx][src_idx];
+                rs_slots[rs_idx].src_rdy[src_idx]  <= rs_dispatch_select[rs_idx] ? i_rs_src_rdy[src_idx]  : rs_slots_src_rdy[rs_idx][src_idx];
+                rs_slots[rs_idx].src_data[src_idx] <= rs_dispatch_select[rs_idx] ? i_rs_src_data[src_idx] : rs_slots_src_data[rs_idx][src_idx];
             end
         end
     end

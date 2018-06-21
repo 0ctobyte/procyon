@@ -30,13 +30,11 @@ module lsu_id (
     output logic                o_alloc_lq_en
 );
 
-    procyon_lsu_func_t   lsu_func;
-    procyon_data_t       imm_i;
-    procyon_data_t       imm_s;
-    procyon_addr_t       addr;
-
-    // 1 if store, 0 if load
-    logic                load_or_store;
+    procyon_lsu_func_t      lsu_func;
+    procyon_data_t          imm_i;
+    procyon_data_t          imm_s;
+    procyon_addr_t          addr;
+    logic                   load_or_store;
 
     // Generate immediates
     assign imm_i            = {{(`DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[24:20]};
@@ -53,8 +51,8 @@ module lsu_id (
     assign o_alloc_tag      = i_tag;
     assign o_alloc_data     = i_src_b;
     assign o_alloc_addr     = addr;
-    assign o_alloc_sq_en    = load_or_store && i_valid;
-    assign o_alloc_lq_en    = ~load_or_store && i_valid;
+    assign o_alloc_sq_en    = load_or_store & i_valid;
+    assign o_alloc_lq_en    = ~load_or_store & i_valid;
 
     // Assign outputs to next stage in the pipeline
     assign o_lsu_func       = lsu_func;
@@ -64,26 +62,13 @@ module lsu_id (
 
     // Decode load/store type based on funct3 field
     always_comb begin
-        case (i_opcode)
-            OPCODE_STORE: begin
-                case (i_insn[14:12])
-                    3'b000:  lsu_func = LSU_FUNC_SB;
-                    3'b001:  lsu_func = LSU_FUNC_SH;
-                    3'b010:  lsu_func = LSU_FUNC_SW;
-                    default: lsu_func = LSU_FUNC_SW;
-                endcase
-            end
-            OPCODE_LOAD: begin
-                case (i_insn[14:12])
-                    3'b000:  lsu_func = LSU_FUNC_LB;
-                    3'b001:  lsu_func = LSU_FUNC_LH;
-                    3'b010:  lsu_func = LSU_FUNC_LW;
-                    3'b100:  lsu_func = LSU_FUNC_LBU;
-                    3'b101:  lsu_func = LSU_FUNC_LHU;
-                    default: lsu_func = LSU_FUNC_LW;
-                endcase
-            end
-            default: lsu_func = LSU_FUNC_LB;
+        case (i_insn[14:12])
+            3'b000:  lsu_func = load_or_store ? LSU_FUNC_SB : LSU_FUNC_LB;
+            3'b001:  lsu_func = load_or_store ? LSU_FUNC_SH : LSU_FUNC_LH;
+            3'b010:  lsu_func = load_or_store ? LSU_FUNC_SW : LSU_FUNC_LW;
+            3'b100:  lsu_func = LSU_FUNC_LBU;
+            3'b101:  lsu_func = LSU_FUNC_LHU;
+            default: lsu_func = load_or_store ? LSU_FUNC_SW : LSU_FUNC_LW;
         endcase
     end
 

@@ -23,7 +23,6 @@ module dcache (
     logic                        cache_re;
     procyon_data_t               cache_wdata;
     procyon_data_t               cache_rdata;
-
     /* verilator lint_off UNUSED */
     logic                        cache_victim_dirty;
     logic [`DC_TAG_WIDTH-1:0]    cache_victim_tag;
@@ -31,14 +30,14 @@ module dcache (
     /* verilator lint_on  UNUSED */
 
     // Splice the input read/write address into tag, index, offset
-    assign cache_re     = ~i_dc_we;
-    assign cache_offset = i_dc_addr[`DC_OFFSET_WIDTH-1:0];
-    assign cache_index  = i_dc_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
-    assign cache_tag    = i_dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
+    assign cache_re              = ~i_dc_we;
+    assign cache_offset          = i_dc_addr[`DC_OFFSET_WIDTH-1:0];
+    assign cache_index           = i_dc_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
+    assign cache_tag             = i_dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
 
     // If a cache fill is in progress then signal that the cache is busy
     // Output cache read data
-    assign o_dc_data    = cache_rdata;
+    assign o_dc_data             = cache_rdata;
 
     always_comb begin
         for (int i = 0; i < `WORD_SIZE; i++) begin

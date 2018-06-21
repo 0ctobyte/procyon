@@ -1,10 +1,9 @@
 // Load Queue
-// Every cycle a new load op may be allocated in the load queue when issued
-// from the reservation station
-// Every cycle a load may be deallocated from the load queue when retired from
-// the ROB
-// The purpose of the load queue is to keep track of load ops until they are
-// retired and to detect mis-speculated loads whenever a store op has been retired
+// Every cycle a new load op may be allocated in the load queue when issued from the reservation station
+// Every cycle a load may be deallocated from the load queue when retired from the ROB
+// Every cycle a stalled load can be replayed if the cacheline it was waiting for is returned from memory
+// The purpose of the load queue is to keep track of load ops until they are retired and to detect
+// mis-speculated loads whenever a store op has been retired
 
 `include "common.svh"
 import procyon_types::*;
@@ -49,6 +48,9 @@ module lsu_lq (
     output logic                 o_rob_retire_misspeculated
 );
 
+    typedef logic [`LQ_DEPTH-1:0]     lq_vec_t;
+    typedef logic [`LQ_TAG_WIDTH-1:0] lq_idx_t;
+
     // Each entry in the LQ contains the following
     // addr:              The load address
     // tag:               ROB tag used to determine age of the load op
@@ -71,152 +73,120 @@ module lsu_lq (
         logic                    misspeculated;
     } lq_slot_t;
 
-    typedef struct packed {
-        logic                     full;
-        logic     [`LQ_DEPTH-1:0] empty;
-        logic     [`LQ_DEPTH-1:0] replay;
-        logic     [`LQ_DEPTH-1:0] allocate_select;
-        logic     [`LQ_DEPTH-1:0] misspeculated_select;
-        logic     [`LQ_DEPTH-1:0] retire_select;
-        logic     [`LQ_DEPTH-1:0] replay_select;
-        logic     [`LQ_DEPTH-1:0] update_select;
-    } lq_t;
-
 /* verilator lint_off MULTIDRIVEN */
-    lq_slot_t [`LQ_DEPTH-1:0]         lq_slots;
+    lq_slot_t [`LQ_DEPTH-1:0]           lq_slots;
 /* verilator lint_on  MULTIDRIVEN */
-/* verilator lint_off UNOPTFLAT */
-    lq_t                              lq;
-/* verilator lint_on  UNOPTFLAT */
-    logic                             allocating;
-    logic                             retiring;
-    logic                             updating;
-    logic                             replaying;
-    logic     [`LQ_TAG_WIDTH-1:0]     retire_slot;
-    logic     [`LQ_TAG_WIDTH-1:0]     replay_slot;
-    logic     [`LQ_DEPTH-1:0]         update_select_q;
-    procyon_addr_t                    sq_retire_addr_start;
-    procyon_addr_t                    sq_retire_addr_end;
-
-    genvar gvar;
-    generate
-        // Use the ROB tag to determine which slot will be retired
-        // by generating a retire_select one-hot bit vector
-        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_RETIRE_VECTORS
-            // Only one valid slot should have the matching tag
-            assign lq.retire_select[gvar] = (lq_slots[gvar].tag == i_rob_retire_tag) && lq_slots[gvar].valid;
-        end
-
-        // Compare retired store address with all valid load addresses to detect mis-speculated loads
-        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_MISSPECULATED_LOAD_VECTORS
-            assign lq.misspeculated_select[gvar] = ((lq_slots[gvar].addr >= sq_retire_addr_start) && (lq_slots[gvar].addr < sq_retire_addr_end));
-        end
-
-        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_EMPTY_VECTORS
-            // A slot is considered empty if it is marked as not valid
-            assign lq.empty[gvar] = ~lq_slots[gvar].valid;
-        end
-
-        for (gvar = 0; gvar < `LQ_DEPTH; gvar++) begin : ASSIGN_LQ_REPLAY_VECTORS
-            // A slot is considered replayable if it is marked as replay ready
-            assign lq.replay[gvar] = lq_slots[gvar].replay_rdy;
-        end
-    endgenerate
+    logic                               lq_full;
+    lq_vec_t                            lq_empty;
+    lq_vec_t                            lq_replay;
+    lq_vec_t                            lq_allocate_select;
+    lq_vec_t                            lq_misspeculated_select;
+    lq_vec_t                            lq_retire_select;
+    lq_vec_t                            lq_replay_select;
+    lq_vec_t                            lq_update_select;
+    lq_vec_t                            update_select_q;
+    lq_vec_t                            lq_slots_replay_rdy;
+    lq_vec_t                            lq_allocate_or_retire;
+    lq_idx_t                            retire_slot;
+    lq_idx_t                            replay_slot;
+    procyon_addr_t                      sq_retire_addr_start;
+    procyon_addr_t                      sq_retire_addr_end;
+    logic                               replay_en;
 
     // Grab retired store address
     assign sq_retire_addr_start         = i_sq_retire_addr;
 
     // Produce a one-hot bit vector of the slot that will be used to allocate
     // the next load op. LQ is full if no bits are set in the empty vector
-    assign lq.allocate_select           = lq.empty & ~(lq.empty - 1'b1);
-    assign lq.full                      = ~|(lq.empty);
-    assign allocating                   = ^(lq.allocate_select) && ~lq.full && i_alloc_en;
+    assign lq_allocate_select           = {(`LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
+    assign lq_full                      = lq_empty == {(`LQ_DEPTH){1'b0}};
+
+    // Replay loads if any loads are ready to be replayed and there are no replay stalls (i.e. MHQ fill or store retire)
+    assign lq_replay_select             = {(`LQ_DEPTH){~i_replay_stall}} & (lq_replay & ~(lq_replay - 1'b1));
+    assign replay_en                    = lq_replay_select != {(`LQ_DEPTH){1'b0}};
+
+    assign lq_update_select             = {(`LQ_DEPTH){i_update_lq_en}} & update_select_q;
 
     // Let ROB know that retired load was mis-speculated
     assign o_rob_retire_misspeculated   = lq_slots[retire_slot].misspeculated;
-    assign retiring                     = i_rob_retire_en;
-
-    // Update only if lq is not empty and LSU_EX sends the update signal
-    assign updating                     = ~&(lq.empty) && i_update_lq_en;
-    assign lq.update_select             = update_select_q;
-
-    // Replay loads if any loads are ready to be replayed
-    // Make sure no stores are being retired during the same cycle
-    assign lq.replay_select             = lq.replay & ~(lq.replay - 1'b1);
-    assign replaying                    = |(lq.replay) && ~i_replay_stall;
 
     // Output replaying load
-    assign o_replay_en                  = replaying;
+    assign o_replay_en                  = replay_en;
     assign o_replay_lsu_func            = lq_slots[replay_slot].lsu_func;
     assign o_replay_addr                = lq_slots[replay_slot].addr;
     assign o_replay_tag                 = lq_slots[replay_slot].tag;
 
     // Ouput full signal
-    assign o_full                       = lq.full;
+    assign o_full                       = lq_full;
+
+    always_comb begin
+        for (int i = 0; i < `LQ_DEPTH; i++) begin
+            // A slot is considered replayable if it is marked as replay ready
+            lq_replay[i] = lq_slots[i].replay_rdy & lq_slots[i].valid;
+
+            // Use the ROB tag to determine which slot will be retired by generating a retire_select one-hot bit vector
+            // Only one valid slot should have the matching tag
+            lq_retire_select[i] = i_rob_retire_en & (lq_slots[i].tag == i_rob_retire_tag) & lq_slots[i].valid;
+
+            // Compare retired store address with all valid load addresses to detect mis-speculated loads
+            lq_misspeculated_select[i] = i_sq_retire_en & ((lq_slots[i].addr >= sq_retire_addr_start) & (lq_slots[i].addr < sq_retire_addr_end));
+
+            // A slot is considered empty if it is marked as not valid
+            lq_empty[i] = ~lq_slots[i].valid;
+        end
+    end
 
     // Calculate retiring store end address based off of store type
     always_comb begin
         case (i_sq_retire_lsu_func)
-            LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + 32'b0001;
-            LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + 32'b0010;
-            LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + 32'b0100;
-            default:     sq_retire_addr_end = i_sq_retire_addr + 32'b0100;
+            LSU_FUNC_SB: sq_retire_addr_end = sq_retire_addr_start + 32'b0001;
+            LSU_FUNC_SH: sq_retire_addr_end = sq_retire_addr_start + 32'b0010;
+            LSU_FUNC_SW: sq_retire_addr_end = sq_retire_addr_start + 32'b0100;
+            default:     sq_retire_addr_end = sq_retire_addr_start + 32'b0100;
         endcase
     end
 
     // Convert one-hot retire_select vector into binary LQ slot #
     always_comb begin
-        int r;
-        r = 0;
+        retire_slot = {(`LQ_TAG_WIDTH){1'b0}};
+
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (lq.retire_select[i]) begin
-                r = r | i;
+            if (lq_retire_select[i]) begin
+                retire_slot = lq_idx_t'(i);
             end
         end
-        retire_slot = r[`LQ_TAG_WIDTH-1:0];
     end
 
     // Convert one-hot replay_select vector into binary LQ slot #
     always_comb begin
-        int r;
-        r = 0;
+        replay_slot = {(`LQ_TAG_WIDTH){1'b0}};
+
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (lq.replay_select[i]) begin
-                r = r | i;
+            if (lq_replay_select[i]) begin
+                replay_slot = lq_idx_t'(i);
             end
         end
-        replay_slot = r[`LQ_TAG_WIDTH-1:0];
     end
 
     // Register the update_select when a load is allocated or being replayed
     // This is used when LSU_EX needs to update LQ entry to mark a load as replayable
     always_ff @(posedge clk) begin
-        if (replaying) begin
-            update_select_q <= lq.replay_select;
-        end else if (allocating) begin
-            update_select_q <= lq.allocate_select;
-        end
+        if (replay_en) update_select_q <= lq_replay_select;
+        else           update_select_q <= i_alloc_en ? lq_allocate_select : update_select_q;
     end
 
     // Set the valid when a slot is allocated, clear on flush, reset or retire
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (~n_rst) begin
-                lq_slots[i].valid <= 1'b0;
-            end else if (i_flush) begin
-                lq_slots[i].valid <= 1'b0;
-            end else if (allocating && lq.allocate_select[i]) begin
-                lq_slots[i].valid <= 1'b1;
-            end else if (retiring && lq.retire_select[i]) begin
-                lq_slots[i].valid <= 1'b0;
-            end
+            if (~n_rst) lq_slots[i].valid <= 1'b0;
+            else        lq_slots[i].valid <= ~i_flush & mux4_1b(lq_slots[i].valid, 1'b1, 1'b0, 1'b1, {lq_retire_select[i], lq_allocate_select[i]});
         end
     end
 
     // Update slot for newly allocated load op
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (allocating && lq.allocate_select[i]) begin
+            if (lq_allocate_select[i]) begin
                 lq_slots[i].addr        <= i_alloc_addr;
                 lq_slots[i].tag         <= i_alloc_tag;
                 lq_slots[i].lsu_func    <= i_alloc_lsu_func;
@@ -232,13 +202,7 @@ module lsu_lq (
     // any MHQ fill broadcast
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (allocating && lq.allocate_select[i]) begin
-                lq_slots[i].needs_replay <= 1'b0;
-            end else if (updating && lq.update_select[i]) begin
-                lq_slots[i].needs_replay <= 1'b1;
-            end else if (replaying && lq.replay_select[i]) begin
-                lq_slots[i].needs_replay <= 1'b0;
-            end
+            lq_slots[i].needs_replay <= ~lq_allocate_select[i] & mux4_1b(lq_slots[i].needs_replay, 1'b1, 1'b0, 1'b1, {lq_replay_select[i], lq_update_select[i]});
         end
     end
 
@@ -249,17 +213,25 @@ module lsu_lq (
     // then mark replay_rdy on any fill broadcasted by the MHQ (i.e. when replay_retry is set)
     // Clear replay_rdy when the LSU signals that the replay failed, but don't clear it if the MHQ signals a fill on the same cycle
     // for the same MHQ tag that this load will be waiting on
+    always_comb begin
+        logic update_replay_rdy;
+        logic can_replay;
+        logic replay_rdy_on_fill;
+
+        update_replay_rdy = i_mhq_fill & (i_mhq_fill_tag == i_update_lq_mhq_tag);
+
+        for (int i = 0; i < `LQ_DEPTH; i++) begin
+            can_replay                = i_mhq_fill & lq_slots[i].needs_replay;
+            replay_rdy_on_fill        = lq_slots[i].replay_retry | (i_mhq_fill_tag == lq_slots[i].replay_mhq_tag);
+
+            lq_allocate_or_retire[i]  = lq_allocate_select[i] | lq_replay_select[i];
+            lq_slots_replay_rdy[i]    = ~lq_allocate_or_retire[i] & mux4_1b(lq_slots[i].replay_rdy, update_replay_rdy, replay_rdy_on_fill, update_replay_rdy, {can_replay, lq_update_select[i]});
+        end
+    end
+
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (allocating && lq.allocate_select[i]) begin
-                lq_slots[i].replay_rdy <= 1'b0;
-            end else if (replaying && lq.replay_select[i]) begin
-                lq_slots[i].replay_rdy <= 1'b0;
-            end else if (updating && lq.update_select[i]) begin
-                lq_slots[i].replay_rdy <= i_mhq_fill && (i_mhq_fill_tag == i_update_lq_mhq_tag);
-            end else if (i_mhq_fill && lq_slots[i].needs_replay) begin
-                lq_slots[i].replay_rdy <= lq_slots[i].replay_retry || (i_mhq_fill_tag == lq_slots[i].replay_mhq_tag);
-            end
+            lq_slots[i].replay_rdy <= lq_slots_replay_rdy[i];
         end
     end
 
@@ -267,7 +239,7 @@ module lsu_lq (
     // marked as needing to be replayed
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (updating && lq.update_select[i]) begin
+            if (lq_update_select[i]) begin
                 lq_slots[i].replay_retry    <= i_update_lq_retry;
                 lq_slots[i].replay_mhq_tag  <= i_update_lq_mhq_tag;
             end
@@ -276,17 +248,10 @@ module lsu_lq (
 
     // Update mis-speculated bit for mis-speculated loads, only if the loads
     // don't need replaying (i.e. they didn't miss in the cache)
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            if (~n_rst) begin
-                lq_slots[i].misspeculated <= 1'b0;
-            end else if (allocating && lq.allocate_select[i]) begin
-                lq_slots[i].misspeculated <= 1'b0;
-            end else if (updating && lq.update_select[i]) begin
-                lq_slots[i].misspeculated <= 1'b0;
-            end else if (i_sq_retire_en && lq.misspeculated_select[i]) begin
-                lq_slots[i].misspeculated <= ~lq_slots[i].needs_replay;
-            end
+            if (~n_rst) lq_slots[i].misspeculated <= 1'b0;
+            else        lq_slots[i].misspeculated <= ~lq_allocate_or_retire[i] & (lq_misspeculated_select[i] ? ~lq_slots[i].needs_replay : lq_slots[i].misspeculated);
         end
     end
 

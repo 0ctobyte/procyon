@@ -125,7 +125,7 @@ module procyon (
     logic [`CDB_DEPTH-1:0]         rs_en_m;
     logic [`CDB_DEPTH-1:0]         rs_stall_m;
 
-    assign rs_opcode_is_lsu        = (rs_opcode == OPCODE_STORE) || (rs_opcode == OPCODE_LOAD);
+    assign rs_opcode_is_lsu        = (rs_opcode == OPCODE_STORE) | (rs_opcode == OPCODE_LOAD);
     assign rs_en_m[0]              = ~rs_opcode_is_lsu ? rs_en : 1'b0;
     assign rs_en_m[1]              = rs_opcode_is_lsu ? rs_en : 1'b0;
     assign rs_stall                = rs_opcode_is_lsu ? rs_stall_m[1] : rs_stall_m[0];
