@@ -64,6 +64,7 @@ module lsu_sq (
     sq_slot_t [`SQ_DEPTH-1:0]         sq_slots;
 /* verilator lint_on  MULTIDRIVEN */
     logic                             sq_full;
+<<<<<<< HEAD
     sq_vec_t                          sq_empty;
     sq_vec_t                          sq_retirable;
     sq_vec_t                          sq_allocate_select;
@@ -73,6 +74,17 @@ module lsu_sq (
     sq_vec_t                          update_select_q;
     sq_idx_t                          retire_slot;
     logic                             retire_en;
+=======
+    logic     [`SQ_DEPTH-1:0]         sq_empty;
+    logic     [`SQ_DEPTH-1:0]         sq_retirable;
+    logic     [`SQ_DEPTH-1:0]         sq_allocate_select;
+    logic     [`SQ_DEPTH-1:0]         sq_rob_select;
+    logic     [`SQ_DEPTH-1:0]         sq_retire_select;
+    logic     [`SQ_DEPTH-1:0]         sq_update_select;
+    logic                             retire_en;
+    logic     [`SQ_DEPTH-1:0]         update_select_q;
+    logic     [$clog2(`SQ_DEPTH)-1:0] retire_slot;
+>>>>>>> 5fbe1b3b3a2d24576ee6182140fa478441525611
 
     // This will produce a one-hot vector of the slot that will be used
     // to allocate the next store op. SQ is full if no bits are set in the

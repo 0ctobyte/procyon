@@ -77,6 +77,7 @@ module lsu_lq (
     lq_slot_t [`LQ_DEPTH-1:0]           lq_slots;
 /* verilator lint_on  MULTIDRIVEN */
     logic                               lq_full;
+<<<<<<< HEAD
     lq_vec_t                            lq_empty;
     lq_vec_t                            lq_replay;
     lq_vec_t                            lq_allocate_select;
@@ -89,6 +90,20 @@ module lsu_lq (
     lq_vec_t                            lq_allocate_or_retire;
     lq_idx_t                            retire_slot;
     lq_idx_t                            replay_slot;
+=======
+    logic     [`LQ_DEPTH-1:0]           lq_empty;
+    logic     [`LQ_DEPTH-1:0]           lq_replay;
+    logic     [`LQ_DEPTH-1:0]           lq_allocate_select;
+    logic     [`LQ_DEPTH-1:0]           lq_misspeculated_select;
+    logic     [`LQ_DEPTH-1:0]           lq_retire_select;
+    logic     [`LQ_DEPTH-1:0]           lq_replay_select;
+    logic     [`LQ_DEPTH-1:0]           lq_update_select;
+    logic     [`LQ_DEPTH-1:0]           update_select_q;
+    logic     [`LQ_DEPTH-1:0]           lq_slots_replay_rdy;
+    logic     [`LQ_DEPTH-1:0]           lq_allocate_or_retire;
+    logic     [`LQ_TAG_WIDTH-1:0]       retire_slot;
+    logic     [`LQ_TAG_WIDTH-1:0]       replay_slot;
+>>>>>>> 5fbe1b3b3a2d24576ee6182140fa478441525611
     procyon_addr_t                      sq_retire_addr_start;
     procyon_addr_t                      sq_retire_addr_end;
     logic                               replay_en;
@@ -152,7 +167,11 @@ module lsu_lq (
 
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (lq_retire_select[i]) begin
+<<<<<<< HEAD
                 retire_slot = lq_idx_t'(i);
+=======
+                retire_slot = i[`LQ_TAG_WIDTH-1:0];
+>>>>>>> 5fbe1b3b3a2d24576ee6182140fa478441525611
             end
         end
     end
@@ -163,7 +182,11 @@ module lsu_lq (
 
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (lq_replay_select[i]) begin
+<<<<<<< HEAD
                 replay_slot = lq_idx_t'(i);
+=======
+                replay_slot = i[`LQ_TAG_WIDTH-1:0];
+>>>>>>> 5fbe1b3b3a2d24576ee6182140fa478441525611
             end
         end
     end
