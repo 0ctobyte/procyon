@@ -47,7 +47,7 @@ module procyon_arch_test #(
     // FIXME: FPGA debugging output
     logic                  rob_redirect;
     procyon_addr_t         rob_redirect_addr;
-    logic                  regmap_retire_wr_en;
+    logic                  regmap_retire_en;
     procyon_reg_t          regmap_retire_rdest;
     procyon_data_t         regmap_retire_data;
 
@@ -97,12 +97,12 @@ module procyon_arch_test #(
         endcase
     end
 
-    always_ff @(negedge CLOCK_50, negedge n_rst) begin
+    always_ff @(negedge CLOCK_50) begin
         if (~n_rst) begin
             state <= RUN;
         end else begin
             case (state)
-                RUN:  state <= regmap_retire_wr_en ? HALT : RUN;
+                RUN:  state <= regmap_retire_en ? HALT : RUN;
                 HALT: state <= key_pulse ? RUN : HALT;
             endcase
         end
@@ -142,7 +142,7 @@ module procyon_arch_test #(
         .o_sim_tp(sim_tp),
         .o_rob_redirect(rob_redirect),
         .o_rob_redirect_addr(rob_redirect_addr),
-        .o_regmap_retire_wr_en(regmap_retire_wr_en),
+        .o_regmap_retire_en(regmap_retire_en),
         .o_regmap_retire_rdest(regmap_retire_rdest),
         .o_regmap_retire_data(regmap_retire_data),
         .i_ic_insn(ic_insn),

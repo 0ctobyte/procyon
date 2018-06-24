@@ -23,6 +23,14 @@ module edge_detector #(
         assign o_pulse = ~pulse1 & pulse0;
     endgenerate
 
+    always_ff @(posedge clk) begin
+        if (~n_rst) begin
+            pulse1 <= 1'b0;
+        end else begin
+            pulse1 <= pulse0;
+        end
+    end
+
     synchronizer #(
         .DATA_WIDTH(1),
         .SYNC_DEPTH(2)
@@ -32,13 +40,5 @@ module edge_detector #(
         .i_async_data(i_async),
         .o_sync_data(pulse0)
     );
-
-    always_ff @(posedge clk, negedge n_rst) begin
-        if (~n_rst) begin
-            pulse1 <= 1'b0;
-        end else begin
-            pulse1 <= pulse0;
-        end
-    end
 
 endmodule

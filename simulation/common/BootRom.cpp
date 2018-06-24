@@ -6,6 +6,7 @@ BootRom::~BootRom() {
 
 void BootRom::trace_all(sc_trace_file *tf, const std::string& parent_name) {
     const std::string module_name = parent_name+"."+name();
+    sc_trace(tf, clk, module_name+".clk");
     sc_trace(tf, i_ic_en, module_name+".i_ic_en");
     sc_trace(tf, i_ic_pc, module_name+".i_ic_pc");
     sc_trace(tf, o_ic_valid, module_name+".o_ic_valid");

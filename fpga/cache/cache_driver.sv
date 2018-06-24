@@ -76,7 +76,7 @@ module cache_driver #(
     assign o_cache_driver_biu_addr = (state_q == VICTIM) ? vaddr_q : {cache_tag_i, cache_index, {(CACHE_OFFSET_WIDTH){1'b0}}};
     assign o_cache_driver_biu_data = vdata_q;
 
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             vdata_q  <= 'b0;
             vaddr_q  <= 'b0;
@@ -86,7 +86,7 @@ module cache_driver #(
         end
     end
 
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             state_q <= IDLE;
         end else begin

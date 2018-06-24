@@ -12,52 +12,52 @@ import procyon_types::*;
 module reservation_station #(
     parameter RS_DEPTH = RS_DEPTH
 ) (
-    input  logic              clk,
-    input  logic              n_rst,
+    input  logic                                          clk,
+    input  logic                                          n_rst,
 
-    input  logic              i_flush,
+    input  logic                                          i_flush,
 
     // Common Data Bus networks
-    input  logic              i_cdb_en       [0:`CDB_DEPTH-1],
-    input  procyon_data_t     i_cdb_data     [0:`CDB_DEPTH-1],
-    input  procyon_tag_t      i_cdb_tag      [0:`CDB_DEPTH-1],
+    input  logic                                          i_cdb_en       [0:`CDB_DEPTH-1],
+    input  procyon_data_t                                 i_cdb_data     [0:`CDB_DEPTH-1],
+    input  procyon_tag_t                                  i_cdb_tag      [0:`CDB_DEPTH-1],
 
     // Dispatch interface
-    input  logic              i_rs_en,
-    input  procyon_opcode_t   i_rs_opcode,
-    input  procyon_addr_t     i_rs_iaddr,
-    input  procyon_data_t     i_rs_insn,
-    input  procyon_tag_t      i_rs_src_tag  [0:1],
-    input  procyon_data_t     i_rs_src_data [0:1],
-    input  logic              i_rs_src_rdy  [0:1],
-    input  procyon_tag_t      i_rs_dst_tag,
-    output logic              o_rs_stall,
+    input  logic                                          i_rs_en,
+    input  procyon_opcode_t                               i_rs_opcode,
+    input  procyon_addr_t                                 i_rs_iaddr,
+    input  procyon_data_t                                 i_rs_insn,
+    input  procyon_tag_t                                  i_rs_src_tag  [0:1],
+    input  procyon_data_t                                 i_rs_src_data [0:1],
+    input  logic                                          i_rs_src_rdy  [0:1],
+    input  procyon_tag_t                                  i_rs_dst_tag,
+    output logic                                          o_rs_stall,
 
     // Functional Unit interface
-    input  logic              i_fu_stall,
-    output logic              o_fu_valid,
-    output procyon_opcode_t   o_fu_opcode,
-    output procyon_addr_t     o_fu_iaddr,
-    output procyon_data_t     o_fu_insn,
-    output procyon_data_t     o_fu_src_a,
-    output procyon_data_t     o_fu_src_b,
-    output procyon_tag_t      o_fu_tag
+    input  logic                                          i_fu_stall,
+    output logic                                          o_fu_valid,
+    output procyon_opcode_t                               o_fu_opcode,
+    output procyon_addr_t                                 o_fu_iaddr,
+    output procyon_data_t                                 o_fu_insn,
+    output procyon_data_t                                 o_fu_src_a,
+    output procyon_data_t                                 o_fu_src_b,
+    output procyon_tag_t                                  o_fu_tag
 );
 
-    typedef logic [$clog2(RS_DEPTH)-1:0] rs_age_t;
-    typedef rs_age_t                     rs_idx_t;
-    typedef logic [RS_DEPTH-1:0]         rs_vec_t;
+    typedef logic [$clog2(RS_DEPTH)-1:0]                  rs_age_t;
+    typedef rs_age_t                                      rs_idx_t;
+    typedef logic [RS_DEPTH-1:0]                          rs_vec_t;
 
     typedef struct packed {
-        rs_age_t                                 age;
-        procyon_opcode_t                         opcode;
-        procyon_addr_t                           iaddr;
-        procyon_data_t                           insn;
-        logic            [1:0]                   src_rdy;
-        procyon_data_t   [1:0]                   src_data;
-        procyon_tag_t    [1:0]                   src_tag;
-        procyon_tag_t                            dst_tag;
-        logic                                    empty;
+        rs_age_t                                          age;
+        procyon_opcode_t                                  opcode;
+        procyon_addr_t                                    iaddr;
+        procyon_data_t                                    insn;
+        logic            [1:0]                            src_rdy;
+        procyon_data_t   [1:0]                            src_data;
+        procyon_tag_t    [1:0]                            src_tag;
+        procyon_tag_t                                     dst_tag;
+        logic                                             empty;
     } rs_slot_t;
 
 /* verilator lint_off MULTIDRIVEN */
@@ -89,16 +89,25 @@ module reservation_station #(
 
     // The reservation station is full if there are no empty slots
     // Assert the stall signal in this situation
+    // FIXME: Should be registered
     assign o_rs_stall                                     = rs_full;
 
     // Assign functional unit output
-    assign o_fu_opcode                                    = rs_slots[issue_slot].opcode;
-    assign o_fu_iaddr                                     = rs_slots[issue_slot].iaddr;
-    assign o_fu_insn                                      = rs_slots[issue_slot].insn;
-    assign o_fu_src_a                                     = rs_slots[issue_slot].src_data[0];
-    assign o_fu_src_b                                     = rs_slots[issue_slot].src_data[1];
-    assign o_fu_tag                                       = rs_slots[issue_slot].dst_tag;
-    assign o_fu_valid                                     = issuing;
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_fu_valid <= 1'b0;
+        else        o_fu_valid <= i_fu_stall ? o_fu_valid : ~i_flush & issuing;
+    end
+
+    always_ff @(posedge clk) begin
+        if (~i_fu_stall) begin
+            o_fu_opcode <= rs_slots[issue_slot].opcode;
+            o_fu_iaddr  <= rs_slots[issue_slot].iaddr;
+            o_fu_insn   <= rs_slots[issue_slot].insn;
+            o_fu_src_a  <= rs_slots[issue_slot].src_data[0];
+            o_fu_src_b  <= rs_slots[issue_slot].src_data[1];
+            o_fu_tag    <= rs_slots[issue_slot].dst_tag;
+        end
+    end
 
     // Generate the age matrix. A reservation station slot's age must be
     // greater than all other reservation station slots that are also ready to issue

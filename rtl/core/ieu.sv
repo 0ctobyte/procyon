@@ -29,6 +29,7 @@ module ieu (
     output logic             o_fu_stall
 );
 
+    // ID -> EX pipeline registers
     typedef struct packed {
         procyon_alu_func_t   alu_func;
         procyon_data_t       src_a;
@@ -42,63 +43,14 @@ module ieu (
         logic                valid;
     } ieu_id_t;
 
-    typedef struct packed {
-        procyon_data_t       data;
-        procyon_addr_t       addr;
-        procyon_tag_t        tag;
-        logic                redirect;
-        logic                valid;
-    } ieu_ex_t;
+    ieu_id_t                 ieu_id;
 
-/* verilator lint_off MULTIDRIVEN */
-    ieu_id_t               ieu_id;
-    ieu_id_t               ieu_id_q;
-    ieu_ex_t               ieu_ex;
-    ieu_ex_t               ieu_ex_q;
-/* verilator lint_on  MULTIDRIVEN */
-
-    assign o_fu_stall      = 1'b0;
-
-    // CDB outputs
-    assign o_cdb_en        = ieu_ex_q.valid;
-    assign o_cdb_redirect  = ieu_ex_q.redirect;
-    assign o_cdb_tag       = ieu_ex_q.tag;
-    assign o_cdb_addr      = ieu_ex_q.addr;
-    assign o_cdb_data      = ieu_ex_q.data;
-
-    // Make sure valid bit is set to false on flush or reset
-    always_ff @(posedge clk) begin
-        if (~n_rst) ieu_id_q.valid <= 1'b0;
-        else        ieu_id_q.valid <= ~i_flush & ieu_id.valid;
-    end
-
-    always_ff @(posedge clk) begin
-        if (~n_rst) ieu_ex_q.valid <= 1'b0;
-        else        ieu_ex_q.valid <= ~i_flush & ieu_ex.valid;
-    end
-
-    // ID -> EX pipelined registers
-    always_ff @(posedge clk) begin
-        ieu_id_q.alu_func <= ieu_id.alu_func;
-        ieu_id_q.src_a    <= ieu_id.src_a;
-        ieu_id_q.src_b    <= ieu_id.src_b;
-        ieu_id_q.iaddr    <= ieu_id.iaddr;
-        ieu_id_q.imm_b    <= ieu_id.imm_b;
-        ieu_id_q.shamt    <= ieu_id.shamt;
-        ieu_id_q.tag      <= ieu_id.tag;
-        ieu_id_q.jmp      <= ieu_id.jmp;
-        ieu_id_q.br       <= ieu_id.br;
-    end
-
-    // EX -> WB pipelined registers
-    always_ff @(posedge clk) begin
-        ieu_ex_q.redirect <= ieu_ex.redirect;
-        ieu_ex_q.tag      <= ieu_ex.tag;
-        ieu_ex_q.addr     <= ieu_ex.addr;
-        ieu_ex_q.data     <= ieu_ex.data;
-    end
+    assign o_fu_stall        = 1'b0;
 
     ieu_id ieu_id_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_flush(i_flush),
         .i_opcode(i_fu_opcode),
         .i_iaddr(i_fu_iaddr),
         .i_insn(i_fu_insn),
@@ -119,21 +71,24 @@ module ieu (
     );
 
     ieu_ex ieu_ex_inst (
-        .i_alu_func(ieu_id_q.alu_func),
-        .i_src_a(ieu_id_q.src_a),
-        .i_src_b(ieu_id_q.src_b),
-        .i_iaddr(ieu_id_q.iaddr),
-        .i_imm_b(ieu_id_q.imm_b),
-        .i_shamt(ieu_id_q.shamt),
-        .i_tag(ieu_id_q.tag),
-        .i_jmp(ieu_id_q.jmp),
-        .i_br(ieu_id_q.br),
-        .i_valid(ieu_id_q.valid),
-        .o_data(ieu_ex.data),
-        .o_addr(ieu_ex.addr),
-        .o_tag(ieu_ex.tag),
-        .o_redirect(ieu_ex.redirect),
-        .o_valid(ieu_ex.valid)
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_flush(i_flush),
+        .i_alu_func(ieu_id.alu_func),
+        .i_src_a(ieu_id.src_a),
+        .i_src_b(ieu_id.src_b),
+        .i_iaddr(ieu_id.iaddr),
+        .i_imm_b(ieu_id.imm_b),
+        .i_shamt(ieu_id.shamt),
+        .i_tag(ieu_id.tag),
+        .i_jmp(ieu_id.jmp),
+        .i_br(ieu_id.br),
+        .i_valid(ieu_id.valid),
+        .o_data(o_cdb_data),
+        .o_addr(o_cdb_addr),
+        .o_tag(o_cdb_tag),
+        .o_redirect(o_cdb_redirect),
+        .o_valid(o_cdb_en)
     );
 
 endmodule

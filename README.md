@@ -31,6 +31,8 @@ To build the FPGA bitstream with a custom binary loaded into the bootrom: `make 
 
 # The Procyon Core
 
+![Procyon uArchitecture Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/pipeline/Procyon-Core.png)
+
 The Procyon core is an out-of-order, speculative processor. At a high-level the processor has 6 stages:
 
 Stage | Description  

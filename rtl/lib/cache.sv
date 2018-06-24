@@ -131,7 +131,7 @@ module cache #(
     end
 
     // Update the valid bit on a fill
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             for (int i = 0; i < `LIB_CACHE_INDEX_COUNT; i++) begin
                 cache_state[i].valid <= 1'b0;
@@ -142,7 +142,7 @@ module cache #(
     end
 
     // Update the dirty bit on a write and on a fill
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             for (int i = 0; i < `LIB_CACHE_INDEX_COUNT; i++) begin
                 cache_state[i].dirty <= 1'b0;

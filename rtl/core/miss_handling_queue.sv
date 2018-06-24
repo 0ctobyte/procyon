@@ -155,7 +155,7 @@ module miss_handling_queue (
 
     // Update the MHQ entry on a new enqueue request
     // We need to clear the valid bit on a fill
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
             if (~n_rst) begin
                 mhq_entries[i].valid <= 1'b0;
@@ -204,7 +204,7 @@ module miss_handling_queue (
 
     // Increment the tail pointer if a new request is being enqueued but there
     // was no entry that the request can be merged with
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             mhq_tail <= {{(`MHQ_TAG_WIDTH+1){1'b0}}};
         end else if (allocating) begin
@@ -214,7 +214,7 @@ module miss_handling_queue (
 
     // Increment the head pointer when BIU is done getting the data and the
     // data cache is being filled with the data
-    always_ff @(posedge clk, negedge n_rst) begin
+    always_ff @(posedge clk) begin
         if (~n_rst) begin
             mhq_head <= {{(`MHQ_TAG_WIDTH+1){1'b0}}};
         end else if (filling) begin

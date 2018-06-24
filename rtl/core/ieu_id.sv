@@ -4,6 +4,11 @@
 import procyon_types::*;
 
 module ieu_id (
+    input  logic                clk,
+    input  logic                n_rst,
+
+    input  logic                i_flush,
+
     input  procyon_opcode_t     i_opcode,
     input  procyon_addr_t       i_iaddr,
 /* verilator lint_off UNUSED */
@@ -62,19 +67,6 @@ module ieu_id (
     assign imm_u        = {{(`DATA_WIDTH-31){i_insn[31]}}, i_insn[30:25], i_insn[24:21], i_insn[20], i_insn[19:12], {12{1'b0}}};
     assign imm_j        = {{(`DATA_WIDTH-20){i_insn[31]}}, i_insn[19:12], i_insn[20], i_insn[30:25], i_insn[24:21], 1'b0};
 
-    // Assign static outputs
-    assign o_iaddr      = i_iaddr;
-    assign o_imm_b      = imm_b;
-    assign o_tag        = i_tag;
-    assign o_valid      = i_valid;
-
-    assign o_br         = is_br & (i_insn[14:12] != 3'b010) & (i_insn[14:12] != 3'b011);
-    assign o_jmp        = is_jal | is_jalr;
-    assign o_shamt      = is_op ? i_src_b[4:0] : i_insn[24:20];
-    assign o_src_a      = mux4_data(i_src_a, {(`DATA_WIDTH){1'b0}}, i_iaddr, i_src_a, {is_auipc | is_jal, is_lui});
-    assign o_src_b      = mux4_data(is_jal ? imm_j : imm_u, imm_i, i_src_b, i_src_b, {is_op | is_br, is_opimm | is_jalr});
-    assign o_alu_func   = alu_func;
-
     // Decode based on opcode and funct3 fields
     always_comb begin
         case (i_insn[14:12])
@@ -87,6 +79,23 @@ module ieu_id (
             3'b110: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_OR, ALU_FUNC_LTU, ALU_FUNC_ADD, alu_func_sel));
             3'b111: alu_func = procyon_alu_func_t'(mux4_4b(ALU_FUNC_ADD, ALU_FUNC_AND, ALU_FUNC_GEU, ALU_FUNC_ADD, alu_func_sel));
         endcase
+    end
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_valid <= 1'b0;
+        else        o_valid <= ~i_flush & i_valid;
+    end
+
+    always_ff @(posedge clk) begin
+        o_alu_func <= alu_func;
+        o_src_a    <= mux4_data(i_src_a, {(`DATA_WIDTH){1'b0}}, i_iaddr, i_src_a, {is_auipc | is_jal, is_lui});
+        o_src_b    <= mux4_data(is_jal ? imm_j : imm_u, imm_i, i_src_b, i_src_b, {is_op | is_br, is_opimm | is_jalr});
+        o_iaddr    <= i_iaddr;
+        o_imm_b    <= imm_b;
+        o_shamt    <= is_op ? i_src_b[4:0] : i_insn[24:20];
+        o_tag      <= i_tag;
+        o_jmp      <= is_jal | is_jalr;
+        o_br       <= is_br & (i_insn[14:12] != 3'b010) & (i_insn[14:12] != 3'b011);
     end
 
 endmodule

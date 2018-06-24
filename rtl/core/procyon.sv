@@ -14,7 +14,7 @@ module procyon (
     // FIXME: FPGA debugging output
     output logic                  o_rob_redirect,
     output procyon_addr_t         o_rob_redirect_addr,
-    output logic                  o_regmap_retire_wr_en,
+    output logic                  o_regmap_retire_en,
     output procyon_reg_t          o_regmap_retire_rdest,
     output procyon_data_t         o_regmap_retire_data,
 
@@ -39,50 +39,48 @@ module procyon (
 );
 
     // Module signals
-    logic                          insn_fifo_empty;
-    procyon_addr_data_t            insn_fifo_rd_data;
-    logic                          insn_fifo_rd_en;
-    logic                          insn_fifo_full;
-    procyon_addr_data_t            insn_fifo_wr_data;
-    logic                          insn_fifo_wr_en;
+    logic                          dispatch_stall;
+    procyon_addr_t                 dispatch_pc;
+    procyon_data_t                 dispatch_insn;
+    logic                          dispatch_valid;
+
+    logic                          rob_stall;
+    logic                          rob_lookup_rdy_ovrd [0:1];
+    logic                          rob_enq_en;
+    procyon_rob_op_t               rob_enq_op;
+    procyon_addr_t                 rob_enq_pc;
+    procyon_reg_t                  rob_enq_rdest;
+
+    procyon_data_t                 regmap_retire_data;
+    procyon_reg_t                  regmap_retire_rdest;
+    procyon_tag_t                  regmap_retire_tag;
+    logic                          regmap_retire_en;
+
+    procyon_tag_t                  regmap_rename_tag;
+    procyon_reg_t                  regmap_rename_rdest;
+    logic                          regmap_rename_en;
+
+    logic                          regmap_lookup_valid;
+    procyon_reg_t                  regmap_lookup_rsrc [0:1];
+    logic                          regmap_lookup_rdy  [0:1];
+    procyon_tag_t                  regmap_lookup_tag  [0:1];
+    procyon_data_t                 regmap_lookup_data [0:1];
 
     logic                          rs_stall;
     logic                          rs_en;
     procyon_opcode_t               rs_opcode;
-    procyon_addr_t                 rs_iaddr;
+    procyon_addr_t                 rs_pc;
     procyon_data_t                 rs_insn;
     procyon_tag_t                  rs_src_tag  [0:1];
     procyon_data_t                 rs_src_data [0:1];
     logic                          rs_src_rdy  [0:1];
     procyon_tag_t                  rs_dst_tag;
 
-    logic                          rob_stall;
-    procyon_tag_t                  rob_tag;
-    logic                          rob_src_rdy  [0:1];
-    procyon_data_t                 rob_src_data [0:1];
-    procyon_tag_t                  rob_src_tag  [0:1];
-    logic                          rob_en;
-    logic                          rob_rdy;
-    procyon_rob_op_t               rob_op;
-    procyon_addr_t                 rob_iaddr;
-    procyon_addr_t                 rob_addr;
-    procyon_data_t                 rob_data;
-    procyon_reg_t                  rob_rdest;
-    procyon_reg_t                  rob_rsrc     [0:1];
-
-    procyon_data_t                 regmap_retire_data;
-    procyon_reg_t                  regmap_retire_rdest;
-    procyon_tag_t                  regmap_retire_tag;
-    logic                          regmap_retire_wr_en;
-
-    procyon_tag_t                  regmap_rename_tag;
-    procyon_reg_t                  regmap_rename_rdest;
-    logic                          regmap_rename_wr_en;
-
-    logic                          regmap_lookup_rdy  [0:1];
-    procyon_tag_t                  regmap_lookup_tag  [0:1];
-    procyon_data_t                 regmap_lookup_data [0:1];
-    procyon_reg_t                  regmap_lookup_rsrc [0:1];
+    logic                          rs_switch_en       [0:`CDB_DEPTH-1];
+    logic                          rs_switch_stall    [0:`CDB_DEPTH-1];
+    procyon_data_t                 rs_switch_src_data [0:1];
+    procyon_tag_t                  rs_switch_src_tag  [0:1];
+    logic                          rs_switch_src_rdy  [0:1];
 
     logic                          fu_stall  [0:`CDB_DEPTH-1];
     logic                          fu_valid  [0:`CDB_DEPTH-1];
@@ -121,19 +119,10 @@ module procyon (
     logic                          rob_redirect;
     procyon_addr_t                 rob_redirect_addr;
 
-    logic                          rs_opcode_is_lsu;
-    logic [`CDB_DEPTH-1:0]         rs_en_m;
-    logic [`CDB_DEPTH-1:0]         rs_stall_m;
-
-    assign rs_opcode_is_lsu        = (rs_opcode == OPCODE_STORE) | (rs_opcode == OPCODE_LOAD);
-    assign rs_en_m[0]              = ~rs_opcode_is_lsu ? rs_en : 1'b0;
-    assign rs_en_m[1]              = rs_opcode_is_lsu ? rs_en : 1'b0;
-    assign rs_stall                = rs_opcode_is_lsu ? rs_stall_m[1] : rs_stall_m[0];
-
     // FIXME: FPGA debugging output
     assign o_rob_redirect          = rob_redirect;
     assign o_rob_redirect_addr     = rob_redirect_addr;
-    assign o_regmap_retire_wr_en   = regmap_retire_wr_en;
+    assign o_regmap_retire_en      = regmap_retire_en;
     assign o_regmap_retire_rdest   = regmap_retire_rdest;
     assign o_regmap_retire_data    = regmap_retire_data;
 
@@ -147,95 +136,37 @@ module procyon (
         .i_data_valid(i_ic_valid),
         .o_pc(o_ic_pc),
         .o_en(o_ic_en),
-        .i_insn_fifo_full(insn_fifo_full),
-        .o_insn_fifo_data(insn_fifo_wr_data),
-        .o_insn_fifo_wr_en(insn_fifo_wr_en)
-    );
-
-    sync_fifo #(
-        .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
-        .FIFO_DEPTH(8)
-    ) insn_fifo (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(rob_redirect),
-        .i_fifo_rd_en(insn_fifo_rd_en),
-        .o_fifo_data(insn_fifo_rd_data),
-        .o_fifo_empty(insn_fifo_empty),
-        .i_fifo_wr_en(insn_fifo_wr_en),
-        .i_fifo_data(insn_fifo_wr_data),
-        .o_fifo_full(insn_fifo_full)
+        .i_dispatch_stall(dispatch_stall),
+        .o_dispatch_pc(dispatch_pc),
+        .o_dispatch_insn(dispatch_insn),
+        .o_dispatch_valid(dispatch_valid)
     );
 
     dispatch dispatch_inst (
         .clk(clk),
+        .n_rst(n_rst),
         .i_flush(rob_redirect),
-        .i_insn_fifo_empty(insn_fifo_empty),
-        .i_insn_fifo_data(insn_fifo_rd_data),
-        .o_insn_fifo_rd_en(insn_fifo_rd_en),
+        .i_rob_stall(rob_stall),
         .i_rs_stall(rs_stall),
+        .i_dispatch_pc(dispatch_pc),
+        .i_dispatch_insn(dispatch_insn),
+        .i_dispatch_valid(dispatch_valid),
+        .o_dispatch_stall(dispatch_stall),
+        .o_regmap_lookup_valid(regmap_lookup_valid),
+        .o_regmap_lookup_rsrc(regmap_lookup_rsrc),
+        .o_regmap_rename_rdest(regmap_rename_rdest),
+        .o_regmap_rename_en(regmap_rename_en),
+        .i_rob_dst_tag(regmap_rename_tag),
+        .o_rob_lookup_rdy_ovrd(rob_lookup_rdy_ovrd),
+        .o_rob_enq_en(rob_enq_en),
+        .o_rob_enq_op(rob_enq_op),
+        .o_rob_enq_pc(rob_enq_pc),
+        .o_rob_enq_rdest(rob_enq_rdest),
         .o_rs_en(rs_en),
         .o_rs_opcode(rs_opcode),
-        .o_rs_iaddr(rs_iaddr),
+        .o_rs_pc(rs_pc),
         .o_rs_insn(rs_insn),
-        .o_rs_src_tag(rs_src_tag),
-        .o_rs_src_data(rs_src_data),
-        .o_rs_src_rdy(rs_src_rdy),
-        .o_rs_dst_tag(rs_dst_tag),
-        .i_rob_stall(rob_stall),
-        .i_rob_tag(rob_tag),
-        .i_rob_src_rdy(rob_src_rdy),
-        .i_rob_src_data(rob_src_data),
-        .i_rob_src_tag(rob_src_tag),
-        .o_rob_en(rob_en),
-        .o_rob_rdy(rob_rdy),
-        .o_rob_op(rob_op),
-        .o_rob_iaddr(rob_iaddr),
-        .o_rob_addr(rob_addr),
-        .o_rob_data(rob_data),
-        .o_rob_rdest(rob_rdest),
-        .o_rob_rsrc(rob_rsrc)
-    );
-
-    reorder_buffer rob_inst (
-        .clk(clk),
-        .n_rst(n_rst),
-        .o_redirect(rob_redirect),
-        .o_redirect_addr(rob_redirect_addr),
-        .i_cdb_en(cdb_en),
-        .i_cdb_redirect(cdb_redirect),
-        .i_cdb_data(cdb_data),
-        .i_cdb_addr(cdb_addr),
-        .i_cdb_tag(cdb_tag),
-        .i_rob_en(rob_en),
-        .i_rob_rdy(rob_rdy),
-        .i_rob_op(rob_op),
-        .i_rob_iaddr(rob_iaddr),
-        .i_rob_addr(rob_addr),
-        .i_rob_data(rob_data),
-        .i_rob_rdest(rob_rdest),
-        .i_rob_rsrc(rob_rsrc),
-        .o_rob_tag(rob_tag),
-        .o_rob_src_data(rob_src_data),
-        .o_rob_src_tag(rob_src_tag),
-        .o_rob_src_rdy(rob_src_rdy),
-        .o_rob_stall(rob_stall),
-        .o_regmap_retire_data(regmap_retire_data),
-        .o_regmap_retire_rdest(regmap_retire_rdest),
-        .o_regmap_retire_tag(regmap_retire_tag),
-        .o_regmap_retire_wr_en(regmap_retire_wr_en),
-        .o_regmap_rename_tag(regmap_rename_tag),
-        .o_regmap_rename_rdest(regmap_rename_rdest),
-        .o_regmap_rename_wr_en(regmap_rename_wr_en),
-        .i_regmap_lookup_rdy(regmap_lookup_rdy),
-        .i_regmap_lookup_tag(regmap_lookup_tag),
-        .i_regmap_lookup_data(regmap_lookup_data),
-        .o_regmap_lookup_rsrc(regmap_lookup_rsrc),
-        .i_lsu_retire_misspeculated(lsu_retire_misspeculated),
-        .i_lsu_retire_launched(lsu_retire_launched),
-        .o_lsu_retire_lq_en(lsu_retire_lq_en),
-        .o_lsu_retire_sq_en(lsu_retire_sq_en),
-        .o_lsu_retire_tag(lsu_retire_tag)
+        .o_rs_dst_tag(rs_dst_tag)
     );
 
     register_map register_map_inst (
@@ -246,14 +177,68 @@ module procyon (
         .i_regmap_retire_data(regmap_retire_data),
         .i_regmap_retire_rdest(regmap_retire_rdest),
         .i_regmap_retire_tag(regmap_retire_tag),
-        .i_regmap_retire_wr_en(regmap_retire_wr_en),
+        .i_regmap_retire_en(regmap_retire_en),
         .i_regmap_rename_tag(regmap_rename_tag),
         .i_regmap_rename_rdest(regmap_rename_rdest),
-        .i_regmap_rename_wr_en(regmap_rename_wr_en),
+        .i_regmap_rename_en(regmap_rename_en),
+        .i_regmap_lookup_valid(regmap_lookup_valid),
         .i_regmap_lookup_rsrc(regmap_lookup_rsrc),
         .o_regmap_lookup_rdy(regmap_lookup_rdy),
         .o_regmap_lookup_tag(regmap_lookup_tag),
         .o_regmap_lookup_data(regmap_lookup_data)
+    );
+
+    reorder_buffer rob_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .o_redirect(rob_redirect),
+        .o_redirect_addr(rob_redirect_addr),
+        .i_rs_stall(rs_stall),
+        .o_rob_stall(rob_stall),
+        .i_cdb_en(cdb_en),
+        .i_cdb_redirect(cdb_redirect),
+        .i_cdb_data(cdb_data),
+        .i_cdb_addr(cdb_addr),
+        .i_cdb_tag(cdb_tag),
+        .i_rob_enq_en(rob_enq_en),
+        .i_rob_enq_op(rob_enq_op),
+        .i_rob_enq_pc(rob_enq_pc),
+        .i_rob_enq_rdest(rob_enq_rdest),
+        .i_rob_lookup_rdy_ovrd(rob_lookup_rdy_ovrd),
+        .i_rob_lookup_rdy(regmap_lookup_rdy),
+        .i_rob_lookup_tag(regmap_lookup_tag),
+        .i_rob_lookup_data(regmap_lookup_data),
+        .o_rs_src_data(rs_src_data),
+        .o_rs_src_tag(rs_src_tag),
+        .o_rs_src_rdy(rs_src_rdy),
+        .i_regmap_rename_en(regmap_rename_en),
+        .o_regmap_rename_tag(regmap_rename_tag),
+        .o_regmap_retire_data(regmap_retire_data),
+        .o_regmap_retire_rdest(regmap_retire_rdest),
+        .o_regmap_retire_tag(regmap_retire_tag),
+        .o_regmap_retire_en(regmap_retire_en),
+        .i_lsu_retire_misspeculated(lsu_retire_misspeculated),
+        .i_lsu_retire_launched(lsu_retire_launched),
+        .o_lsu_retire_lq_en(lsu_retire_lq_en),
+        .o_lsu_retire_sq_en(lsu_retire_sq_en),
+        .o_lsu_retire_tag(lsu_retire_tag)
+    );
+
+    rs_switch rs_switch_inst (
+        .i_cdb_en(cdb_en),
+        .i_cdb_data(cdb_data),
+        .i_cdb_tag(cdb_tag),
+        .i_rs_en(rs_en),
+        .i_rs_opcode(rs_opcode),
+        .i_rs_src_tag(rs_src_tag),
+        .i_rs_src_data(rs_src_data),
+        .i_rs_src_rdy(rs_src_rdy),
+        .o_rs_en(rs_switch_en),
+        .o_rs_src_tag(rs_switch_src_tag),
+        .o_rs_src_data(rs_switch_src_data),
+        .o_rs_src_rdy(rs_switch_src_rdy),
+        .i_rs_stall(rs_switch_stall),
+        .o_rs_stall(rs_stall)
     );
 
     reservation_station #(
@@ -265,15 +250,15 @@ module procyon (
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
-        .i_rs_en(rs_en_m[0]),
+        .i_rs_en(rs_switch_en[0]),
         .i_rs_opcode(rs_opcode),
-        .i_rs_iaddr(rs_iaddr),
+        .i_rs_iaddr(rs_pc),
         .i_rs_insn(rs_insn),
-        .i_rs_src_tag(rs_src_tag),
-        .i_rs_src_data(rs_src_data),
-        .i_rs_src_rdy(rs_src_rdy),
+        .i_rs_src_tag(rs_switch_src_tag),
+        .i_rs_src_data(rs_switch_src_data),
+        .i_rs_src_rdy(rs_switch_src_rdy),
         .i_rs_dst_tag(rs_dst_tag),
-        .o_rs_stall(rs_stall_m[0]),
+        .o_rs_stall(rs_switch_stall[0]),
         .i_fu_stall(fu_stall[0]),
         .o_fu_valid(fu_valid[0]),
         .o_fu_opcode(fu_opcode[0]),
@@ -312,15 +297,15 @@ module procyon (
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
-        .i_rs_en(rs_en_m[1]),
+        .i_rs_en(rs_switch_en[1]),
         .i_rs_opcode(rs_opcode),
-        .i_rs_iaddr(rs_iaddr),
+        .i_rs_iaddr(rs_pc),
         .i_rs_insn(rs_insn),
-        .i_rs_src_tag(rs_src_tag),
-        .i_rs_src_data(rs_src_data),
-        .i_rs_src_rdy(rs_src_rdy),
+        .i_rs_src_tag(rs_switch_src_tag),
+        .i_rs_src_data(rs_switch_src_data),
+        .i_rs_src_rdy(rs_switch_src_rdy),
         .i_rs_dst_tag(rs_dst_tag),
-        .o_rs_stall(rs_stall_m[1]),
+        .o_rs_stall(rs_switch_stall[1]),
         .i_fu_stall(fu_stall[1]),
         .o_fu_valid(fu_valid[1]),
         .o_fu_opcode(fu_opcode[1]),

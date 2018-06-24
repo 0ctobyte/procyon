@@ -79,7 +79,7 @@ module wb_master_driver #(
         endcase
     end
 
-    always_ff @(posedge i_wb_clk, posedge i_wb_rst) begin
+    always_ff @(posedge i_wb_clk) begin
         if (i_wb_rst) begin
             drv_data_o_q <= 'b0;
         end else if (i_wb_ack) begin
@@ -103,7 +103,7 @@ module wb_master_driver #(
         end
     end
 
-    always_ff @(posedge i_wb_clk, posedge i_wb_rst) begin
+    always_ff @(posedge i_wb_clk) begin
         if (i_wb_rst) begin
             req_count <= 'b0;
         end else if (state_q == REQS) begin
@@ -113,7 +113,7 @@ module wb_master_driver #(
         end
     end
 
-    always_ff @(posedge i_wb_clk, posedge i_wb_rst) begin
+    always_ff @(posedge i_wb_clk) begin
         if (i_wb_rst) begin
             ack_count <= 'b0;
         end else if (state_q == IDLE) begin
@@ -123,7 +123,7 @@ module wb_master_driver #(
         end
     end
 
-    always_ff @(posedge i_wb_clk, posedge i_wb_rst) begin
+    always_ff @(posedge i_wb_clk) begin
         if (i_wb_rst) begin
             state_q <= IDLE;
         end else begin

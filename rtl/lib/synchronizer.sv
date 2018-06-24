@@ -22,7 +22,7 @@ module synchronizer #(
     assign o_sync_data = sync_flops[SYNC_DEPTH-1];
 
     // Capture the async signal
-    always_ff @(posedge clk, negedge n_rst) begin : CAPTURE_ASYNC_SIGNAL
+    always_ff @(posedge clk) begin : CAPTURE_ASYNC_SIGNAL
         if (~n_rst) begin
             sync_flops[0] <= RESET_VAL;
         end else begin
@@ -34,7 +34,7 @@ module synchronizer #(
     genvar i;
     generate
     for (i = 1; i < SYNC_DEPTH; i = i + 1) begin : SYNC_FLOPS_PROPAGATE
-        always_ff @(posedge clk, negedge n_rst) begin
+        always_ff @(posedge clk) begin
             if (~n_rst) begin
                 sync_flops[i] <= RESET_VAL;
             end else begin

@@ -50,12 +50,12 @@ module dut (
     // FIXME: FPGA debugging output
     logic                              rob_redirect;
     procyon_addr_t                     rob_redirect_addr;
-    logic                              regmap_retire_wr_en;
+    logic                              regmap_retire_en;
     procyon_reg_t                      regmap_retire_rdest;
     procyon_data_t                     regmap_retire_data;
 /* verilator lint_on  UNUSED */
 
-    assign o_sim_retire        = regmap_retire_wr_en;
+    assign o_sim_retire        = regmap_retire_en;
 
     assign wb_clk              = clk;
     assign wb_rst              = ~n_rst;
@@ -70,7 +70,7 @@ module dut (
         .o_sim_tp(o_sim_tp),
         .o_rob_redirect(rob_redirect),
         .o_rob_redirect_addr(rob_redirect_addr),
-        .o_regmap_retire_wr_en(regmap_retire_wr_en),
+        .o_regmap_retire_en(regmap_retire_en),
         .o_regmap_retire_rdest(regmap_retire_rdest),
         .o_regmap_retire_data(regmap_retire_data),
         .i_ic_insn(i_ic_insn),

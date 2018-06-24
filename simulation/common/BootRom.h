@@ -3,6 +3,7 @@
 #include <systemc.h>
 
 SC_MODULE(BootRom) {
+    sc_in<bool> clk;
     sc_in<bool> i_ic_en;
     sc_in<uint32_t> i_ic_pc;
     sc_out<bool> o_ic_valid;
@@ -10,7 +11,7 @@ SC_MODULE(BootRom) {
 
     SC_CTOR(BootRom) {
         SC_METHOD(process);
-        sensitive << i_ic_en << i_ic_pc;
+        sensitive << clk.pos();
         m_bootrom = std::vector<uint8_t>();
     }
 

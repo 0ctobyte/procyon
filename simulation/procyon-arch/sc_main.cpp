@@ -57,6 +57,7 @@ int sc_main(int argc, char** argv) {
 
     BootRom bootrom("bootrom");
     bootrom.trace_all(tf, top_name);
+    bootrom.clk(clk);
     bootrom.i_ic_en(ic_en);
     bootrom.i_ic_pc(ic_pc);
     bootrom.o_ic_valid(ic_valid);
