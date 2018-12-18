@@ -9,47 +9,51 @@
 import procyon_types::*;
 
 module lsu_lq (
-    input  logic                 clk,
-    input  logic                 n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                 i_flush,
-    output logic                 o_full,
+    input  logic                          i_flush,
+    output logic                          o_full,
 
     // Signals from LSU_ID to allocate new load op
-    input  procyon_tag_t         i_alloc_tag,
-    input  procyon_addr_t        i_alloc_addr,
-    input  procyon_lsu_func_t    i_alloc_lsu_func,
-    input  logic                 i_alloc_en,
+    input  logic                          i_alloc_en,
+    input  procyon_lsu_func_t             i_alloc_lsu_func,
+    input  procyon_tag_t                  i_alloc_tag,
+    input  procyon_addr_t                 i_alloc_addr,
+    output procyon_lq_select_t            o_alloc_lq_select,
 
     // Signals to LSU_EX for replaying loads
-    input  logic                 i_replay_stall,
-    output logic                 o_replay_en,
-    output procyon_lsu_func_t    o_replay_lsu_func,
-    output procyon_addr_t        o_replay_addr,
-    output procyon_tag_t         o_replay_tag,
+    input  logic                          i_replay_stall,
+    output logic                          o_replay_en,
+    output procyon_lq_select_t            o_replay_select,
+    output procyon_lsu_func_t             o_replay_lsu_func,
+    output procyon_addr_t                 o_replay_addr,
+    output procyon_tag_t                  o_replay_tag,
 
     // Signals from LSU_EX to update a load when it needs replaying
-    input  logic                 i_update_lq_en,
-    input  logic                 i_update_lq_retry,
-    input  procyon_mhq_tag_t     i_update_lq_mhq_tag,
+    input  logic                          i_update_en,
+    input  procyon_lq_select_t            i_update_select,
+    input  logic                          i_update_retry,
+    input  procyon_mhq_tag_t              i_update_mhq_tag,
+    input  logic                          i_update_mhq_full,
 
     // MHQ fill broadcast
-    input  logic                 i_mhq_fill,
-    input  procyon_mhq_tag_t     i_mhq_fill_tag,
+    input  logic                          i_mhq_fill_en,
+    input  procyon_mhq_tag_t              i_mhq_fill_tag,
 
     // SQ will send address of retiring store for mis-speculation detection
-    input  procyon_addr_t        i_sq_retire_addr,
-    input  procyon_lsu_func_t    i_sq_retire_lsu_func,
-    input  logic                 i_sq_retire_en,
+    input  logic                          i_sq_retire_en,
+    input  procyon_addr_t                 i_sq_retire_addr,
+    input  procyon_lsu_func_t             i_sq_retire_lsu_func,
 
     // ROB signal that a load has been retired
-    input  procyon_tag_t         i_rob_retire_tag,
-    input  logic                 i_rob_retire_en,
-    output logic                 o_rob_retire_misspeculated
+    input  logic                          i_rob_retire_en,
+    input  procyon_tag_t                  i_rob_retire_tag,
+    output logic                          o_rob_retire_misspeculated
 );
 
-    typedef logic [`LQ_DEPTH-1:0]     lq_vec_t;
-    typedef logic [`LQ_TAG_WIDTH-1:0] lq_idx_t;
+    typedef logic [`LQ_DEPTH-1:0]         lq_vec_t;
+    typedef logic [`LQ_TAG_WIDTH-1:0]     lq_idx_t;
 
     // Each entry in the LQ contains the following
     // addr:              The load address
@@ -62,62 +66,57 @@ module lsu_lq (
     // replay_mhq_tag:    MHQ entry which corresponds to the cacheline that this load is waiting for
     // misspeculated:     Indicates if load has been mis-speculatively executed
     typedef struct packed {
-        procyon_addr_t           addr;
-        procyon_tag_t            tag;
-        procyon_lsu_func_t       lsu_func;
-        logic                    valid;
-        logic                    needs_replay;
-        logic                    replay_rdy;
-        logic                    replay_retry;
-        procyon_mhq_tag_t        replay_mhq_tag;
-        logic                    misspeculated;
+        procyon_addr_t                    addr;
+        procyon_tag_t                     tag;
+        procyon_lsu_func_t                lsu_func;
+        logic                             valid;
+        logic                             needs_replay;
+        logic                             replay_rdy;
+        logic                             replay_retry;
+        procyon_mhq_tag_t                 replay_mhq_tag;
+        logic                             misspeculated;
     } lq_slot_t;
 
 /* verilator lint_off MULTIDRIVEN */
-    lq_slot_t [`LQ_DEPTH-1:0]           lq_slots;
+    lq_slot_t [`LQ_DEPTH-1:0]             lq_slots;
 /* verilator lint_on  MULTIDRIVEN */
-    logic                               lq_full;
-    lq_vec_t                            lq_empty;
-    lq_vec_t                            lq_replay;
-    lq_vec_t                            lq_allocate_select;
-    lq_vec_t                            lq_misspeculated_select;
-    lq_vec_t                            lq_retire_select;
-    lq_vec_t                            lq_replay_select;
-    lq_vec_t                            lq_update_select;
-    lq_vec_t                            update_select_q;
-    lq_vec_t                            lq_slots_replay_rdy;
-    lq_vec_t                            lq_allocate_or_retire;
-    lq_idx_t                            retire_slot;
-    lq_idx_t                            replay_slot;
-    procyon_addr_t                      sq_retire_addr_start;
-    procyon_addr_t                      sq_retire_addr_end;
-    logic                               replay_en;
+    logic                                 lq_full;
+    lq_vec_t                              lq_empty;
+    lq_vec_t                              lq_replay;
+    lq_vec_t                              lq_allocate_select;
+    lq_vec_t                              lq_misspeculated_select;
+    lq_vec_t                              lq_retire_select;
+    lq_vec_t                              lq_replay_select;
+    procyon_lq_select_t                   lq_update_select;
+    lq_vec_t                              lq_slots_replay_rdy;
+    lq_vec_t                              lq_allocate_or_retire;
+    lq_idx_t                              retire_slot;
+    lq_idx_t                              replay_slot;
+    procyon_addr_t                        sq_retire_addr_start;
+    procyon_addr_t                        sq_retire_addr_end;
+    logic                                 replay_en;
 
     // Grab retired store address
-    assign sq_retire_addr_start         = i_sq_retire_addr;
+    assign sq_retire_addr_start           = i_sq_retire_addr;
 
     // Produce a one-hot bit vector of the slot that will be used to allocate
     // the next load op. LQ is full if no bits are set in the empty vector
-    assign lq_allocate_select           = {(`LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
-    assign lq_full                      = lq_empty == {(`LQ_DEPTH){1'b0}};
+    assign lq_allocate_select             = {(`LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
+    assign lq_full                        = lq_empty == {(`LQ_DEPTH){1'b0}};
 
     // Replay loads if any loads are ready to be replayed and there are no replay stalls (i.e. MHQ fill or store retire)
-    assign lq_replay_select             = {(`LQ_DEPTH){~i_replay_stall}} & (lq_replay & ~(lq_replay - 1'b1));
-    assign replay_en                    = lq_replay_select != {(`LQ_DEPTH){1'b0}};
+    assign lq_replay_select               = {(`LQ_DEPTH){~i_replay_stall}} & (lq_replay & ~(lq_replay - 1'b1));
+    assign replay_en                      = lq_replay_select != {(`LQ_DEPTH){1'b0}};
 
-    assign lq_update_select             = {(`LQ_DEPTH){i_update_lq_en}} & update_select_q;
+    assign lq_update_select               = {(`LQ_DEPTH){i_update_en}} & i_update_select;
 
     // Let ROB know that retired load was mis-speculated
-    assign o_rob_retire_misspeculated   = lq_slots[retire_slot].misspeculated;
-
-    // Output replaying load
-    assign o_replay_en                  = replay_en;
-    assign o_replay_lsu_func            = lq_slots[replay_slot].lsu_func;
-    assign o_replay_addr                = lq_slots[replay_slot].addr;
-    assign o_replay_tag                 = lq_slots[replay_slot].tag;
+    // FIXME: Can this be registered
+    assign o_rob_retire_misspeculated     = lq_slots[retire_slot].misspeculated;
 
     // Ouput full signal
-    assign o_full                       = lq_full;
+    // FIXME: Can this be registered
+    assign o_full                         = lq_full;
 
     always_comb begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
@@ -168,11 +167,22 @@ module lsu_lq (
         end
     end
 
-    // Register the update_select when a load is allocated or being replayed
-    // This is used when LSU_EX needs to update LQ entry to mark a load as replayable
+    // Output replaying load
     always_ff @(posedge clk) begin
-        if (replay_en) update_select_q <= lq_replay_select;
-        else           update_select_q <= i_alloc_en ? lq_allocate_select : update_select_q;
+        o_replay_select    <= lq_replay_select;
+        o_replay_lsu_func  <= lq_slots[replay_slot].lsu_func;
+        o_replay_addr      <= lq_slots[replay_slot].addr;
+        o_replay_tag       <= lq_slots[replay_slot].tag;
+    end
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_replay_en <= 1'b0;
+        else        o_replay_en <= ~i_flush & replay_en;
+    end
+
+    // Output LQ select vector on allocate request
+    always_ff @(posedge clk) begin
+        o_alloc_lq_select <= lq_allocate_select;
     end
 
     // Set the valid when a slot is allocated, clear on flush, reset or retire
@@ -202,7 +212,7 @@ module lsu_lq (
     // any MHQ fill broadcast
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            lq_slots[i].needs_replay <= ~lq_allocate_select[i] & mux4_1b(lq_slots[i].needs_replay, 1'b1, 1'b0, 1'b1, {lq_replay_select[i], lq_update_select[i]});
+            lq_slots[i].needs_replay <= ~lq_allocate_select[i] & mux4_1b(lq_slots[i].needs_replay, i_update_retry, 1'b0, i_update_retry, {lq_replay_select[i], lq_update_select[i]});
         end
     end
 
@@ -218,10 +228,10 @@ module lsu_lq (
         logic can_replay;
         logic replay_rdy_on_fill;
 
-        update_replay_rdy = i_mhq_fill & (i_mhq_fill_tag == i_update_lq_mhq_tag);
+        update_replay_rdy = i_mhq_fill_en & (i_mhq_fill_tag == i_update_mhq_tag);
 
         for (int i = 0; i < `LQ_DEPTH; i++) begin
-            can_replay                = i_mhq_fill & lq_slots[i].needs_replay;
+            can_replay                = i_mhq_fill_en & lq_slots[i].needs_replay;
             replay_rdy_on_fill        = lq_slots[i].replay_retry | (i_mhq_fill_tag == lq_slots[i].replay_mhq_tag);
 
             lq_allocate_or_retire[i]  = lq_allocate_select[i] | lq_replay_select[i];
@@ -240,8 +250,8 @@ module lsu_lq (
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (lq_update_select[i]) begin
-                lq_slots[i].replay_retry    <= i_update_lq_retry;
-                lq_slots[i].replay_mhq_tag  <= i_update_lq_mhq_tag;
+                lq_slots[i].replay_retry    <= i_update_mhq_full;
+                lq_slots[i].replay_mhq_tag  <= i_update_mhq_tag;
             end
         end
     end

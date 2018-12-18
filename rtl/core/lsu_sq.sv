@@ -8,39 +8,41 @@
 import procyon_types::*;
 
 module lsu_sq (
-    input  logic                clk,
-    input  logic                n_rst,
+    input  logic                            clk,
+    input  logic                            n_rst,
 
-    input  logic                i_flush,
-    output logic                o_full,
+    input  logic                            i_flush,
+    output logic                            o_full,
 
     // Signals from LSU_ID to allocate new store op in SQ
-    input  procyon_data_t       i_alloc_data,
-    input  procyon_tag_t        i_alloc_tag,
-    input  procyon_addr_t       i_alloc_addr,
-    input  procyon_lsu_func_t   i_alloc_lsu_func,
-    input  logic                i_alloc_en,
+    input  logic                            i_alloc_en,
+    input  procyon_lsu_func_t               i_alloc_lsu_func,
+    input  procyon_tag_t                    i_alloc_tag,
+    input  procyon_addr_t                   i_alloc_addr,
+    input  procyon_data_t                   i_alloc_data,
+
+    // Send out store to LSU on retirement and to the load queue for
+    // detection of mis-speculated loads
+    input  logic                            i_sq_retire_stall,
+    output logic                            o_sq_retire_en,
+    output procyon_sq_select_t              o_sq_retire_select,
+    output procyon_lsu_func_t               o_sq_retire_lsu_func,
+    output procyon_addr_t                   o_sq_retire_addr,
+    output procyon_tag_t                    o_sq_retire_tag,
+    output procyon_data_t                   o_sq_retire_data,
 
     // Signal from the LSU to indicate if the last retiring store needs to be retried
-    input  logic                i_update_sq_en,
-    input  logic                i_update_sq_retry,
-
-    // Send out store to D$ on retirement and to the load queue for
-    // detection of mis-speculated loads
-    input  logic                i_sq_retire_stall,
-    output procyon_data_t       o_sq_retire_data,
-    output procyon_addr_t       o_sq_retire_addr,
-    output procyon_tag_t        o_sq_retire_tag,
-    output procyon_lsu_func_t   o_sq_retire_lsu_func,
-    output logic                o_sq_retire_en,
+    input  logic                            i_update_en,
+    input  procyon_sq_select_t              i_update_select,
+    input  logic                            i_update_retry,
 
     // ROB signal that a store has been retired
-    input  procyon_tag_t        i_rob_retire_tag,
-    input  logic                i_rob_retire_en
+    input  logic                            i_rob_retire_en,
+    input  procyon_tag_t                    i_rob_retire_tag
 );
 
-    typedef logic [`SQ_DEPTH-1:0]         sq_vec_t;
-    typedef logic [$clog2(`SQ_DEPTH)-1:0] sq_idx_t;
+    typedef logic [`SQ_DEPTH-1:0]           sq_vec_t;
+    typedef logic [$clog2(`SQ_DEPTH)-1:0]   sq_idx_t;
 
     // Each SQ slot contains:
     // lsu_func:        Indicates type of store op (SB, SH, SW)
@@ -51,52 +53,43 @@ module lsu_sq (
     // nonspeculative:  Indicates if slot is no longer speculative and can be retired/written out to cache
     // launched:        Indicates if the retired store has been launched to LSU_EX
     typedef struct packed {
-        procyon_lsu_func_t       lsu_func;
-        procyon_addr_t           addr;
-        procyon_data_t           data;
-        procyon_tag_t            tag;
-        logic                    valid;
-        logic                    nonspeculative;
-        logic                    launched;
+        procyon_lsu_func_t                  lsu_func;
+        procyon_addr_t                      addr;
+        procyon_data_t                      data;
+        procyon_tag_t                       tag;
+        logic                               valid;
+        logic                               nonspeculative;
+        logic                               launched;
     } sq_slot_t;
 
 /* verilator lint_off MULTIDRIVEN */
-    sq_slot_t [`SQ_DEPTH-1:0]         sq_slots;
+    sq_slot_t [`SQ_DEPTH-1:0]               sq_slots;
 /* verilator lint_on  MULTIDRIVEN */
-    logic                             sq_full;
-    sq_vec_t                          sq_empty;
-    sq_vec_t                          sq_retirable;
-    sq_vec_t                          sq_allocate_select;
-    sq_vec_t                          sq_rob_select;
-    sq_vec_t                          sq_retire_select;
-    sq_vec_t                          sq_update_select;
-    sq_vec_t                          update_select_q;
-    sq_idx_t                          retire_slot;
-    logic                             retire_en;
+    logic                                   sq_full;
+    sq_vec_t                                sq_empty;
+    sq_vec_t                                sq_retirable;
+    sq_vec_t                                sq_allocate_select;
+    sq_vec_t                                sq_rob_select;
+    procyon_sq_select_t                     sq_update_select;
+    procyon_sq_select_t                     sq_retire_select;
+    sq_idx_t                                retire_slot;
+    logic                                   retire_en;
 
     // This will produce a one-hot vector of the slot that will be used
     // to allocate the next store op. SQ is full if no bits are set in the
     // empty vector
-    assign sq_allocate_select         = {(`SQ_DEPTH){i_alloc_en}} & (sq_empty & ~(sq_empty - 1'b1));
-    assign sq_full                    = sq_empty == {(`SQ_DEPTH){1'b0}};
+    assign sq_allocate_select               = {(`SQ_DEPTH){i_alloc_en}} & (sq_empty & ~(sq_empty - 1'b1));
+    assign sq_full                          = sq_empty == {(`SQ_DEPTH){1'b0}};
 
     // Retire stores that are non-speculative
-    assign retire_en                  = sq_retirable != {(`SQ_DEPTH){1'b0}};
-    assign sq_retire_select           = {(`SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
+    assign retire_en                        = sq_retirable != {(`SQ_DEPTH){1'b0}};
+    assign sq_retire_select                 = {(`SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
 
-    assign sq_update_select           = {(`SQ_DEPTH){i_update_sq_en}} & update_select_q;
-
-    // Retire stores to D$ or to the MHQ if it misses in the cache
-    // The retiring store address and type and retire_en signals is also
-    // sent to the LQ for possible load bypass violation detection
-    assign o_sq_retire_data           = sq_slots[retire_slot].data;
-    assign o_sq_retire_addr           = sq_slots[retire_slot].addr;
-    assign o_sq_retire_tag            = sq_slots[retire_slot].tag;
-    assign o_sq_retire_lsu_func       = sq_slots[retire_slot].lsu_func;
-    assign o_sq_retire_en             = retire_en;
+    assign sq_update_select                 = {(`SQ_DEPTH){i_update_en}} & i_update_select;
 
     // Output full signal
-    assign o_full                     = sq_full;
+    // FIXME: Can this be registered?
+    assign o_full                           = sq_full;
 
     always_comb begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
@@ -118,15 +111,25 @@ module lsu_sq (
 
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             if (sq_retire_select[i]) begin
-                retire_slot = i[$clog2(`SQ_DEPTH)-1:0];
+                retire_slot = sq_idx_t'(i);
             end
         end
     end
 
-    // Save the retire select so we know which entry to update on the next
-    // cycle when the LSU signals a successful/not successful retired store
+    // Retire stores to D$ or to the MHQ if it misses in the cache
+    // The retiring store address and type and retire_en signals is also
+    // sent to the LQ for possible load bypass violation detection
     always_ff @(posedge clk) begin
-        update_select_q <= sq_retire_select;
+        o_sq_retire_data     <= sq_slots[retire_slot].data;
+        o_sq_retire_addr     <= sq_slots[retire_slot].addr;
+        o_sq_retire_tag      <= sq_slots[retire_slot].tag;
+        o_sq_retire_lsu_func <= sq_slots[retire_slot].lsu_func;
+        o_sq_retire_select   <= sq_retire_select;
+    end
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_sq_retire_en <= 1'b0;
+        else        o_sq_retire_en <= ~i_flush & retire_en;
     end
 
     // Set the valid bit for a slot only if new store op is being allocated
@@ -136,7 +139,7 @@ module lsu_sq (
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             if (~n_rst) sq_slots[i].valid <= 1'b0;
-            else        sq_slots[i].valid <= i_flush ? sq_slots[i].nonspeculative & sq_slots[i].valid : sq_allocate_select[i] | (sq_update_select[i] ? i_update_sq_retry : sq_slots[i].valid);
+            else        sq_slots[i].valid <= i_flush ? sq_slots[i].nonspeculative & sq_slots[i].valid : sq_allocate_select[i] | (sq_update_select[i] ? i_update_retry : sq_slots[i].valid);
         end
     end
 
@@ -144,7 +147,7 @@ module lsu_sq (
     // Clear it if the store retire fails or when allocating a new entry
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
-            sq_slots[i].launched <= ~sq_allocate_select[i] & (sq_retire_select[i] | (sq_update_select[i] ? ~i_update_sq_retry : sq_slots[i].launched));
+            sq_slots[i].launched <= ~sq_allocate_select[i] & (sq_retire_select[i] | (sq_update_select[i] ? ~i_update_retry : sq_slots[i].launched));
         end
     end
 

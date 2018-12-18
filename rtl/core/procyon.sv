@@ -100,18 +100,21 @@ module procyon (
     logic                          lsu_retire_lq_en;
     logic                          lsu_retire_sq_en;
     logic                          lsu_retire_misspeculated;
-    logic                          lsu_retire_launched;
     procyon_tag_t                  lsu_retire_tag;
 
-    logic                          mhq_full;
-    logic                          mhq_fill;
+    procyon_addr_t                 mhq_lookup_addr;
+    logic                          mhq_lookup_match;
+    logic                          mhq_lookup_full;
+    procyon_mhq_tag_t              mhq_lookup_tag;
+    logic                          mhq_fill_en;
     procyon_mhq_tag_t              mhq_fill_tag;
     logic                          mhq_fill_dirty;
     procyon_addr_t                 mhq_fill_addr;
     procyon_cacheline_t            mhq_fill_data;
-    procyon_mhq_tag_t              mhq_enq_tag;
     logic                          mhq_enq_en;
     logic                          mhq_enq_we;
+    logic                          mhq_enq_match;
+    procyon_mhq_tag_t              mhq_enq_tag;
     procyon_addr_t                 mhq_enq_addr;
     procyon_data_t                 mhq_enq_data;
     procyon_byte_select_t          mhq_enq_byte_select;
@@ -218,7 +221,6 @@ module procyon (
         .o_regmap_retire_tag(regmap_retire_tag),
         .o_regmap_retire_en(regmap_retire_en),
         .i_lsu_retire_misspeculated(lsu_retire_misspeculated),
-        .i_lsu_retire_launched(lsu_retire_launched),
         .o_lsu_retire_lq_en(lsu_retire_lq_en),
         .o_lsu_retire_sq_en(lsu_retire_sq_en),
         .o_lsu_retire_tag(lsu_retire_tag)
@@ -337,16 +339,19 @@ module procyon (
         .i_rob_retire_lq_en(lsu_retire_lq_en),
         .i_rob_retire_sq_en(lsu_retire_sq_en),
         .o_rob_retire_misspeculated(lsu_retire_misspeculated),
-        .o_rob_retire_launched(lsu_retire_launched),
-        .i_mhq_full(mhq_full),
-        .i_mhq_fill(mhq_fill),
+        .o_mhq_lookup_addr(mhq_lookup_addr),
+        .i_mhq_lookup_match(mhq_lookup_match),
+        .i_mhq_lookup_full(mhq_lookup_full),
+        .i_mhq_lookup_tag(mhq_lookup_tag),
+        .i_mhq_fill_en(mhq_fill_en),
         .i_mhq_fill_tag(mhq_fill_tag),
         .i_mhq_fill_dirty(mhq_fill_dirty),
         .i_mhq_fill_addr(mhq_fill_addr),
         .i_mhq_fill_data(mhq_fill_data),
-        .i_mhq_enq_tag(mhq_enq_tag),
         .o_mhq_enq_en(mhq_enq_en),
         .o_mhq_enq_we(mhq_enq_we),
+        .o_mhq_enq_match(mhq_enq_match),
+        .o_mhq_enq_tag(mhq_enq_tag),
         .o_mhq_enq_addr(mhq_enq_addr),
         .o_mhq_enq_data(mhq_enq_data),
         .o_mhq_enq_byte_select(mhq_enq_byte_select)
@@ -355,18 +360,22 @@ module procyon (
     ccu ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .o_mhq_full(mhq_full),
-        .o_mhq_fill(mhq_fill),
+        .i_mhq_lookup_addr(mhq_lookup_addr),
+        .o_mhq_lookup_match(mhq_lookup_match),
+        .o_mhq_lookup_full(mhq_lookup_full),
+        .o_mhq_lookup_tag(mhq_lookup_tag),
+        .o_mhq_fill_en(mhq_fill_en),
         .o_mhq_fill_tag(mhq_fill_tag),
         .o_mhq_fill_dirty(mhq_fill_dirty),
         .o_mhq_fill_addr(mhq_fill_addr),
         .o_mhq_fill_data(mhq_fill_data),
         .i_mhq_enq_en(mhq_enq_en),
         .i_mhq_enq_we(mhq_enq_we),
+        .i_mhq_enq_match(mhq_enq_match),
+        .i_mhq_enq_tag(mhq_enq_tag),
         .i_mhq_enq_addr(mhq_enq_addr),
         .i_mhq_enq_data(mhq_enq_data),
         .i_mhq_enq_byte_select(mhq_enq_byte_select),
-        .o_mhq_enq_tag(mhq_enq_tag),
         .i_wb_clk(i_wb_clk),
         .i_wb_rst(i_wb_rst),
         .i_wb_ack(i_wb_ack),

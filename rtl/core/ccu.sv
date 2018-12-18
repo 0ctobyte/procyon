@@ -10,10 +10,13 @@ module ccu (
     input  logic                   n_rst,
 
     // Indicate if MHQ is full
-    output logic                   o_mhq_full,
+    input  procyon_addr_t          i_mhq_lookup_addr,
+    output logic                   o_mhq_lookup_match,
+    output logic                   o_mhq_lookup_full,
+    output procyon_mhq_tag_t       o_mhq_lookup_tag,
 
     // Fill cacheline
-    output logic                   o_mhq_fill,
+    output logic                   o_mhq_fill_en,
     output procyon_mhq_tag_t       o_mhq_fill_tag,
     output logic                   o_mhq_fill_dirty,
     output procyon_addr_t          o_mhq_fill_addr,
@@ -22,10 +25,11 @@ module ccu (
     // MHQ enqueue interface
     input  logic                   i_mhq_enq_en,
     input  logic                   i_mhq_enq_we,
+    input  logic                   i_mhq_enq_match,
+    input  procyon_mhq_tag_t       i_mhq_enq_tag,
     input  procyon_addr_t          i_mhq_enq_addr,
     input  procyon_data_t          i_mhq_enq_data,
     input  procyon_byte_select_t   i_mhq_enq_byte_select,
-    output procyon_mhq_tag_t       o_mhq_enq_tag,
 
     // Wishbone bus interface
     input  logic                   i_wb_clk,
@@ -84,21 +88,25 @@ module ccu (
         endcase
     end
 
-    miss_handling_queue mhq_inst (
+    mhq mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .o_mhq_full(o_mhq_full),
-        .o_mhq_fill(o_mhq_fill),
+        .i_mhq_lookup_addr(i_mhq_lookup_addr),
+        .o_mhq_lookup_match(o_mhq_lookup_match),
+        .o_mhq_lookup_full(o_mhq_lookup_full),
+        .o_mhq_lookup_tag(o_mhq_lookup_tag),
+        .o_mhq_fill_en(o_mhq_fill_en),
         .o_mhq_fill_tag(o_mhq_fill_tag),
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
         .i_mhq_enq_en(i_mhq_enq_en),
         .i_mhq_enq_we(i_mhq_enq_we),
+        .i_mhq_enq_match(i_mhq_enq_match),
+        .i_mhq_enq_tag(i_mhq_enq_tag),
         .i_mhq_enq_addr(i_mhq_enq_addr),
         .i_mhq_enq_data(i_mhq_enq_data),
         .i_mhq_enq_byte_select(i_mhq_enq_byte_select),
-        .o_mhq_enq_tag(o_mhq_enq_tag),
         .i_ccu_done(ccu_done),
         .i_ccu_data(biu_data_r),
         .o_ccu_addr(biu_addr),

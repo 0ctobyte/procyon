@@ -53,7 +53,6 @@ module reorder_buffer (
 
     // Interface to LSU to retire loads/stores
     input  logic                         i_lsu_retire_misspeculated,
-    input  logic                         i_lsu_retire_launched,
     output logic                         o_lsu_retire_lq_en,
     output logic                         o_lsu_retire_sq_en,
     output procyon_tag_t                 o_lsu_retire_tag
@@ -63,6 +62,7 @@ module reorder_buffer (
 
     // ROB entry consists of the following:
     // rdy:      Is the data valid/ready?
+    // launched: Has retired stores been launched in the LSU? For non-stores, this is equal to rdy
     // redirect: Asserted by branches or instructions that cause exceptions
     // op:       What operation is the instruction doing?
     // pc:       Address of the instruction (to rollback on exception
@@ -71,6 +71,7 @@ module reorder_buffer (
     // rdest:    The destination register
     typedef struct packed {
         logic                            rdy;
+        logic                            launched;
         logic                            redirect;
         procyon_rob_op_t                 op;
         procyon_addr_t                   pc;
@@ -96,7 +97,7 @@ module reorder_buffer (
     logic                                rob_rename_en;
     logic                                rob_retire_is_load;
     logic                                rob_retire_is_store;
-    logic                                rob_retire_load_stall;
+    logic                                rob_store_retire_en;
     logic                                rob_retire_en;
     logic                                lsu_retire_misspeculated;
     rob_vec_t                            rob_dispatch_select;
@@ -105,6 +106,7 @@ module reorder_buffer (
     logic          [1:0]                 cdb_lookup_bypass [0:`CDB_DEPTH-1];
     rob_vec_t                            rob_entries_redirect;
     rob_vec_t                            rob_entries_rdy;
+    rob_vec_t                            rob_entries_launched;
     procyon_addr_t [`ROB_DEPTH-1:0]      rob_entries_addr;
     procyon_data_t [`ROB_DEPTH-1:0]      rob_entries_data;
     procyon_data_t                       rs_src_data [0:1];
@@ -121,8 +123,8 @@ module reorder_buffer (
     assign rob_rename_en                 = i_regmap_rename_en & ~rob_full;
     assign rob_retire_is_load            = (rob_entries[rob_head_addr].op == ROB_OP_LD);
     assign rob_retire_is_store           = (rob_entries[rob_head_addr].op == ROB_OP_ST);
-    assign rob_retire_load_stall         = rob_retire_is_load & i_lsu_retire_launched;
-    assign rob_retire_en                 = rob_entries[rob_head_addr].rdy & ~rob_empty & ~rob_retire_load_stall;
+    assign rob_store_retire_en           = rob_entries[rob_head_addr].rdy & ~rob_empty;
+    assign rob_retire_en                 = rob_entries[rob_head_addr].rdy & rob_entries[rob_head_addr].launched & ~rob_empty;
     assign rob_dispatch_en               = {(`ROB_DEPTH){rob_enq_en}} & rob_dispatch_select;
 
     assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated & (rob_entries[rob_head_addr].op == ROB_OP_LD);
@@ -135,7 +137,7 @@ module reorder_buffer (
     // Assign outputs to LSU
     // FIXME: should be registered?
     assign o_lsu_retire_tag              = rob_head_addr;
-    assign o_lsu_retire_sq_en            = rob_retire_is_store & rob_retire_en;
+    assign o_lsu_retire_sq_en            = rob_retire_is_store & rob_store_retire_en;
     assign o_lsu_retire_lq_en            = rob_retire_is_load & rob_retire_en;
 
     always_ff @(posedge clk) begin
@@ -238,10 +240,12 @@ module reorder_buffer (
         for (int rob_idx = 0; rob_idx < `ROB_DEPTH; rob_idx++) begin
             rob_entries_redirect[rob_idx] = rob_entries[rob_idx].redirect;
             rob_entries_rdy[rob_idx]      = rob_entries[rob_idx].rdy;
+            rob_entries_launched[rob_idx] = rob_entries[rob_idx].launched;
 
             for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
                 rob_entries_redirect[rob_idx] = (cdb_tag_select[cdb_idx][rob_idx] & i_cdb_redirect[cdb_idx]) | rob_entries_redirect[rob_idx];
                 rob_entries_rdy[rob_idx]      = cdb_tag_select[cdb_idx][rob_idx] | rob_entries_rdy[rob_idx];
+                rob_entries_launched[rob_idx] = (~(rob_entries[rob_idx].op == ROB_OP_ST) | rob_entries[rob_idx].rdy) & (cdb_tag_select[cdb_idx][rob_idx] | rob_entries_launched[rob_idx]);
             end
         end
     end
@@ -278,6 +282,14 @@ module reorder_buffer (
         for (int i = 0; i < `ROB_DEPTH; i++) begin
             if (~n_rst) rob_entries[i].rdy <= 1'b0;
             else        rob_entries[i].rdy <= ~(redirect | rob_dispatch_en[i]) & rob_entries_rdy[i];
+        end
+    end
+
+    // Clear the launched bits on a flush or reset
+    always_ff @(posedge clk) begin
+        for (int i = 0; i < `ROB_DEPTH; i++) begin
+            if (~n_rst) rob_entries[i].launched <= 1'b0;
+            else        rob_entries[i].launched <= ~(redirect | rob_dispatch_en[i]) & rob_entries_launched[i];
         end
     end
 

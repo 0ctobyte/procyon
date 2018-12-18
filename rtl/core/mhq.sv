@@ -8,15 +8,20 @@
 `include "common.svh"
 import procyon_types::*;
 
-module miss_handling_queue (
+module mhq (
     input  logic                   clk,
     input  logic                   n_rst,
 
-    // Indicate if MHQ is full
-    output logic                   o_mhq_full,
+    // Match lookup address to valid entries to find enqueue tag
+/* verilator lint_off UNUSED */
+    input  procyon_addr_t          i_mhq_lookup_addr,
+/* verilator lint_on  UNUSED */
+    output logic                   o_mhq_lookup_full,
+    output logic                   o_mhq_lookup_match,
+    output procyon_mhq_tag_t       o_mhq_lookup_tag,
 
     // Fill cacheline
-    output logic                   o_mhq_fill,
+    output logic                   o_mhq_fill_en,
     output procyon_mhq_tag_t       o_mhq_fill_tag,
     output logic                   o_mhq_fill_dirty,
     output procyon_addr_t          o_mhq_fill_addr,
@@ -25,10 +30,11 @@ module miss_handling_queue (
     // MHQ enqueue interface
     input  logic                   i_mhq_enq_en,
     input  logic                   i_mhq_enq_we,
+    input  logic                   i_mhq_enq_match,
+    input  procyon_mhq_tag_t       i_mhq_enq_tag,
     input  procyon_addr_t          i_mhq_enq_addr,
     input  procyon_data_t          i_mhq_enq_data,
     input  procyon_byte_select_t   i_mhq_enq_byte_select,
-    output procyon_mhq_tag_t       o_mhq_enq_tag,
 
     // CCU interface
     input  logic                   i_ccu_done,
@@ -55,7 +61,6 @@ module miss_handling_queue (
         procyon_mhq_tag_t    head_addr;
         procyon_mhq_tag_t    tail_addr;
         logic                full;
-        mhq_vec_t            merge_select;
         mhq_vec_t            enqueue_select;
         mhq_vec_t            fill_select;
     } mhq_t;
@@ -69,7 +74,6 @@ module miss_handling_queue (
 
     mhq_tagp_t           mhq_head;
     mhq_tagp_t           mhq_tail;
-    procyon_mhq_tag_t    mhq_enq_tag;
     mhq_addr_t           mhq_enq_addr;
     dc_offset_t          mhq_enq_offset;
     dc_vec_t             mhq_enq_byte_updated;
@@ -77,39 +81,37 @@ module miss_handling_queue (
     dc_vec_t             mhq_byte_offset_select [0:`WORD_SIZE-1];
     procyon_cacheline_t  mhq_fill_data;
     procyon_addr_t       mhq_fill_addr;
+    procyon_mhq_tag_t    merge_tag;
     logic                filling;
-    logic                merging;
     logic                allocating;
     logic                enqueuing;
-    logic                enqueue_match;
+    logic                lookup_match;
+    mhq_vec_t            merge_select;
+    mhq_addr_t           mhq_lookup_addr;
 
     assign mhq.head_addr           = mhq_head[`MHQ_TAG_WIDTH-1:0];
     assign mhq.tail_addr           = mhq_tail[`MHQ_TAG_WIDTH-1:0];
     assign mhq.full                = ({~mhq_tail[`MHQ_TAG_WIDTH], mhq_tail[`MHQ_TAG_WIDTH-1:0]} == mhq_head);
 
-    assign enqueue_match           = |(mhq.merge_select);
-    assign mhq.enqueue_select      = enqueue_match ? mhq.merge_select : (1 << mhq.tail_addr);
-    assign merging                 = i_mhq_enq_en && enqueue_match;
-    assign allocating              = i_mhq_enq_en && ~mhq.full && ~enqueue_match;
-    assign enqueuing               = merging || allocating;
+    assign lookup_match            = merge_select != {(`MHQ_DEPTH){1'b0}};
+    assign mhq_lookup_addr         = i_mhq_lookup_addr[`ADDR_WIDTH-1:`DC_OFFSET_WIDTH];
 
+    assign enqueuing               = i_mhq_enq_en;
+    assign allocating              = enqueuing & ~i_mhq_enq_match;
+
+    assign mhq.enqueue_select      = 1 << i_mhq_enq_tag;
     assign mhq_enq_addr            = i_mhq_enq_addr[`ADDR_WIDTH-1:`DC_OFFSET_WIDTH];
     assign mhq_enq_offset          = i_mhq_enq_addr[`DC_OFFSET_WIDTH-1:0];
     assign mhq_enq_byte_select     = {{(`DC_LINE_SIZE-`WORD_SIZE){1'b0}}, i_mhq_enq_byte_select};
     assign mhq_enq_byte_updated    = mhq_enq_byte_select << mhq_enq_offset;
 
-    assign mhq_fill_addr           = {mhq_entries[mhq.head_addr].addr, {{(`DC_OFFSET_WIDTH){1'b0}}}};
+    assign mhq_fill_addr           = {mhq_entries[mhq.head_addr].addr, {(`DC_OFFSET_WIDTH){1'b0}}};
     assign mhq.fill_select         = 1 << mhq.head_addr;
     assign filling                 = i_ccu_done;
 
-    // Assign full signal
-    assign o_mhq_full              = mhq.full;
-
-    // Output mhq enqueue tag
-    assign o_mhq_enq_tag           = mhq_enq_tag;
-
     // Output to data cache for cache fill
-    assign o_mhq_fill              = filling;
+    // FIXME: These should be registered
+    assign o_mhq_fill_en           = filling;
     assign o_mhq_fill_tag          = mhq.head_addr;
     assign o_mhq_fill_dirty        = mhq_entries[mhq.head_addr].dirty;
     assign o_mhq_fill_addr         = mhq_fill_addr;
@@ -121,10 +123,10 @@ module miss_handling_queue (
 
     genvar gvar;
     generate
-        // Check each valid entry for a matching address in order to merge new
-        // enqueue requests instead of allocating a new entry
+        // Check each valid entry for a matching address for lookup requests
         for (gvar = 0; gvar < `MHQ_DEPTH; gvar++) begin : ASSIGN_MERGE_SELECT_VECTOR
-            assign mhq.merge_select[gvar] = mhq_entries[gvar].valid && (mhq_entries[gvar].addr == mhq_enq_addr);
+            // Bypass address lookup check when enqueuing an MHQ entry on the same cycle as the lookup
+            assign merge_select[gvar] = (enqueuing & mhq.enqueue_select[gvar] & (mhq_enq_addr == mhq_lookup_addr)) | (mhq_entries[gvar].valid && (mhq_entries[gvar].addr == mhq_lookup_addr));
         end
 
         // Need to determine which bytes in the mhq entry data field are to be written
@@ -132,6 +134,17 @@ module miss_handling_queue (
             assign mhq_byte_offset_select[gvar] = 1 << (mhq_enq_offset + gvar);
         end
     endgenerate
+
+    // Priority encoder to convert one-hot merge_select vector to binary slot #
+    always_comb begin
+        merge_tag = {($clog2(`MHQ_DEPTH)){1'b0}};
+
+        for (int i = 0; i < `MHQ_DEPTH; i++) begin
+            if (merge_select[i]) begin
+                merge_tag = procyon_mhq_tag_t'(i);
+            end
+        end
+    end
 
     // Combine data from memory and updated data in MHQ entry depending on the
     // byte_updated field
@@ -141,16 +154,10 @@ module miss_handling_queue (
         end
     end
 
-    // Convert one-hot enqueue_select vector to binary MHQ tag
-    always_comb begin
-        int r;
-        r = 0;
-        for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            if (mhq.enqueue_select[i]) begin
-                r = r | i;
-            end
-        end
-        mhq_enq_tag = r[`MHQ_TAG_WIDTH-1:0];
+    always_ff @(posedge clk) begin
+        o_mhq_lookup_tag   <= lookup_match ? merge_tag : mhq.tail_addr;
+        o_mhq_lookup_match <= lookup_match;
+        o_mhq_lookup_full  <= lookup_match ? 1'b0 : mhq.full;
     end
 
     // Update the MHQ entry on a new enqueue request
@@ -170,7 +177,7 @@ module miss_handling_queue (
     always_ff @(posedge clk) begin
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
             if (enqueuing && mhq.enqueue_select[i]) begin
-                mhq_entries[i].dirty <= i_mhq_enq_we;
+                mhq_entries[i].dirty <= mhq_entries[i].dirty | i_mhq_enq_we;
                 mhq_entries[i].addr  <= mhq_enq_addr;
             end
         end
