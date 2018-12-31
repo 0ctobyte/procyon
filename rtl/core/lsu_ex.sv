@@ -88,10 +88,10 @@ module lsu_ex (
 
     always_comb begin
         case (i_lsu_func)
-            LSU_FUNC_SB: mhq_enq_byte_select = 4'b0001;
-            LSU_FUNC_SH: mhq_enq_byte_select = 4'b0011;
-            LSU_FUNC_SW: mhq_enq_byte_select = 4'b1111;
-            default:     mhq_enq_byte_select = 4'b1111;
+            LSU_FUNC_SB: mhq_enq_byte_select = procyon_byte_select_t'(1);
+            LSU_FUNC_SH: mhq_enq_byte_select = procyon_byte_select_t'(3);
+            LSU_FUNC_SW: mhq_enq_byte_select = procyon_byte_select_t'(15);
+            default:     mhq_enq_byte_select = procyon_byte_select_t'(15);
         endcase
     end
 

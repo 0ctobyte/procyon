@@ -49,6 +49,7 @@ module lsu_lq (
     // ROB signal that a load has been retired
     input  logic                          i_rob_retire_en,
     input  procyon_tag_t                  i_rob_retire_tag,
+    output logic                          o_rob_retire_ack,
     output logic                          o_rob_retire_misspeculated
 );
 
@@ -110,10 +111,6 @@ module lsu_lq (
 
     assign lq_update_select               = {(`LQ_DEPTH){i_update_en}} & i_update_select;
 
-    // Let ROB know that retired load was mis-speculated
-    // FIXME: Can this be registered
-    assign o_rob_retire_misspeculated     = lq_slots[retire_slot].misspeculated;
-
     // Ouput full signal
     // FIXME: Can this be registered
     assign o_full                         = lq_full;
@@ -138,10 +135,10 @@ module lsu_lq (
     // Calculate retiring store end address based off of store type
     always_comb begin
         case (i_sq_retire_lsu_func)
-            LSU_FUNC_SB: sq_retire_addr_end = sq_retire_addr_start + 32'b0001;
-            LSU_FUNC_SH: sq_retire_addr_end = sq_retire_addr_start + 32'b0010;
-            LSU_FUNC_SW: sq_retire_addr_end = sq_retire_addr_start + 32'b0100;
-            default:     sq_retire_addr_end = sq_retire_addr_start + 32'b0100;
+            LSU_FUNC_SB: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(1);
+            LSU_FUNC_SH: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(2);
+            LSU_FUNC_SW: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(4);
+            default:     sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(4);
         endcase
     end
 
@@ -165,6 +162,17 @@ module lsu_lq (
                 replay_slot = lq_idx_t'(i);
             end
         end
+    end
+
+    // Let ROB know that retired load was mis-speculated
+    always_ff @(posedge clk) begin
+        o_rob_retire_misspeculated <= lq_slots[retire_slot].misspeculated;
+    end
+
+    // Send ack back to ROB with mis-speculated signal when ROB indicates load to be retired
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_rob_retire_ack <= 1'b0;
+        else        o_rob_retire_ack <= i_rob_retire_en;
     end
 
     // Output replaying load

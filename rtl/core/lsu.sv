@@ -32,6 +32,8 @@ module lsu (
     input  logic                    i_rob_retire_lq_en,
     input  logic                    i_rob_retire_sq_en,
     input  procyon_tag_t            i_rob_retire_tag,
+    output logic                    o_rob_retire_lq_ack,
+    output logic                    o_rob_retire_sq_ack,
     output logic                    o_rob_retire_misspeculated,
 
     // FIXME: Temporary MHQ interface
@@ -306,6 +308,7 @@ module lsu (
         .i_sq_retire_lsu_func(sq_retire_lsu_func),
         .i_rob_retire_en(i_rob_retire_lq_en),
         .i_rob_retire_tag(i_rob_retire_tag),
+        .o_rob_retire_ack(o_rob_retire_lq_ack),
         .o_rob_retire_misspeculated(o_rob_retire_misspeculated)
     );
 
@@ -330,7 +333,8 @@ module lsu (
         .i_update_select(update_sq_select),
         .i_update_retry(update_sq_retry),
         .i_rob_retire_en(i_rob_retire_sq_en),
-        .i_rob_retire_tag(i_rob_retire_tag)
+        .i_rob_retire_tag(i_rob_retire_tag),
+        .o_rob_retire_ack(o_rob_retire_sq_ack)
     );
 
     dcache dcache_inst (

@@ -71,7 +71,7 @@ module dcache_d1 (
     assign victim_addr             = {bypass_cache_wr_tag, i_index, {(`DC_OFFSET_WIDTH){1'b0}}};
 
     // Extract read data word from cacheline
-    // FIXME: This won't work
+    // FIXME: This won't work on FPGA
     always_comb begin
         rd_data = {(`DATA_WIDTH){1'b0}};
         for (int i = 0; i < `DC_LINE_SIZE; i++) begin
@@ -82,7 +82,7 @@ module dcache_d1 (
     end
 
     // Shift write data to correct offset in cacheline
-    // FIXME: This won't work
+    // FIXME: This won't work on FPGA
     always_comb begin
         wr_data = bypass_cache_wr_data;
         for (int i = 0; i < `DC_LINE_SIZE; i++) begin

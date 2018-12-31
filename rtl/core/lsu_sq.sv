@@ -38,7 +38,8 @@ module lsu_sq (
 
     // ROB signal that a store has been retired
     input  logic                            i_rob_retire_en,
-    input  procyon_tag_t                    i_rob_retire_tag
+    input  procyon_tag_t                    i_rob_retire_tag,
+    output logic                            o_rob_retire_ack
 );
 
     typedef logic [`SQ_DEPTH-1:0]           sq_vec_t;
@@ -114,6 +115,12 @@ module lsu_sq (
                 retire_slot = sq_idx_t'(i);
             end
         end
+    end
+
+    // Send ack back to ROB when launching the retired store
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_rob_retire_ack <= 1'b0;
+        else        o_rob_retire_ack <= i_rob_retire_en & retire_en & (sq_slots[retire_slot].tag == i_rob_retire_tag);
     end
 
     // Retire stores to D$ or to the MHQ if it misses in the cache

@@ -52,6 +52,8 @@ module reorder_buffer (
     input  logic                         i_regmap_rename_en,
 
     // Interface to LSU to retire loads/stores
+    input  logic                         i_lsu_retire_lq_ack,
+    input  logic                         i_lsu_retire_sq_ack,
     input  logic                         i_lsu_retire_misspeculated,
     output logic                         o_lsu_retire_lq_en,
     output logic                         o_lsu_retire_sq_en,
@@ -61,17 +63,17 @@ module reorder_buffer (
     typedef logic [`ROB_DEPTH-1:0]       rob_vec_t;
 
     // ROB entry consists of the following:
-    // rdy:      Is the data valid/ready?
-    // launched: Has retired stores been launched in the LSU? For non-stores, this is equal to rdy
-    // redirect: Asserted by branches or instructions that cause exceptions
-    // op:       What operation is the instruction doing?
-    // pc:       Address of the instruction (to rollback on exception
-    // addr:     Destination address for branch
-    // data:     The data for the destination register
-    // rdest:    The destination register
+    // rdy:         Is the data valid/ready?
+    // lsu_retired: Indicates if the load/store op has been retired in the LSU (only for LSU ops)
+    // redirect:    Asserted by branches or instructions that cause exceptions
+    // op:          What operation is the instruction doing?
+    // pc:          Address of the instruction (to rollback on exception
+    // addr:        Destination address for branch
+    // data:        The data for the destination register
+    // rdest:       The destination register
     typedef struct packed {
         logic                            rdy;
-        logic                            launched;
+        logic                            lsu_retired;
         logic                            redirect;
         procyon_rob_op_t                 op;
         procyon_addr_t                   pc;
@@ -97,16 +99,16 @@ module reorder_buffer (
     logic                                rob_rename_en;
     logic                                rob_retire_is_load;
     logic                                rob_retire_is_store;
-    logic                                rob_store_retire_en;
+    logic                                rob_lsu_retire_en;
     logic                                rob_retire_en;
-    logic                                lsu_retire_misspeculated;
+    rob_vec_t                            rob_lsu_retired_ack;
     rob_vec_t                            rob_dispatch_select;
     rob_vec_t                            rob_dispatch_en;
+    logic                                rob_enq_op_not_ld_or_st;
     rob_vec_t                            cdb_tag_select [0:`CDB_DEPTH-1];
     logic          [1:0]                 cdb_lookup_bypass [0:`CDB_DEPTH-1];
     rob_vec_t                            rob_entries_redirect;
     rob_vec_t                            rob_entries_rdy;
-    rob_vec_t                            rob_entries_launched;
     procyon_addr_t [`ROB_DEPTH-1:0]      rob_entries_addr;
     procyon_data_t [`ROB_DEPTH-1:0]      rob_entries_data;
     procyon_data_t                       rs_src_data [0:1];
@@ -123,11 +125,10 @@ module reorder_buffer (
     assign rob_rename_en                 = i_regmap_rename_en & ~rob_full;
     assign rob_retire_is_load            = (rob_entries[rob_head_addr].op == ROB_OP_LD);
     assign rob_retire_is_store           = (rob_entries[rob_head_addr].op == ROB_OP_ST);
-    assign rob_store_retire_en           = rob_entries[rob_head_addr].rdy & ~rob_empty;
-    assign rob_retire_en                 = rob_entries[rob_head_addr].rdy & rob_entries[rob_head_addr].launched & ~rob_empty;
+    assign rob_lsu_retire_en             = rob_entries[rob_head_addr].rdy & ~rob_empty;
+    assign rob_retire_en                 = rob_lsu_retire_en & rob_entries[rob_head_addr].lsu_retired;
     assign rob_dispatch_en               = {(`ROB_DEPTH){rob_enq_en}} & rob_dispatch_select;
-
-    assign lsu_retire_misspeculated      = i_lsu_retire_misspeculated & (rob_entries[rob_head_addr].op == ROB_OP_LD);
+    assign rob_enq_op_not_ld_or_st       = (i_rob_enq_op != ROB_OP_LD) & (i_rob_enq_op != ROB_OP_ST);
 
     // Stall if the ROB is full
     assign o_rob_stall                   = rob_full;
@@ -135,10 +136,19 @@ module reorder_buffer (
     assign o_redirect                    = redirect;
 
     // Assign outputs to LSU
-    // FIXME: should be registered?
-    assign o_lsu_retire_tag              = rob_head_addr;
-    assign o_lsu_retire_sq_en            = rob_retire_is_store & rob_store_retire_en;
-    assign o_lsu_retire_lq_en            = rob_retire_is_load & rob_retire_en;
+    always_ff @(posedge clk) begin
+        o_lsu_retire_tag <= rob_head_addr;
+    end
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_lsu_retire_sq_en <= 1'b0;
+        else        o_lsu_retire_sq_en <= ~redirect & ~i_lsu_retire_sq_ack & rob_retire_is_store & rob_lsu_retire_en;
+    end
+
+    always_ff @(posedge clk) begin
+        if (~n_rst) o_lsu_retire_lq_en <= 1'b0;
+        else        o_lsu_retire_lq_en <= ~redirect & ~i_lsu_retire_lq_ack & rob_retire_is_load & rob_lsu_retire_en;
+    end
 
     always_ff @(posedge clk) begin
         if (~n_rst | redirect) begin
@@ -153,7 +163,7 @@ module reorder_buffer (
     // If the instruction to be retired generated a branch and it is ready then assert the redirect signal
     always_ff @(posedge clk) begin
         if (~n_rst) redirect <= 1'b0;
-        else        redirect <= ~redirect & rob_retire_en & (rob_entries[rob_head_addr].redirect | lsu_retire_misspeculated);
+        else        redirect <= ~redirect & rob_retire_en & rob_entries[rob_head_addr].redirect;
     end
 
     always_ff @(posedge clk) begin
@@ -228,6 +238,12 @@ module reorder_buffer (
         end
     end
 
+    // Check for ack signal from LSU after sending it signals indicating load/store waiting to be retired from the ROB
+    always_comb begin
+        rob_lsu_retired_ack                = {(`ROB_DEPTH){1'b0}};
+        rob_lsu_retired_ack[rob_head_addr] = rob_lsu_retire_en & ((rob_retire_is_load & i_lsu_retire_lq_ack) | (rob_retire_is_store & i_lsu_retire_sq_ack));
+    end
+
     // Generate enable bits for each CDB for each ROB entry when updating entry due to CDB broadcast
     always_comb begin
         for (int i = 0; i < `CDB_DEPTH; i++) begin
@@ -238,14 +254,13 @@ module reorder_buffer (
     // Check if we need to bypass source data from the CDB when dispatching a new instruction
     always_comb begin
         for (int rob_idx = 0; rob_idx < `ROB_DEPTH; rob_idx++) begin
-            rob_entries_redirect[rob_idx] = rob_entries[rob_idx].redirect;
+            // Set redirect bit if LSU indicates a load/store op has been retired in the LSU and has also been mis-speculatively executed
+            rob_entries_redirect[rob_idx] = rob_entries[rob_idx].redirect | (rob_lsu_retired_ack[rob_idx] & i_lsu_retire_misspeculated);
             rob_entries_rdy[rob_idx]      = rob_entries[rob_idx].rdy;
-            rob_entries_launched[rob_idx] = rob_entries[rob_idx].launched;
 
             for (int cdb_idx = 0; cdb_idx < `CDB_DEPTH; cdb_idx++) begin
                 rob_entries_redirect[rob_idx] = (cdb_tag_select[cdb_idx][rob_idx] & i_cdb_redirect[cdb_idx]) | rob_entries_redirect[rob_idx];
                 rob_entries_rdy[rob_idx]      = cdb_tag_select[cdb_idx][rob_idx] | rob_entries_rdy[rob_idx];
-                rob_entries_launched[rob_idx] = (~(rob_entries[rob_idx].op == ROB_OP_ST) | rob_entries[rob_idx].rdy) & (cdb_tag_select[cdb_idx][rob_idx] | rob_entries_launched[rob_idx]);
             end
         end
     end
@@ -285,11 +300,13 @@ module reorder_buffer (
         end
     end
 
-    // Clear the launched bits on a flush or reset
+    // Clear the lsu_retired bits on a reset
+    // lsu_retired is always asserted on enqueue if the op is not a load or store
+    // Otherwise it is asserted when the LSU indicates the load/store op has been retired in the LSU
     always_ff @(posedge clk) begin
         for (int i = 0; i < `ROB_DEPTH; i++) begin
-            if (~n_rst) rob_entries[i].launched <= 1'b0;
-            else        rob_entries[i].launched <= ~(redirect | rob_dispatch_en[i]) & rob_entries_launched[i];
+            if (~n_rst) rob_entries[i].lsu_retired <= 1'b0;
+            else        rob_entries[i].lsu_retired <= mux4_1b(rob_entries[i].lsu_retired, rob_enq_op_not_ld_or_st, 1'b1, rob_enq_op_not_ld_or_st, {rob_lsu_retired_ack[i], rob_dispatch_en[i]});
         end
     end
 
