@@ -140,7 +140,6 @@ module lsu_ex (
     end
 
     always_ff @(posedge clk) begin
-        o_victim_en   <= i_valid & is_fill & i_dc_victim_valid & i_dc_victim_dirty;
         o_victim_addr <= i_dc_victim_addr;
         o_victim_data <= i_dc_victim_data;
     end
