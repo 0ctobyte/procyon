@@ -71,23 +71,42 @@ module dcache_d1 (
     assign victim_addr             = {bypass_cache_wr_tag, i_index, {(`DC_OFFSET_WIDTH){1'b0}}};
 
     // Extract read data word from cacheline
-    // FIXME: This won't work on FPGA
     always_comb begin
         rd_data = {(`DATA_WIDTH){1'b0}};
-        for (int i = 0; i < `DC_LINE_SIZE; i++) begin
+        for (int i = 0; i < (`DC_LINE_SIZE-`WORD_SIZE); i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
                 rd_data = bypass_cache_wr_data[i*8 +: `DATA_WIDTH];
+            end
+        end
+
+        // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
+        // So special case the accesses to the last WORD_SIZE portion of the line by only reading the bytes we can access
+        for (int i = (`DC_LINE_SIZE-`WORD_SIZE); i < `DC_LINE_SIZE; i++) begin
+            if (procyon_dc_offset_t'(i) == i_offset) begin
+                for (int j = 0; j < (`DC_LINE_SIZE-i); j++) begin
+                    rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
+                end
             end
         end
     end
 
     // Shift write data to correct offset in cacheline
-    // FIXME: This won't work on FPGA
     always_comb begin
         wr_data = bypass_cache_wr_data;
-        for (int i = 0; i < `DC_LINE_SIZE; i++) begin
+        for (int i = 0; i < (`DC_LINE_SIZE-`WORD_SIZE); i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
                 wr_data[i*8 +: `DATA_WIDTH] = i_data;
+            end
+        end
+
+        // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
+        // So special case the writes to the last WORD_SIZE portion of the line by only writing to the number of bytes
+        // remaining in the line rather than the whole WORD_SIZE data
+        for (int i = (`DC_LINE_SIZE-`WORD_SIZE); i < `DC_LINE_SIZE; i++) begin
+            if (procyon_dc_offset_t'(i) == i_offset) begin
+                for (int j = 0; j < (`DC_LINE_SIZE-i); j++) begin
+                    wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
+                end
             end
         end
     end
