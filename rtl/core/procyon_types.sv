@@ -4,29 +4,33 @@
 
 package procyon_types;
 
-    typedef logic [`ADDR_WIDTH-1:0]             procyon_addr_t;
-    typedef logic [`DATA_WIDTH-1:0]             procyon_data_t;
-    typedef logic [`TAG_WIDTH-1:0]              procyon_tag_t;
-    typedef logic [`REG_ADDR_WIDTH-1:0]         procyon_reg_t;
-    typedef logic [`WORD_SIZE-1:0]              procyon_byte_select_t;
-    typedef logic [`SQ_DEPTH-1:0]               procyon_sq_select_t;
-    typedef logic [`LQ_DEPTH-1:0]               procyon_lq_select_t;
+    typedef logic [`ADDR_WIDTH-1:0]                procyon_addr_t;
+    typedef logic [`DATA_WIDTH-1:0]                procyon_data_t;
+    typedef logic [`TAG_WIDTH-1:0]                 procyon_tag_t;
+    typedef logic [`REG_ADDR_WIDTH-1:0]            procyon_reg_t;
+    typedef logic [`WORD_SIZE-1:0]                 procyon_byte_select_t;
+    typedef logic [`SQ_DEPTH-1:0]                  procyon_sq_select_t;
+    typedef logic [`LQ_DEPTH-1:0]                  procyon_lq_select_t;
 
-    typedef logic [`TAG_WIDTH:0]                procyon_tagp_t;
-    typedef logic [`ADDR_WIDTH+`DATA_WIDTH-1:0] procyon_addr_data_t;
-    typedef logic signed [`DATA_WIDTH-1:0]      procyon_signed_data_t;
-    typedef logic [4:0]                         procyon_shamt_t;
+    typedef logic [`TAG_WIDTH:0]                   procyon_tagp_t;
+    typedef logic [`ADDR_WIDTH+`DATA_WIDTH-1:0]    procyon_addr_data_t;
+    typedef logic signed [`DATA_WIDTH-1:0]         procyon_signed_data_t;
+    typedef logic [4:0]                            procyon_shamt_t;
 
-    typedef logic [`MHQ_TAG_WIDTH-1:0]          procyon_mhq_tag_t;
+    typedef logic [`ADDR_WIDTH-1:`DC_OFFSET_WIDTH] procyon_mhq_addr_t;
+    typedef logic [`MHQ_TAG_WIDTH-1:0]             procyon_mhq_tag_t;
+    typedef logic [`MHQ_TAG_WIDTH:0]               procyon_mhq_tagp_t;
+    typedef logic [`MHQ_DEPTH-1:0]                 procyon_mhq_tag_select_t;
 
-    typedef logic [`DC_LINE_WIDTH-1:0]          procyon_cacheline_t;
-    typedef logic [`DC_TAG_WIDTH-1:0]           procyon_dc_tag_t;
-    typedef logic [`DC_INDEX_WIDTH-1:0]         procyon_dc_index_t;
-    typedef logic [`DC_OFFSET_WIDTH-1:0]        procyon_dc_offset_t;
+    typedef logic [`DC_LINE_WIDTH-1:0]             procyon_cacheline_t;
+    typedef logic [`DC_TAG_WIDTH-1:0]              procyon_dc_tag_t;
+    typedef logic [`DC_INDEX_WIDTH-1:0]            procyon_dc_index_t;
+    typedef logic [`DC_OFFSET_WIDTH-1:0]           procyon_dc_offset_t;
+    typedef logic [`DC_LINE_SIZE-1:0]              procyon_dc_byte_select_t;
 
-    typedef logic [`WB_ADDR_WIDTH-1:0]          wb_addr_t;
-    typedef logic [`WB_DATA_WIDTH-1:0]          wb_data_t;
-    typedef logic [`WB_DATA_WIDTH/8-1:0]        wb_byte_select_t;
+    typedef logic [`WB_ADDR_WIDTH-1:0]             wb_addr_t;
+    typedef logic [`WB_DATA_WIDTH-1:0]             wb_data_t;
+    typedef logic [`WB_DATA_WIDTH/8-1:0]           wb_byte_select_t;
 
     typedef enum logic [1:0] {
         ROB_OP_INT = 2'b00,
@@ -76,6 +80,14 @@ package procyon_types;
         LSU_FUNC_FILL = 4'b1000
     } procyon_lsu_func_t;
 
+    typedef struct packed {
+        logic                           valid;
+        logic                           dirty;
+        procyon_mhq_addr_t              addr;
+        procyon_cacheline_t             data;
+        procyon_dc_byte_select_t        byte_updated;
+    } procyon_mhq_entry_t;
+
     function logic mux4_1b (
         input logic       i_data0,
         input logic       i_data1,
@@ -123,6 +135,23 @@ package procyon_types;
             2'b01: mux4_4b = i_data1;
             2'b10: mux4_4b = i_data2;
             2'b11: mux4_4b = i_data3;
+        endcase
+
+    endfunction
+
+    function logic [7:0] mux4_8b (
+        input logic [7:0] i_data0,
+        input logic [7:0] i_data1,
+        input logic [7:0] i_data2,
+        input logic [7:0] i_data3,
+        input logic [1:0] i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_8b = i_data0;
+            2'b01: mux4_8b = i_data1;
+            2'b10: mux4_8b = i_data2;
+            2'b11: mux4_8b = i_data3;
         endcase
 
     endfunction

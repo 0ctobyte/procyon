@@ -36,23 +36,22 @@ module lsu (
     output logic                    o_rob_retire_sq_ack,
     output logic                    o_rob_retire_misspeculated,
 
-    // FIXME: Temporary MHQ interface
-    output procyon_addr_t           o_mhq_lookup_addr,
-    input  logic                    i_mhq_lookup_match,
+    // MHQ address/tag lookup interface
     input  logic                    i_mhq_lookup_full,
     input  procyon_mhq_tag_t        i_mhq_lookup_tag,
+    output logic                    o_mhq_lookup_valid,
+    output logic                    o_mhq_lookup_dc_hit,
+    output procyon_addr_t           o_mhq_lookup_addr,
+    output procyon_lsu_func_t       o_mhq_lookup_lsu_func,
+    output procyon_data_t           o_mhq_lookup_data,
+    output logic                    o_mhq_lookup_we,
+
+    // MHQ fill interface
     input  logic                    i_mhq_fill_en,
     input  procyon_addr_t           i_mhq_fill_addr,
     input  procyon_mhq_tag_t        i_mhq_fill_tag,
     input  procyon_cacheline_t      i_mhq_fill_data,
-    input  logic                    i_mhq_fill_dirty,
-    output logic                    o_mhq_enq_en,
-    output logic                    o_mhq_enq_we,
-    output logic                    o_mhq_enq_match,
-    output procyon_mhq_tag_t        o_mhq_enq_tag,
-    output procyon_addr_t           o_mhq_enq_addr,
-    output procyon_data_t           o_mhq_enq_data,
-    output procyon_byte_select_t    o_mhq_enq_byte_select
+    input  logic                    i_mhq_fill_dirty
 );
 
     logic                           sq_full;
@@ -119,8 +118,6 @@ module lsu (
     logic                           update_lq_en;
     procyon_lq_select_t             update_lq_select;
     logic                           update_lq_retry;
-    logic                           update_lq_mhq_full;
-    procyon_mhq_tag_t               update_lq_mhq_tag;
     logic                           update_sq_en;
     procyon_sq_select_t             update_sq_select;
     logic                           update_sq_retry;
@@ -131,7 +128,14 @@ module lsu (
 /* verilator lint_on  UNUSED */
 
     assign o_cdb_redirect           = 1'b0;
-    assign o_mhq_lookup_addr        = lsu_d0_addr;
+
+    // Outputs to the MHQ lookup interface
+    assign o_mhq_lookup_valid       = lsu_d1_valid;
+    assign o_mhq_lookup_dc_hit      = dc_hit;
+    assign o_mhq_lookup_addr        = lsu_d1_addr;
+    assign o_mhq_lookup_lsu_func    = lsu_d1_lsu_func;
+    assign o_mhq_lookup_data        = lsu_d1_retire_data;
+    assign o_mhq_lookup_we          = lsu_d1_retire;
 
     lsu_ad lsu_ad_inst (
         .clk(clk),
@@ -245,7 +249,6 @@ module lsu (
         .i_sq_select(lsu_d1_sq_select),
         .i_tag(lsu_d1_tag),
         .i_addr(lsu_d1_addr),
-        .i_retire_data(lsu_d1_retire_data),
         .i_retire(lsu_d1_retire),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_rd_data),
@@ -253,9 +256,6 @@ module lsu (
         .i_dc_victim_dirty(dc_victim_dirty),
         .i_dc_victim_addr(dc_victim_addr),
         .i_dc_victim_data(dc_victim_data),
-        .i_mhq_lookup_match(i_mhq_lookup_match),
-        .i_mhq_lookup_full(i_mhq_lookup_full),
-        .i_mhq_lookup_tag(i_mhq_lookup_tag),
         .o_valid(o_cdb_en),
         .o_data(o_cdb_data),
         .o_addr(o_cdb_addr),
@@ -263,18 +263,9 @@ module lsu (
         .o_update_lq_en(update_lq_en),
         .o_update_lq_select(update_lq_select),
         .o_update_lq_retry(update_lq_retry),
-        .o_update_lq_mhq_tag(update_lq_mhq_tag),
-        .o_update_lq_mhq_full(update_lq_mhq_full),
         .o_update_sq_en(update_sq_en),
         .o_update_sq_select(update_sq_select),
         .o_update_sq_retry(update_sq_retry),
-        .o_mhq_enq_en(o_mhq_enq_en),
-        .o_mhq_enq_we(o_mhq_enq_we),
-        .o_mhq_enq_match(o_mhq_enq_match),
-        .o_mhq_enq_tag(o_mhq_enq_tag),
-        .o_mhq_enq_addr(o_mhq_enq_addr),
-        .o_mhq_enq_data(o_mhq_enq_data),
-        .o_mhq_enq_byte_select(o_mhq_enq_byte_select),
         .o_victim_en(victim_en),
         .o_victim_addr(victim_addr),
         .o_victim_data(victim_data)
@@ -299,8 +290,8 @@ module lsu (
         .i_update_en(update_lq_en),
         .i_update_select(update_lq_select),
         .i_update_retry(update_lq_retry),
-        .i_update_mhq_tag(update_lq_mhq_tag),
-        .i_update_mhq_full(update_lq_mhq_full),
+        .i_update_mhq_tag(i_mhq_lookup_tag),
+        .i_update_mhq_full(i_mhq_lookup_full),
         .i_mhq_fill_en(i_mhq_fill_en),
         .i_mhq_fill_tag(i_mhq_fill_tag),
         .i_sq_retire_en(sq_retire_en),
@@ -332,6 +323,7 @@ module lsu (
         .i_update_en(update_sq_en),
         .i_update_select(update_sq_select),
         .i_update_retry(update_sq_retry),
+        .i_update_mhq_full(i_mhq_lookup_full),
         .i_rob_retire_en(i_rob_retire_sq_en),
         .i_rob_retire_tag(i_rob_retire_tag),
         .o_rob_retire_ack(o_rob_retire_sq_ack)

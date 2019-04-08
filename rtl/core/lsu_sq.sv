@@ -35,6 +35,7 @@ module lsu_sq (
     input  logic                            i_update_en,
     input  procyon_sq_select_t              i_update_select,
     input  logic                            i_update_retry,
+    input  logic                            i_update_mhq_full,
 
     // ROB signal that a store has been retired
     input  logic                            i_rob_retire_en,
@@ -72,6 +73,7 @@ module lsu_sq (
     sq_vec_t                                sq_allocate_select;
     sq_vec_t                                sq_rob_select;
     procyon_sq_select_t                     sq_update_select;
+    logic                                   sq_update_retry;
     procyon_sq_select_t                     sq_retire_select;
     sq_idx_t                                retire_slot;
     logic                                   retire_en;
@@ -87,6 +89,7 @@ module lsu_sq (
     assign sq_retire_select                 = {(`SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
 
     assign sq_update_select                 = {(`SQ_DEPTH){i_update_en}} & i_update_select;
+    assign sq_update_retry                  = i_update_retry && i_update_mhq_full;
 
     // Output full signal
     // FIXME: Can this be registered?
@@ -146,7 +149,7 @@ module lsu_sq (
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             if (~n_rst) sq_slots[i].valid <= 1'b0;
-            else        sq_slots[i].valid <= i_flush ? sq_slots[i].nonspeculative & sq_slots[i].valid : sq_allocate_select[i] | (sq_update_select[i] ? i_update_retry : sq_slots[i].valid);
+            else        sq_slots[i].valid <= i_flush ? sq_slots[i].nonspeculative & sq_slots[i].valid : sq_allocate_select[i] | (sq_update_select[i] ? sq_update_retry : sq_slots[i].valid);
         end
     end
 
@@ -154,7 +157,7 @@ module lsu_sq (
     // Clear it if the store retire fails or when allocating a new entry
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
-            sq_slots[i].launched <= ~sq_allocate_select[i] & (sq_retire_select[i] | (sq_update_select[i] ? ~i_update_retry : sq_slots[i].launched));
+            sq_slots[i].launched <= ~sq_allocate_select[i] & (sq_retire_select[i] | (sq_update_select[i] ? ~sq_update_retry : sq_slots[i].launched));
         end
     end
 

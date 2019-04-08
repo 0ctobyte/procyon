@@ -9,9 +9,13 @@ module ccu (
     input  logic                   clk,
     input  logic                   n_rst,
 
-    // Indicate if MHQ is full
+    // MHQ address/tag lookup interface
+    input  logic                   i_mhq_lookup_valid,
+    input  logic                   i_mhq_lookup_dc_hit,
     input  procyon_addr_t          i_mhq_lookup_addr,
-    output logic                   o_mhq_lookup_match,
+    input  procyon_lsu_func_t      i_mhq_lookup_lsu_func,
+    input  procyon_data_t          i_mhq_lookup_data,
+    input  logic                   i_mhq_lookup_we,
     output logic                   o_mhq_lookup_full,
     output procyon_mhq_tag_t       o_mhq_lookup_tag,
 
@@ -21,15 +25,6 @@ module ccu (
     output logic                   o_mhq_fill_dirty,
     output procyon_addr_t          o_mhq_fill_addr,
     output procyon_cacheline_t     o_mhq_fill_data,
-
-    // MHQ enqueue interface
-    input  logic                   i_mhq_enq_en,
-    input  logic                   i_mhq_enq_we,
-    input  logic                   i_mhq_enq_match,
-    input  procyon_mhq_tag_t       i_mhq_enq_tag,
-    input  procyon_addr_t          i_mhq_enq_addr,
-    input  procyon_data_t          i_mhq_enq_data,
-    input  procyon_byte_select_t   i_mhq_enq_byte_select,
 
     // Wishbone bus interface
     input  logic                   i_wb_clk,
@@ -88,11 +83,15 @@ module ccu (
         endcase
     end
 
-    mhq mhq_inst (
+    mhq2 mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .i_mhq_lookup_valid(i_mhq_lookup_valid),
+        .i_mhq_lookup_dc_hit(i_mhq_lookup_dc_hit),
         .i_mhq_lookup_addr(i_mhq_lookup_addr),
-        .o_mhq_lookup_match(o_mhq_lookup_match),
+        .i_mhq_lookup_lsu_func(i_mhq_lookup_lsu_func),
+        .i_mhq_lookup_data(i_mhq_lookup_data),
+        .i_mhq_lookup_we(i_mhq_lookup_we),
         .o_mhq_lookup_full(o_mhq_lookup_full),
         .o_mhq_lookup_tag(o_mhq_lookup_tag),
         .o_mhq_fill_en(o_mhq_fill_en),
@@ -100,17 +99,10 @@ module ccu (
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
-        .i_mhq_enq_en(i_mhq_enq_en),
-        .i_mhq_enq_we(i_mhq_enq_we),
-        .i_mhq_enq_match(i_mhq_enq_match),
-        .i_mhq_enq_tag(i_mhq_enq_tag),
-        .i_mhq_enq_addr(i_mhq_enq_addr),
-        .i_mhq_enq_data(i_mhq_enq_data),
-        .i_mhq_enq_byte_select(i_mhq_enq_byte_select),
         .i_ccu_done(ccu_done),
         .i_ccu_data(biu_data_r),
-        .o_ccu_addr(biu_addr),
-        .o_ccu_en(ccu_en)
+        .o_ccu_en(ccu_en),
+        .o_ccu_addr(biu_addr)
     );
 
     wb_biu wb_biu_inst (

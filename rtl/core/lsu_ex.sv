@@ -16,7 +16,6 @@ module lsu_ex (
     input  procyon_sq_select_t       i_sq_select,
     input  procyon_tag_t             i_tag,
     input  procyon_addr_t            i_addr,
-    input  procyon_data_t            i_retire_data,
     input  logic                     i_retire,
 
     // Inputs from dcache
@@ -26,11 +25,6 @@ module lsu_ex (
     input  logic                     i_dc_victim_dirty,
     input  procyon_addr_t            i_dc_victim_addr,
     input  procyon_cacheline_t       i_dc_victim_data,
-
-    // Inputs from MHQ
-    input  logic                     i_mhq_lookup_match,
-    input  logic                     i_mhq_lookup_full,
-    input  procyon_mhq_tag_t         i_mhq_lookup_tag,
 
     // Broadcast CDB results
     output logic                     o_valid,
@@ -42,20 +36,9 @@ module lsu_ex (
     output logic                     o_update_lq_en,
     output procyon_lq_select_t       o_update_lq_select,
     output logic                     o_update_lq_retry,
-    output procyon_mhq_tag_t         o_update_lq_mhq_tag,
-    output logic                     o_update_lq_mhq_full,
     output logic                     o_update_sq_en,
     output procyon_sq_select_t       o_update_sq_select,
     output logic                     o_update_sq_retry,
-
-    // Enqueue signals to MHQ
-    output logic                     o_mhq_enq_en,
-    output logic                     o_mhq_enq_we,
-    output logic                     o_mhq_enq_match,
-    output procyon_mhq_tag_t         o_mhq_enq_tag,
-    output procyon_addr_t            o_mhq_enq_addr,
-    output procyon_data_t            o_mhq_enq_data,
-    output procyon_byte_select_t     o_mhq_enq_byte_select,
 
     // Enqueue victim data
     output logic                     o_victim_en,
@@ -67,7 +50,6 @@ module lsu_ex (
     logic                            is_store;
     logic                            is_load;
     procyon_data_t                   load_data;
-    procyon_byte_select_t            mhq_enq_byte_select;
 
     assign is_fill                   = i_lsu_func == LSU_FUNC_FILL;
     assign is_store                  = (i_lsu_func == LSU_FUNC_SB) | (i_lsu_func == LSU_FUNC_SH) | (i_lsu_func == LSU_FUNC_SW);
@@ -86,15 +68,6 @@ module lsu_ex (
         endcase
     end
 
-    always_comb begin
-        case (i_lsu_func)
-            LSU_FUNC_SB: mhq_enq_byte_select = procyon_byte_select_t'(1);
-            LSU_FUNC_SH: mhq_enq_byte_select = procyon_byte_select_t'(3);
-            LSU_FUNC_SW: mhq_enq_byte_select = procyon_byte_select_t'(15);
-            default:     mhq_enq_byte_select = procyon_byte_select_t'(15);
-        endcase
-    end
-
     always_ff @(posedge clk) begin
         o_data <= load_data;
         o_addr <= i_addr;
@@ -109,10 +82,8 @@ module lsu_ex (
     always_ff @(posedge clk) begin
         o_update_lq_select   <= i_lq_select;
         o_update_lq_retry    <= ~i_dc_hit;
-        o_update_lq_mhq_tag  <= i_mhq_lookup_tag;
-        o_update_lq_mhq_full <= i_mhq_lookup_full;
         o_update_sq_select   <= i_sq_select;
-        o_update_sq_retry    <= ~i_dc_hit & i_mhq_lookup_full;
+        o_update_sq_retry    <= ~i_dc_hit;
     end
 
     always_ff @(posedge clk) begin
@@ -123,20 +94,6 @@ module lsu_ex (
     always_ff @(posedge clk) begin
         if (~n_rst) o_update_sq_en <= 1'b0;
         else        o_update_sq_en <= ~i_flush & i_valid & i_retire;
-    end
-
-    always_ff @(posedge clk) begin
-        o_mhq_enq_we          <= i_retire;
-        o_mhq_enq_match       <= i_mhq_lookup_match;
-        o_mhq_enq_tag         <= i_mhq_lookup_tag;
-        o_mhq_enq_addr        <= i_addr;
-        o_mhq_enq_data        <= i_retire_data;
-        o_mhq_enq_byte_select <= mhq_enq_byte_select;
-    end
-
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_mhq_enq_en <= 1'b0;
-        else        o_mhq_enq_en <= i_valid & (~i_dc_hit | i_mhq_lookup_match) & ~is_fill & (~i_mhq_lookup_full | i_mhq_lookup_match);
     end
 
     always_ff @(posedge clk) begin
