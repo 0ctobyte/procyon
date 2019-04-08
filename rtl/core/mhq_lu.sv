@@ -41,6 +41,7 @@ module mhq_lu (
 
     typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
 
+    procyon_mhq_tag_t                            mhq_tail_next;
     logic                                        mhq_lookup_en;
     logic                                        mhq_lookup_is_fill;
     procyon_mhq_addr_t                           mhq_lookup_addr;
@@ -49,7 +50,18 @@ module mhq_lu (
     logic                                        mhq_lookup_match;
     procyon_mhq_tag_t                            mhq_lookup_tag;
     mhq_tag_select_t                             mhq_lookup_tag_select;
+    logic                                        mhq_ex_bypass_en;
+    logic                                        mhq_ex_bypass_alloc;
     logic                                        bypass_en;
+
+    // Determine if MHQ request in EX stage is going to enqueue/alloc and bypass if the lookup address matches the address in the next stage
+    assign mhq_ex_bypass_en                      = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
+    assign mhq_ex_bypass_alloc                   = mhq_ex_bypass_en && ~i_mhq_ex_bypass_match;
+    assign bypass_en                             = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
+
+    // We need to calculate the tail pointer on the next cycle in order to get an accurate tag for allocation
+    // because a miss request may be allocated on the same cycle as this lookup
+    assign mhq_tail_next                         = mhq_ex_bypass_alloc ? i_mhq_tail + 1'b1 : i_mhq_tail;
 
     assign mhq_lookup_is_fill                    = (i_mhq_lookup_lsu_func == LSU_FUNC_FILL);
     assign mhq_lookup_en                         = i_mhq_lookup_valid && ~mhq_lookup_is_fill && ~i_mhq_lookup_dc_hit && ~i_mhq_full;
@@ -61,7 +73,6 @@ module mhq_lu (
         mhq_tag_select_t tail_tag_select       = {(`MHQ_DEPTH){1'b0}};
         mhq_tag_select_t bypass_tag_select     = {(`MHQ_DEPTH){1'b0}};
         logic            lookup_match          = 1'b0;
-        logic            mhq_ex_bypass_en      = 1'b0;
 
         // Convert bypass tag into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
@@ -70,7 +81,7 @@ module mhq_lu (
 
         // Convert tag pointer into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            tail_tag_select[i] = (procyon_mhq_tag_t'(i) == i_mhq_tail);
+            tail_tag_select[i] = (procyon_mhq_tag_t'(i) == mhq_tail_next);
         end
 
         // Check each valid entry for a matching lookup address
@@ -83,8 +94,6 @@ module mhq_lu (
 
         // Bypass lookup address from mhq_ex stage if possible
         // If there was no match then the tag is at the tail pointer (i.e. new entry)
-        mhq_ex_bypass_en        = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
-        bypass_en               = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
         mhq_lookup_tag_select   = bypass_en ? bypass_tag_select : (lookup_match ? match_tag_select : tail_tag_select);
 
         // If either lookup_match or bypass_en is true then we have found a match (either in the MHQ or from the bypass)
