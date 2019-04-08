@@ -66,7 +66,6 @@ module mhq_ex (
     logic                                        bypass_dirty;
     procyon_cacheline_t                          bypass_data;
     procyon_dc_byte_select_t                     bypass_byte_updated;
-
     procyon_addr_t                               mhq_fill_addr;
     procyon_cacheline_t                          mhq_fill_data;
 
@@ -118,10 +117,11 @@ module mhq_ex (
     // Merge fill data with updated bytes from MHQ and currently enqueuing store if necessary
     always_comb begin
         logic [1:0] mhq_fill_data_mux_sel [`DC_LINE_SIZE-1:0];
-        logic mhq_ex_fill_merge = (mhq_ex_en && i_mhq_lu_we && (i_mhq_lu_addr == i_mhq_entries[mhq_head_addr].addr));
+        logic mhq_ex_fill_merge;
 
-        mhq_fill_addr = {i_mhq_entries[mhq_head_addr].addr, {(`DC_OFFSET_WIDTH){1'b0}}};
-        mhq_fill_data = {(`DC_LINE_WIDTH){1'b0}};
+        mhq_fill_addr     = {i_mhq_entries[mhq_head_addr].addr, {(`DC_OFFSET_WIDTH){1'b0}}};
+        mhq_fill_data     = {(`DC_LINE_WIDTH){1'b0}};
+        mhq_ex_fill_merge = (mhq_ex_en && i_mhq_lu_we && (i_mhq_lu_addr == i_mhq_entries[mhq_head_addr].addr));
 
         // Merge data from the CCU and updated data in the MHQ entry (based on the byte_updated field)
         // Also merge data from current enqueue request to the same entry as the fill if there is one (this one takes priority)

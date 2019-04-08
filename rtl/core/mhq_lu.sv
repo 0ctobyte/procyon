@@ -62,7 +62,8 @@ module mhq_lu (
     always_comb begin
         procyon_mhq_tag_select_t match_tag_select      = {(`MHQ_DEPTH){1'b0}};
         procyon_mhq_tag_select_t tail_tag_select       = {(`MHQ_DEPTH){1'b0}};
-        logic                    mhq_ex_bypass_en      = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
+        logic                    mhq_ex_bypass_en      = 1'b0;
+
 
         // Convert tag pointer into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
@@ -79,6 +80,7 @@ module mhq_lu (
 
         // Bypass lookup address from mhq_ex stage if possible
         // If there was no match then the tag is at the tail pointer (i.e. new entry)
+        mhq_ex_bypass_en        = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
         bypass_en               = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
         mhq_lookup_tag_select   = bypass_en ? i_mhq_ex_bypass_tag_select : (mhq_lookup_match ? match_tag_select : tail_tag_select);
     end
@@ -120,7 +122,7 @@ module mhq_lu (
         o_mhq_lu_tag_select   <= mhq_lookup_tag_select;
         o_mhq_lu_valid        <= i_mhq_entries[mhq_lookup_tag].valid;
         o_mhq_lu_dirty        <= i_mhq_entries[mhq_lookup_tag].dirty;
-        o_mhq_lu_addr         <= i_mhq_entries[mhq_lookup_tag].addr;
+        o_mhq_lu_addr         <= mhq_lookup_addr;
         o_mhq_lu_data         <= i_mhq_entries[mhq_lookup_tag].data;
         o_mhq_lu_byte_updated <= i_mhq_entries[mhq_lookup_tag].byte_updated;
     end
