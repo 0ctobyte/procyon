@@ -44,8 +44,8 @@ module mhq (
 );
 
     procyon_mhq_entry_t [`MHQ_DEPTH-1:0] mhq_entries;
-    procyon_mhq_tag_t                    mhq_tail;
-    logic                                mhq_full;
+    procyon_mhq_tagp_t                   mhq_head_next;
+    procyon_mhq_tagp_t                   mhq_tail_next;
     logic                                mhq_lu_en;
     logic                                mhq_lu_we;
     procyon_dc_offset_t                  mhq_lu_offset;
@@ -54,16 +54,17 @@ module mhq (
     logic                                mhq_lu_match;
     procyon_mhq_tag_t                    mhq_lu_tag;
     procyon_mhq_addr_t                   mhq_lu_addr;
+    logic                                mhq_lu_full;
 
-    assign o_mhq_lookup_full             = mhq_full;
+    assign o_mhq_lookup_full             = mhq_lu_full;
     assign o_mhq_lookup_tag              = mhq_lu_tag;
 
     mhq_lu mhq_lu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_entries(mhq_entries),
-        .i_mhq_tail(mhq_tail),
-        .i_mhq_full(mhq_full),
+        .i_mhq_head_next(mhq_head_next),
+        .i_mhq_tail_next(mhq_tail_next),
         .i_mhq_ex_bypass_en(mhq_lu_en),
         .i_mhq_ex_bypass_we(mhq_lu_we),
         .i_mhq_ex_bypass_match(mhq_lu_match),
@@ -82,7 +83,8 @@ module mhq (
         .o_mhq_lu_byte_select(mhq_lu_byte_select),
         .o_mhq_lu_match(mhq_lu_match),
         .o_mhq_lu_tag(mhq_lu_tag),
-        .o_mhq_lu_addr(mhq_lu_addr)
+        .o_mhq_lu_addr(mhq_lu_addr),
+        .o_mhq_lu_full(mhq_lu_full)
     );
 
     mhq_ex mhq_ex_inst (
@@ -90,8 +92,8 @@ module mhq (
         .n_rst(n_rst),
         .i_mhq_entries(mhq_entries),
         .o_mhq_entries(mhq_entries),
-        .o_mhq_tail(mhq_tail),
-        .o_mhq_full(mhq_full),
+        .o_mhq_head_next(mhq_head_next),
+        .o_mhq_tail_next(mhq_tail_next),
         .i_mhq_lu_en(mhq_lu_en),
         .i_mhq_lu_we(mhq_lu_we),
         .i_mhq_lu_offset(mhq_lu_offset),

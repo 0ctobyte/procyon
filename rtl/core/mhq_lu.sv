@@ -8,10 +8,10 @@ module mhq_lu (
     input  logic                                 clk,
     input  logic                                 n_rst,
 
-    // MHQ full signal and tail pointer and MHQ entries
+    // MHQ head and tail pointers (adusted for next cycle value) and MHQ entries
     input  procyon_mhq_entry_t [`MHQ_DEPTH-1:0]  i_mhq_entries,
-    input  procyon_mhq_tag_t                     i_mhq_tail,
-    input  logic                                 i_mhq_full,
+    input  procyon_mhq_tagp_t                    i_mhq_tail_next,
+    input  procyon_mhq_tagp_t                    i_mhq_head_next,
 
     // Bypass lookup address from the mhq_ex stage
     input  logic                                 i_mhq_ex_bypass_en,
@@ -36,12 +36,14 @@ module mhq_lu (
     output procyon_byte_select_t                 o_mhq_lu_byte_select,
     output logic                                 o_mhq_lu_match,
     output procyon_mhq_tag_t                     o_mhq_lu_tag,
-    output procyon_mhq_addr_t                    o_mhq_lu_addr
+    output procyon_mhq_addr_t                    o_mhq_lu_addr,
+    output logic                                 o_mhq_lu_full
 );
 
     typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
 
-    procyon_mhq_tag_t                            mhq_tail_next;
+    procyon_mhq_tag_t                            mhq_tail_addr;
+    logic                                        mhq_full_next;
     logic                                        mhq_lookup_en;
     logic                                        mhq_lookup_is_fill;
     procyon_mhq_addr_t                           mhq_lookup_addr;
@@ -51,20 +53,18 @@ module mhq_lu (
     procyon_mhq_tag_t                            mhq_lookup_tag;
     mhq_tag_select_t                             mhq_lookup_tag_select;
     logic                                        mhq_ex_bypass_en;
-    logic                                        mhq_ex_bypass_alloc;
     logic                                        bypass_en;
 
-    // Determine if MHQ request in EX stage is going to enqueue/alloc and bypass if the lookup address matches the address in the next stage
+    // Calculate if the MHQ will be full on the next cycle
+    assign mhq_tail_addr                         = i_mhq_tail_next[`MHQ_TAG_WIDTH-1:0];
+    assign mhq_full_next                         = ({~i_mhq_tail_next[`MHQ_TAG_WIDTH], i_mhq_tail_next[`MHQ_TAG_WIDTH-1:0]} == i_mhq_head_next);
+
+    // Determine if MHQ request in EX stage is going to enqueue and bypass if the lookup address matches the address in the next stage
     assign mhq_ex_bypass_en                      = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
-    assign mhq_ex_bypass_alloc                   = mhq_ex_bypass_en && ~i_mhq_ex_bypass_match;
     assign bypass_en                             = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
 
-    // We need to calculate the tail pointer on the next cycle in order to get an accurate tag for allocation
-    // because a miss request may be allocated on the same cycle as this lookup
-    assign mhq_tail_next                         = mhq_ex_bypass_alloc ? i_mhq_tail + 1'b1 : i_mhq_tail;
-
     assign mhq_lookup_is_fill                    = (i_mhq_lookup_lsu_func == LSU_FUNC_FILL);
-    assign mhq_lookup_en                         = i_mhq_lookup_valid && ~mhq_lookup_is_fill && ~i_mhq_lookup_dc_hit && ~i_mhq_full;
+    assign mhq_lookup_en                         = i_mhq_lookup_valid && ~mhq_lookup_is_fill && ~i_mhq_lookup_dc_hit && ~mhq_full_next;
     assign mhq_lookup_addr                       = i_mhq_lookup_addr[`ADDR_WIDTH-1:`DC_OFFSET_WIDTH];
     assign mhq_lookup_offset                     = i_mhq_lookup_addr[`DC_OFFSET_WIDTH-1:0];
 
@@ -81,7 +81,7 @@ module mhq_lu (
 
         // Convert tag pointer into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            tail_tag_select[i] = (procyon_mhq_tag_t'(i) == mhq_tail_next);
+            tail_tag_select[i] = (procyon_mhq_tag_t'(i) == mhq_tail_addr);
         end
 
         // Check each valid entry for a matching lookup address
@@ -135,6 +135,7 @@ module mhq_lu (
         o_mhq_lu_match        <= mhq_lookup_match;
         o_mhq_lu_tag          <= mhq_lookup_tag;
         o_mhq_lu_addr         <= mhq_lookup_addr;
+        o_mhq_lu_full         <= mhq_full_next;
     end
 
 endmodule

@@ -19,6 +19,7 @@ package procyon_types;
 
     typedef logic [`ADDR_WIDTH-1:`DC_OFFSET_WIDTH] procyon_mhq_addr_t;
     typedef logic [`MHQ_TAG_WIDTH-1:0]             procyon_mhq_tag_t;
+    typedef logic [`MHQ_TAG_WIDTH:0]               procyon_mhq_tagp_t;
 
     typedef logic [`DC_LINE_WIDTH-1:0]             procyon_cacheline_t;
     typedef logic [`DC_TAG_WIDTH-1:0]              procyon_dc_tag_t;

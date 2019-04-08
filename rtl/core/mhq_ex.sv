@@ -8,11 +8,11 @@ module mhq_ex (
     input  logic                                 clk,
     input  logic                                 n_rst,
 
-    // MHQ full signal and head, tail pointers and MHQ entries
+    // MHQ head, tail pointers and MHQ entries
     input  procyon_mhq_entry_t [`MHQ_DEPTH-1:0]  i_mhq_entries,
     output procyon_mhq_entry_t [`MHQ_DEPTH-1:0]  o_mhq_entries,
-    output procyon_mhq_tag_t                     o_mhq_tail,
-    output logic                                 o_mhq_full,
+    output procyon_mhq_tagp_t                    o_mhq_head_next,
+    output procyon_mhq_tagp_t                    o_mhq_tail_next,
 
     // Input from lookup stage
     input  logic                                 i_mhq_lu_en,
@@ -39,14 +39,12 @@ module mhq_ex (
 );
 
     typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
-    typedef logic [`MHQ_TAG_WIDTH:0]             mhq_tagp_t;
 
-    mhq_tagp_t                                   mhq_head;
-    mhq_tagp_t                                   mhq_tail;
-    mhq_tagp_t                                   mhq_head_next;
-    mhq_tagp_t                                   mhq_tail_next;
+    procyon_mhq_tagp_t                           mhq_head;
+    procyon_mhq_tagp_t                           mhq_tail;
+    procyon_mhq_tagp_t                           mhq_head_next;
+    procyon_mhq_tagp_t                           mhq_tail_next;
     procyon_mhq_tag_t                            mhq_head_addr;
-    logic                                        mhq_full_next;
     mhq_tag_select_t                             mhq_valid_next;
     logic                                        mhq_ex_en;
     logic                                        mhq_ex_alloc;
@@ -63,7 +61,10 @@ module mhq_ex (
     assign mhq_head_addr                         = mhq_head[`MHQ_TAG_WIDTH-1:0];
     assign mhq_head_next                         = i_ccu_done ? mhq_head + 1'b1 : mhq_head;
     assign mhq_tail_next                         = mhq_ex_alloc ? mhq_tail + 1'b1 : mhq_tail;
-    assign mhq_full_next                         = ({~mhq_tail_next[`MHQ_TAG_WIDTH], mhq_tail_next[`MHQ_TAG_WIDTH-1:0]} == mhq_head_next);
+
+    // These should not be registered. Send these signals back to the MHQ_LU stage
+    assign o_mhq_head_next                       = mhq_head_next;
+    assign o_mhq_tail_next                       = mhq_tail_next;
 
     // Signal to CCU to fetch data from memory
     // FIXME These should be registered
@@ -146,18 +147,6 @@ module mhq_ex (
     always_ff @(posedge clk) begin
         if (~n_rst) mhq_tail <= {(`MHQ_TAG_WIDTH+1){1'b0}};
         else        mhq_tail <= mhq_tail_next;
-    end
-
-    // Output tail pointer
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_mhq_tail <= {(`MHQ_TAG_WIDTH){1'b0}};
-        else        o_mhq_tail <= mhq_tail_next[`MHQ_TAG_WIDTH-1:0];
-    end
-
-    // Generate signal to indicate if the MHQ will be full on the next cycle
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_mhq_full <= 1'b0;
-        else        o_mhq_full <= mhq_full_next;
     end
 
 endmodule
