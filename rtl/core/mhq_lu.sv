@@ -1,5 +1,5 @@
 // MHQ lookup stage
-// Lookup miss queue for address matches and generate byte select signals depending on store type
+// Lookup MHQ for address matches and generate byte select signals depending on store type
 
 `include "common.svh"
 import procyon_types::*;
@@ -18,7 +18,7 @@ module mhq_lu (
     input  logic                                 i_mhq_ex_bypass_we,
     input  logic                                 i_mhq_ex_bypass_match,
     input  procyon_mhq_addr_t                    i_mhq_ex_bypass_addr,
-    input  procyon_mhq_tag_select_t              i_mhq_ex_bypass_tag_select,
+    input  procyon_mhq_tag_t                     i_mhq_ex_bypass_tag,
 
     // Lookup lsu func
     input  logic                                 i_mhq_lookup_valid,
@@ -36,13 +36,10 @@ module mhq_lu (
     output procyon_byte_select_t                 o_mhq_lu_byte_select,
     output logic                                 o_mhq_lu_match,
     output procyon_mhq_tag_t                     o_mhq_lu_tag,
-    output procyon_mhq_tag_select_t              o_mhq_lu_tag_select,
-    output logic                                 o_mhq_lu_valid,
-    output logic                                 o_mhq_lu_dirty,
-    output procyon_mhq_addr_t                    o_mhq_lu_addr,
-    output procyon_cacheline_t                   o_mhq_lu_data,
-    output procyon_dc_byte_select_t              o_mhq_lu_byte_updated
+    output procyon_mhq_addr_t                    o_mhq_lu_addr
 );
+
+    typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
 
     logic                                        mhq_lookup_en;
     logic                                        mhq_lookup_is_fill;
@@ -51,7 +48,7 @@ module mhq_lu (
     procyon_byte_select_t                        mhq_lookup_byte_select;
     logic                                        mhq_lookup_match;
     procyon_mhq_tag_t                            mhq_lookup_tag;
-    procyon_mhq_tag_select_t                     mhq_lookup_tag_select;
+    mhq_tag_select_t                             mhq_lookup_tag_select;
     logic                                        bypass_en;
 
     assign mhq_lookup_is_fill                    = (i_mhq_lookup_lsu_func == LSU_FUNC_FILL);
@@ -60,10 +57,16 @@ module mhq_lu (
     assign mhq_lookup_offset                     = i_mhq_lookup_addr[`DC_OFFSET_WIDTH-1:0];
 
     always_comb begin
-        procyon_mhq_tag_select_t match_tag_select      = {(`MHQ_DEPTH){1'b0}};
-        procyon_mhq_tag_select_t tail_tag_select       = {(`MHQ_DEPTH){1'b0}};
-        logic                    mhq_ex_bypass_en      = 1'b0;
+        mhq_tag_select_t match_tag_select      = {(`MHQ_DEPTH){1'b0}};
+        mhq_tag_select_t tail_tag_select       = {(`MHQ_DEPTH){1'b0}};
+        mhq_tag_select_t bypass_tag_select     = {(`MHQ_DEPTH){1'b0}};
+        logic            lookup_match          = 1'b0;
+        logic            mhq_ex_bypass_en      = 1'b0;
 
+        // Convert bypass tag into tag select
+        for (int i = 0; i < `MHQ_DEPTH; i++) begin
+            bypass_tag_select[i] = (procyon_mhq_tag_t'(i) == i_mhq_ex_bypass_tag);
+        end
 
         // Convert tag pointer into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
@@ -76,13 +79,16 @@ module mhq_lu (
         end
 
         // If match_tag_select is non-zero than we have found a match
-        mhq_lookup_match = (match_tag_select != {(`MHQ_DEPTH){1'b0}});
+        lookup_match            = (match_tag_select != {(`MHQ_DEPTH){1'b0}});
 
         // Bypass lookup address from mhq_ex stage if possible
         // If there was no match then the tag is at the tail pointer (i.e. new entry)
         mhq_ex_bypass_en        = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
         bypass_en               = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
-        mhq_lookup_tag_select   = bypass_en ? i_mhq_ex_bypass_tag_select : (mhq_lookup_match ? match_tag_select : tail_tag_select);
+        mhq_lookup_tag_select   = bypass_en ? bypass_tag_select : (lookup_match ? match_tag_select : tail_tag_select);
+
+        // If either lookup_match or bypass_en is true then we have found a match (either in the MHQ or from the bypass)
+        mhq_lookup_match        = i_mhq_lookup_valid && (lookup_match || bypass_en);
     end
 
     // Convert one-hot mhq_lookup_tag_select vector into binary tag #
@@ -119,12 +125,7 @@ module mhq_lu (
         o_mhq_lu_byte_select  <= mhq_lookup_byte_select;
         o_mhq_lu_match        <= mhq_lookup_match;
         o_mhq_lu_tag          <= mhq_lookup_tag;
-        o_mhq_lu_tag_select   <= mhq_lookup_tag_select;
-        o_mhq_lu_valid        <= i_mhq_entries[mhq_lookup_tag].valid;
-        o_mhq_lu_dirty        <= i_mhq_entries[mhq_lookup_tag].dirty;
         o_mhq_lu_addr         <= mhq_lookup_addr;
-        o_mhq_lu_data         <= i_mhq_entries[mhq_lookup_tag].data;
-        o_mhq_lu_byte_updated <= i_mhq_entries[mhq_lookup_tag].byte_updated;
     end
 
 endmodule

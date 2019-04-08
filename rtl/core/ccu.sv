@@ -83,7 +83,7 @@ module ccu (
         endcase
     end
 
-    mhq2 mhq_inst (
+    mhq mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_lookup_valid(i_mhq_lookup_valid),

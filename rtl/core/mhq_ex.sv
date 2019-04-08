@@ -21,12 +21,8 @@ module mhq_ex (
     input  procyon_data_t                        i_mhq_lu_wr_data,
     input  procyon_byte_select_t                 i_mhq_lu_byte_select,
     input  logic                                 i_mhq_lu_match,
-    input  procyon_mhq_tag_select_t              i_mhq_lu_tag_select,
-    input  logic                                 i_mhq_lu_valid,
-    input  logic                                 i_mhq_lu_dirty,
+    input  procyon_mhq_tag_t                     i_mhq_lu_tag,
     input  procyon_mhq_addr_t                    i_mhq_lu_addr,
-    input  procyon_cacheline_t                   i_mhq_lu_data,
-    input  procyon_dc_byte_select_t              i_mhq_lu_byte_updated,
 
     // Fill interface
     output logic                                 o_mhq_fill_en,
@@ -42,30 +38,21 @@ module mhq_ex (
     output procyon_addr_t                        o_ccu_addr
 );
 
-    procyon_mhq_tagp_t                           mhq_head;
-    procyon_mhq_tagp_t                           mhq_tail;
-    procyon_mhq_tagp_t                           mhq_head_next;
-    procyon_mhq_tagp_t                           mhq_tail_next;
+    typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
+    typedef logic [`MHQ_TAG_WIDTH:0]             mhq_tagp_t;
+
+    mhq_tagp_t                                   mhq_head;
+    mhq_tagp_t                                   mhq_tail;
+    mhq_tagp_t                                   mhq_head_next;
+    mhq_tagp_t                                   mhq_tail_next;
     procyon_mhq_tag_t                            mhq_head_addr;
     logic                                        mhq_full_next;
-    procyon_mhq_tag_select_t                     mhq_valid_next;
+    mhq_tag_select_t                             mhq_valid_next;
     logic                                        mhq_ex_en;
     logic                                        mhq_ex_alloc;
-    logic                                        mhq_ex_valid;
     logic                                        mhq_ex_dirty;
     procyon_cacheline_t                          mhq_ex_data;
     procyon_dc_byte_select_t                     mhq_ex_byte_updated;
-    logic                                        mhq_bypass_en;
-    logic                                        mhq_bypass_valid;
-    logic                                        mhq_bypass_dirty;
-    procyon_mhq_addr_t                           mhq_bypass_addr;
-    procyon_cacheline_t                          mhq_bypass_data;
-    procyon_dc_byte_select_t                     mhq_bypass_byte_updated;
-    logic                                        bypass_en;
-    logic                                        bypass_valid;
-    logic                                        bypass_dirty;
-    procyon_cacheline_t                          bypass_data;
-    procyon_dc_byte_select_t                     bypass_byte_updated;
     procyon_addr_t                               mhq_fill_addr;
     procyon_cacheline_t                          mhq_fill_data;
 
@@ -78,13 +65,6 @@ module mhq_ex (
     assign mhq_tail_next                         = mhq_ex_alloc ? mhq_tail + 1'b1 : mhq_tail;
     assign mhq_full_next                         = ({~mhq_tail_next[`MHQ_TAG_WIDTH], mhq_tail_next[`MHQ_TAG_WIDTH-1:0]} == mhq_head_next);
 
-    // Generate bypass signals from last enqueue
-    assign bypass_en                             = (mhq_bypass_en && (mhq_bypass_addr == i_mhq_lu_addr));
-    assign bypass_valid                          = bypass_en ? mhq_bypass_valid : i_mhq_lu_valid;
-    assign bypass_dirty                          = bypass_en ? mhq_bypass_dirty : i_mhq_lu_dirty;
-    assign bypass_data                           = bypass_en ? mhq_bypass_data : i_mhq_lu_data;
-    assign bypass_byte_updated                   = bypass_en ? mhq_bypass_byte_updated : i_mhq_lu_byte_updated;
-
     // Signal to CCU to fetch data from memory
     // FIXME These should be registered
     assign o_ccu_addr                            = mhq_fill_addr;
@@ -93,17 +73,16 @@ module mhq_ex (
     always_comb begin
         // Generate valid bit depending on i_ccu_done and mhq_ex_en
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            mhq_valid_next[i] = ~(i_ccu_done && (procyon_mhq_tag_t'(i) == mhq_head_addr)) && (bypass_valid || mhq_ex_en);
+            mhq_valid_next[i] = ~(i_ccu_done && (procyon_mhq_tag_t'(i) == mhq_head_addr)) && (((procyon_mhq_tag_t'(i) == i_mhq_lu_tag) && mhq_ex_en) || i_mhq_entries[i].valid);
         end
     end
 
     always_comb begin
-        mhq_ex_valid        = |(mhq_valid_next & i_mhq_lu_tag_select);
-        mhq_ex_dirty        = i_mhq_lu_we || bypass_dirty;
+        mhq_ex_dirty        = i_mhq_lu_we || i_mhq_entries[i_mhq_lu_tag].dirty;
 
         // Merge write data into miss queue entry and update the byte_updated field
-        mhq_ex_data         = bypass_data;
-        mhq_ex_byte_updated = bypass_byte_updated;
+        mhq_ex_data         = i_mhq_entries[i_mhq_lu_tag].data;
+        mhq_ex_byte_updated = i_mhq_entries[i_mhq_lu_tag].byte_updated;
         for (int i = 0; i < `DC_LINE_SIZE; i++) begin
             if (procyon_dc_offset_t'(i) == i_mhq_lu_offset) begin
                 for (int j = 0; j < (4 < (`DC_LINE_SIZE-i) ? 4 : (`DC_LINE_SIZE-i)); j++) begin
@@ -141,13 +120,11 @@ module mhq_ex (
     end
 
     always_ff @(posedge clk) begin
-        for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            if (mhq_ex_en && i_mhq_lu_tag_select[i]) begin
-                o_mhq_entries[i].dirty        <= mhq_ex_dirty;
-                o_mhq_entries[i].addr         <= i_mhq_lu_addr;
-                o_mhq_entries[i].data         <= mhq_ex_data;
-                o_mhq_entries[i].byte_updated <= mhq_ex_byte_updated;
-            end
+        if (mhq_ex_en) begin
+            o_mhq_entries[i_mhq_lu_tag].dirty        <= mhq_ex_dirty;
+            o_mhq_entries[i_mhq_lu_tag].addr         <= i_mhq_lu_addr;
+            o_mhq_entries[i_mhq_lu_tag].data         <= mhq_ex_data;
+            o_mhq_entries[i_mhq_lu_tag].byte_updated <= mhq_ex_byte_updated;
         end
     end
 
@@ -158,16 +135,6 @@ module mhq_ex (
         o_mhq_fill_dirty <= i_mhq_entries[mhq_head_addr].dirty;
         o_mhq_fill_addr  <= mhq_fill_addr;
         o_mhq_fill_data  <= mhq_fill_data;
-    end
-
-    // Save these enqueue outputs for bypassing in the next cycle
-    always_ff @(posedge clk) begin
-        mhq_bypass_en           <= mhq_ex_en;
-        mhq_bypass_valid        <= mhq_ex_valid;
-        mhq_bypass_dirty        <= mhq_ex_dirty;
-        mhq_bypass_addr         <= i_mhq_lu_addr;
-        mhq_bypass_data         <= mhq_ex_data;
-        mhq_bypass_byte_updated <= mhq_ex_byte_updated;
     end
 
     // Update mhq head and tail pointers
