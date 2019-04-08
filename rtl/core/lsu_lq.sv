@@ -30,12 +30,12 @@ module lsu_lq (
     output procyon_addr_t                 o_replay_addr,
     output procyon_tag_t                  o_replay_tag,
 
-    // Signals from LSU_EX to update a load when it needs replaying
+    // Signals from LSU_EX and MHQ_LU to update a load when it needs replaying
     input  logic                          i_update_en,
     input  procyon_lq_select_t            i_update_select,
     input  logic                          i_update_retry,
     input  procyon_mhq_tag_t              i_update_mhq_tag,
-    input  logic                          i_update_mhq_full,
+    input  logic                          i_update_mhq_retry,
 
     // MHQ fill broadcast
     input  logic                          i_mhq_fill_en,
@@ -100,8 +100,7 @@ module lsu_lq (
     // Grab retired store address
     assign sq_retire_addr_start           = i_sq_retire_addr;
 
-    // Produce a one-hot bit vector of the slot that will be used to allocate
-    // the next load op. LQ is full if no bits are set in the empty vector
+    // Produce a one-hot bit vector of the slot that will be used to allocate the next load op. LQ is full if no bits are set in the empty vector
     assign lq_allocate_select             = {(`LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
     assign lq_full                        = lq_empty == {(`LQ_DEPTH){1'b0}};
 
@@ -214,10 +213,8 @@ module lsu_lq (
 
     // Update slot for loads that need to be replayed
     // Loads need to be replayed for two reasons:
-    // 1. Cache miss where the loads will be replayed when the MHQ broadcasts
-    // a fill with the matching MHQ tag that the load is waiting on
-    // 2. Cache miss and the MHQ is full where the loads will be replayed on
-    // any MHQ fill broadcast
+    // 1. Cache miss where the loads will be replayed when the MHQ broadcasts a fill with the matching MHQ tag that the load is waiting on
+    // 2. Cache miss and the MHQ is full with no matching entries where the loads will be replayed on any MHQ fill broadcast
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             lq_slots[i].needs_replay <= ~lq_allocate_select[i] & mux4_1b(lq_slots[i].needs_replay, i_update_retry, 1'b0, i_update_retry, {lq_replay_select[i], lq_update_select[i]});
@@ -225,12 +222,9 @@ module lsu_lq (
     end
 
     // Mark loads as replay_rdy if they need replaying and one of two conditions apply:
-    // 1. If they need replaying due to a cache miss then confirm that the MHQ
-    // fill tag matches the fill tag they are waiting on
-    // 2. If they need replaying due to a cache miss while the MHQ is full
-    // then mark replay_rdy on any fill broadcasted by the MHQ (i.e. when replay_retry is set)
-    // Clear replay_rdy when the LSU signals that the replay failed, but don't clear it if the MHQ signals a fill on the same cycle
-    // for the same MHQ tag that this load will be waiting on
+    // 1. If they need replaying due to a cache miss then confirm that the MHQ fill tag matches the fill tag they are waiting on
+    // 2. If they need replaying due to a cache miss while the MHQ is full then mark replay_rdy on any fill broadcasted by the MHQ (i.e. when replay_retry is set)
+    // Clear replay_rdy when the LSU signals that the replay failed, but don't clear it if the MHQ signals a fill on the same cycle for the same MHQ tag that this load will be waiting on
     always_comb begin
         logic update_replay_rdy;
         logic can_replay;
@@ -253,19 +247,17 @@ module lsu_lq (
         end
     end
 
-    // Update the replay_retry and replay_mhq_tag fields when a load is
-    // marked as needing to be replayed
+    // Update the replay_retry and replay_mhq_tag fields when a load is marked as needing to be replayed
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (lq_update_select[i]) begin
-                lq_slots[i].replay_retry    <= i_update_mhq_full;
+                lq_slots[i].replay_retry    <= i_update_mhq_retry;
                 lq_slots[i].replay_mhq_tag  <= i_update_mhq_tag;
             end
         end
     end
 
-    // Update mis-speculated bit for mis-speculated loads, only if the loads
-    // don't need replaying (i.e. they didn't miss in the cache)
+    // Update mis-speculated bit for mis-speculated loads, only if the loads don't need replaying (i.e. they didn't miss in the cache)
     always_ff @(posedge clk) begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             if (~n_rst) lq_slots[i].misspeculated <= 1'b0;

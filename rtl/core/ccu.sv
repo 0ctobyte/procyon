@@ -16,7 +16,7 @@ module ccu (
     input  procyon_lsu_func_t      i_mhq_lookup_lsu_func,
     input  procyon_data_t          i_mhq_lookup_data,
     input  logic                   i_mhq_lookup_we,
-    output logic                   o_mhq_lookup_full,
+    output logic                   o_mhq_lookup_retry,
     output procyon_mhq_tag_t       o_mhq_lookup_tag,
 
     // Fill cacheline
@@ -92,7 +92,7 @@ module ccu (
         .i_mhq_lookup_lsu_func(i_mhq_lookup_lsu_func),
         .i_mhq_lookup_data(i_mhq_lookup_data),
         .i_mhq_lookup_we(i_mhq_lookup_we),
-        .o_mhq_lookup_full(o_mhq_lookup_full),
+        .o_mhq_lookup_retry(o_mhq_lookup_retry),
         .o_mhq_lookup_tag(o_mhq_lookup_tag),
         .o_mhq_fill_en(o_mhq_fill_en),
         .o_mhq_fill_tag(o_mhq_fill_tag),

@@ -31,11 +31,11 @@ module lsu_sq (
     output procyon_tag_t                    o_sq_retire_tag,
     output procyon_data_t                   o_sq_retire_data,
 
-    // Signal from the LSU to indicate if the last retiring store needs to be retried
+    // Signals from the LSU and MHQ to indicate if the last retiring store needs to be retried
     input  logic                            i_update_en,
     input  procyon_sq_select_t              i_update_select,
     input  logic                            i_update_retry,
-    input  logic                            i_update_mhq_full,
+    input  logic                            i_update_mhq_retry,
 
     // ROB signal that a store has been retired
     input  logic                            i_rob_retire_en,
@@ -89,7 +89,7 @@ module lsu_sq (
     assign sq_retire_select                 = {(`SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
 
     assign sq_update_select                 = {(`SQ_DEPTH){i_update_en}} & i_update_select;
-    assign sq_update_retry                  = i_update_retry && i_update_mhq_full;
+    assign sq_update_retry                  = i_update_retry && i_update_mhq_retry;
 
     // Output full signal
     // FIXME: Can this be registered?

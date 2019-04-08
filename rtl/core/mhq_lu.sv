@@ -37,7 +37,7 @@ module mhq_lu (
     output logic                                 o_mhq_lu_match,
     output procyon_mhq_tag_t                     o_mhq_lu_tag,
     output procyon_mhq_addr_t                    o_mhq_lu_addr,
-    output logic                                 o_mhq_lu_full
+    output logic                                 o_mhq_lu_retry
 );
 
     typedef logic [`MHQ_DEPTH-1:0]               mhq_tag_select_t;
@@ -46,6 +46,7 @@ module mhq_lu (
     logic                                        mhq_full_next;
     logic                                        mhq_lookup_en;
     logic                                        mhq_lookup_is_fill;
+    logic                                        mhq_lookup_retry;
     procyon_mhq_addr_t                           mhq_lookup_addr;
     procyon_dc_offset_t                          mhq_lookup_offset;
     procyon_byte_select_t                        mhq_lookup_byte_select;
@@ -67,12 +68,13 @@ module mhq_lu (
     assign mhq_lookup_en                         = i_mhq_lookup_valid && ~mhq_lookup_is_fill && ~i_mhq_lookup_dc_hit && ~mhq_full_next;
     assign mhq_lookup_addr                       = i_mhq_lookup_addr[`ADDR_WIDTH-1:`DC_OFFSET_WIDTH];
     assign mhq_lookup_offset                     = i_mhq_lookup_addr[`DC_OFFSET_WIDTH-1:0];
+    assign mhq_lookup_retry                      = mhq_full_next && ~mhq_lookup_match;
 
     always_comb begin
-        mhq_tag_select_t match_tag_select      = {(`MHQ_DEPTH){1'b0}};
-        mhq_tag_select_t tail_tag_select       = {(`MHQ_DEPTH){1'b0}};
-        mhq_tag_select_t bypass_tag_select     = {(`MHQ_DEPTH){1'b0}};
-        logic            lookup_match          = 1'b0;
+        mhq_tag_select_t match_tag_select        = {(`MHQ_DEPTH){1'b0}};
+        mhq_tag_select_t tail_tag_select         = {(`MHQ_DEPTH){1'b0}};
+        mhq_tag_select_t bypass_tag_select       = {(`MHQ_DEPTH){1'b0}};
+        logic            lookup_match            = 1'b0;
 
         // Convert bypass tag into tag select
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
@@ -135,7 +137,7 @@ module mhq_lu (
         o_mhq_lu_match        <= mhq_lookup_match;
         o_mhq_lu_tag          <= mhq_lookup_tag;
         o_mhq_lu_addr         <= mhq_lookup_addr;
-        o_mhq_lu_full         <= mhq_full_next;
+        o_mhq_lu_retry        <= mhq_lookup_retry;
     end
 
 endmodule

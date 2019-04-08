@@ -27,7 +27,7 @@ module mhq (
     input  procyon_data_t                i_mhq_lookup_data,
     input  logic                         i_mhq_lookup_we,
     output procyon_mhq_tag_t             o_mhq_lookup_tag,
-    output logic                         o_mhq_lookup_full,
+    output logic                         o_mhq_lookup_retry,
 
     // Fill cacheline interface
     output logic                         o_mhq_fill_en,
@@ -54,9 +54,9 @@ module mhq (
     logic                                mhq_lu_match;
     procyon_mhq_tag_t                    mhq_lu_tag;
     procyon_mhq_addr_t                   mhq_lu_addr;
-    logic                                mhq_lu_full;
+    logic                                mhq_lu_retry;
 
-    assign o_mhq_lookup_full             = mhq_lu_full;
+    assign o_mhq_lookup_retry            = mhq_lu_retry;
     assign o_mhq_lookup_tag              = mhq_lu_tag;
 
     mhq_lu mhq_lu_inst (
@@ -84,7 +84,7 @@ module mhq (
         .o_mhq_lu_match(mhq_lu_match),
         .o_mhq_lu_tag(mhq_lu_tag),
         .o_mhq_lu_addr(mhq_lu_addr),
-        .o_mhq_lu_full(mhq_lu_full)
+        .o_mhq_lu_retry(mhq_lu_retry)
     );
 
     mhq_ex mhq_ex_inst (

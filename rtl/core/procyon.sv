@@ -110,7 +110,7 @@ module procyon (
     procyon_lsu_func_t             mhq_lookup_lsu_func;
     procyon_data_t                 mhq_lookup_data;
     logic                          mhq_lookup_we;
-    logic                          mhq_lookup_full;
+    logic                          mhq_lookup_retry;
     procyon_mhq_tag_t              mhq_lookup_tag;
     logic                          mhq_fill_en;
     procyon_mhq_tag_t              mhq_fill_tag;
@@ -342,7 +342,7 @@ module procyon (
         .o_rob_retire_lq_ack(lsu_retire_lq_ack),
         .o_rob_retire_sq_ack(lsu_retire_sq_ack),
         .o_rob_retire_misspeculated(lsu_retire_misspeculated),
-        .i_mhq_lookup_full(mhq_lookup_full),
+        .i_mhq_lookup_retry(mhq_lookup_retry),
         .i_mhq_lookup_tag(mhq_lookup_tag),
         .o_mhq_lookup_valid(mhq_lookup_valid),
         .o_mhq_lookup_dc_hit(mhq_lookup_dc_hit),
@@ -366,7 +366,7 @@ module procyon (
         .i_mhq_lookup_lsu_func(mhq_lookup_lsu_func),
         .i_mhq_lookup_data(mhq_lookup_data),
         .i_mhq_lookup_we(mhq_lookup_we),
-        .o_mhq_lookup_full(mhq_lookup_full),
+        .o_mhq_lookup_retry(mhq_lookup_retry),
         .o_mhq_lookup_tag(mhq_lookup_tag),
         .o_mhq_fill_en(mhq_fill_en),
         .o_mhq_fill_tag(mhq_fill_tag),
