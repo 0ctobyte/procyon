@@ -176,15 +176,17 @@ module lsu_lq (
 
     // Output replaying load
     always_ff @(posedge clk) begin
-        o_replay_select    <= lq_replay_select;
-        o_replay_lsu_func  <= lq_slots[replay_slot].lsu_func;
-        o_replay_addr      <= lq_slots[replay_slot].addr;
-        o_replay_tag       <= lq_slots[replay_slot].tag;
+        if (~n_rst || i_flush)    o_replay_en <= 1'b0;
+        else if (~i_replay_stall) o_replay_en <= replay_en;
     end
 
     always_ff @(posedge clk) begin
-        if (~n_rst) o_replay_en <= 1'b0;
-        else        o_replay_en <= ~i_flush & replay_en;
+        if (~i_replay_stall) begin
+            o_replay_select    <= lq_replay_select;
+            o_replay_lsu_func  <= lq_slots[replay_slot].lsu_func;
+            o_replay_addr      <= lq_slots[replay_slot].addr;
+            o_replay_tag       <= lq_slots[replay_slot].tag;
+        end
     end
 
     // Output LQ select vector on allocate request

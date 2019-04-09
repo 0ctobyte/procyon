@@ -130,16 +130,18 @@ module lsu_sq (
     // The retiring store address and type and retire_en signals is also
     // sent to the LQ for possible load bypass violation detection
     always_ff @(posedge clk) begin
-        o_sq_retire_data     <= sq_slots[retire_slot].data;
-        o_sq_retire_addr     <= sq_slots[retire_slot].addr;
-        o_sq_retire_tag      <= sq_slots[retire_slot].tag;
-        o_sq_retire_lsu_func <= sq_slots[retire_slot].lsu_func;
-        o_sq_retire_select   <= sq_retire_select;
+        if (~n_rst | i_flush)        o_sq_retire_en <= 1'b0;
+        else if (~i_sq_retire_stall) o_sq_retire_en <= retire_en;
     end
 
     always_ff @(posedge clk) begin
-        if (~n_rst) o_sq_retire_en <= 1'b0;
-        else        o_sq_retire_en <= ~i_flush & retire_en;
+        if (~i_sq_retire_stall) begin
+            o_sq_retire_data     <= sq_slots[retire_slot].data;
+            o_sq_retire_addr     <= sq_slots[retire_slot].addr;
+            o_sq_retire_tag      <= sq_slots[retire_slot].tag;
+            o_sq_retire_lsu_func <= sq_slots[retire_slot].lsu_func;
+            o_sq_retire_select   <= sq_retire_select;
+        end
     end
 
     // Set the valid bit for a slot only if new store op is being allocated
@@ -164,7 +166,7 @@ module lsu_sq (
     // Set the non-speculative bit when the ROB indicates that the store is ready to be retired
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
-            sq_slots[i].nonspeculative <= ~sq_allocate_select[i] & sq_rob_select[i];
+            sq_slots[i].nonspeculative <= (sq_slots[i].nonspeculative & ~sq_allocate_select[i]) | sq_rob_select[i];
         end
     end
 

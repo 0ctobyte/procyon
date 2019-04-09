@@ -133,12 +133,12 @@ module lsu_ad (
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_alloc_sq_en <= 1'b0;
-        else        o_alloc_sq_en <= ~i_flush & load_or_store & i_valid;
+        else        o_alloc_sq_en <= ~i_flush & load_or_store & i_valid & ~i_lq_replay_en & ~i_sq_retire_en & ~i_mhq_fill_en;
     end
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_alloc_lq_en <= 1'b0;
-        else        o_alloc_lq_en <= ~i_flush & ~load_or_store & i_valid;
+        else        o_alloc_lq_en <= ~i_flush & ~load_or_store & i_valid &  ~i_lq_replay_en & ~i_sq_retire_en & ~i_mhq_fill_en;
     end
 
     // Assign outputs to dcache interface
