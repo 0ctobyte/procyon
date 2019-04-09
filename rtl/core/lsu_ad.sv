@@ -81,6 +81,7 @@ module lsu_ad (
     procyon_data_t              imm_s;
     procyon_addr_t              addr;
     logic                       load_or_store;
+    logic                       rs_stall;
     logic [1:0]                 lsu_ad_mux_sel;
     procyon_addr_t              lsu_ad_mux_addr;
 
@@ -105,7 +106,8 @@ module lsu_ad (
     // 4. A store needs to be retired
     // 5. A load needs to be replayed
     // FIXME: This should be registered
-    assign o_stall              = i_lq_full | i_sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
+    assign rs_stall             = i_lq_full | i_sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
+    assign o_stall              = rs_stall;
 
     // FIXME: Can this be registered?
     assign o_sq_retire_stall    = i_flush | i_mhq_fill_en;
@@ -133,12 +135,12 @@ module lsu_ad (
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_alloc_sq_en <= 1'b0;
-        else        o_alloc_sq_en <= ~i_flush & load_or_store & i_valid & ~i_lq_replay_en & ~i_sq_retire_en & ~i_mhq_fill_en;
+        else        o_alloc_sq_en <= ~i_flush & load_or_store & i_valid & ~rs_stall;
     end
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_alloc_lq_en <= 1'b0;
-        else        o_alloc_lq_en <= ~i_flush & ~load_or_store & i_valid &  ~i_lq_replay_en & ~i_sq_retire_en & ~i_mhq_fill_en;
+        else        o_alloc_lq_en <= ~i_flush & ~load_or_store & i_valid &  ~rs_stall;
     end
 
     // Assign outputs to dcache interface
@@ -170,7 +172,7 @@ module lsu_ad (
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= ~i_flush & (i_valid | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en);
+        else        o_valid <= ~i_flush & ((i_valid & ~i_lq_full & ~i_sq_full) | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en);
     end
 
 endmodule

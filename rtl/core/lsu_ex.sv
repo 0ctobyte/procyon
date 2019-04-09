@@ -76,7 +76,7 @@ module lsu_ex (
 
     always_ff @(posedge clk) begin
         if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= ~i_flush & i_valid & ~is_fill & (i_dc_hit | is_store);
+        else        o_valid <= ~i_flush & i_valid & ~is_fill & ~i_retire & (i_dc_hit | is_store);
     end
 
     always_ff @(posedge clk) begin

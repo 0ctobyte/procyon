@@ -121,6 +121,23 @@ package procyon_types;
 
     endfunction
 
+    function logic [2:0] mux4_3b (
+        input logic [2:0] i_data0,
+        input logic [2:0] i_data1,
+        input logic [2:0] i_data2,
+        input logic [2:0] i_data3,
+        input logic [1:0] i_sel
+    );
+
+        case (i_sel)
+            2'b00: mux4_3b = i_data0;
+            2'b01: mux4_3b = i_data1;
+            2'b10: mux4_3b = i_data2;
+            2'b11: mux4_3b = i_data3;
+        endcase
+
+    endfunction
+
     function logic [3:0] mux4_4b (
         input logic [3:0] i_data0,
         input logic [3:0] i_data1,

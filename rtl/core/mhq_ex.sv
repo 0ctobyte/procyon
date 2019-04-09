@@ -54,8 +54,8 @@ module mhq_ex (
     procyon_addr_t                               mhq_fill_addr;
     procyon_cacheline_t                          mhq_fill_data;
 
-    assign mhq_ex_en                             = i_mhq_lu_en || (i_mhq_lu_we && i_mhq_lu_match);
-    assign mhq_ex_alloc                          = mhq_ex_en && ~i_mhq_lu_match;
+    assign mhq_ex_en                             = i_mhq_lu_en | (i_mhq_lu_we & i_mhq_lu_match);
+    assign mhq_ex_alloc                          = mhq_ex_en & ~i_mhq_lu_match;
 
     // Calculate next head, tail and full signals
     assign mhq_head_addr                         = mhq_head[`MHQ_TAG_WIDTH-1:0];
@@ -74,21 +74,20 @@ module mhq_ex (
     always_comb begin
         // Generate valid bit depending on i_ccu_done and mhq_ex_en
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            mhq_valid_next[i] = ~(i_ccu_done && (procyon_mhq_tag_t'(i) == mhq_head_addr)) && (((procyon_mhq_tag_t'(i) == i_mhq_lu_tag) && mhq_ex_en) || i_mhq_entries[i].valid);
+            mhq_valid_next[i] = ~(i_ccu_done & (procyon_mhq_tag_t'(i) == mhq_head_addr)) & (((procyon_mhq_tag_t'(i) == i_mhq_lu_tag) & mhq_ex_en) | i_mhq_entries[i].valid);
         end
     end
 
     always_comb begin
-        mhq_ex_dirty        = i_mhq_lu_we || i_mhq_entries[i_mhq_lu_tag].dirty;
-
         // Merge write data into miss queue entry and update the byte_updated field
+        mhq_ex_dirty        = i_mhq_lu_we | (~mhq_ex_alloc & i_mhq_entries[i_mhq_lu_tag].dirty);
         mhq_ex_data         = i_mhq_entries[i_mhq_lu_tag].data;
-        mhq_ex_byte_updated = i_mhq_entries[i_mhq_lu_tag].byte_updated;
+        mhq_ex_byte_updated = {(`DC_LINE_SIZE){~mhq_ex_alloc}} & i_mhq_entries[i_mhq_lu_tag].byte_updated;
         for (int i = 0; i < `DC_LINE_SIZE; i++) begin
             if (procyon_dc_offset_t'(i) == i_mhq_lu_offset) begin
                 for (int j = 0; j < (4 < (`DC_LINE_SIZE-i) ? 4 : (`DC_LINE_SIZE-i)); j++) begin
-                    mhq_ex_data[(i+j)*8 +: 8] = (i_mhq_lu_we && i_mhq_lu_byte_select[j]) ? i_mhq_lu_wr_data[j*8 +: 8] : mhq_ex_data[(i+j)*8 +: 8];
-                    mhq_ex_byte_updated[i+j]  = (i_mhq_lu_we && i_mhq_lu_byte_select[j]) || mhq_ex_byte_updated[i+j];
+                    mhq_ex_data[(i+j)*8 +: 8] = (i_mhq_lu_we & i_mhq_lu_byte_select[j]) ? i_mhq_lu_wr_data[j*8 +: 8] : mhq_ex_data[(i+j)*8 +: 8];
+                    mhq_ex_byte_updated[i+j]  = (i_mhq_lu_we & i_mhq_lu_byte_select[j]) | mhq_ex_byte_updated[i+j];
                 end
             end
         end
@@ -101,13 +100,13 @@ module mhq_ex (
 
         mhq_fill_addr     = {i_mhq_entries[mhq_head_addr].addr, {(`DC_OFFSET_WIDTH){1'b0}}};
         mhq_fill_data     = {(`DC_LINE_WIDTH){1'b0}};
-        mhq_ex_fill_merge = (mhq_ex_en && i_mhq_lu_we && (i_mhq_lu_addr == i_mhq_entries[mhq_head_addr].addr));
+        mhq_ex_fill_merge = (mhq_ex_en & i_mhq_lu_we & (i_mhq_lu_addr == i_mhq_entries[mhq_head_addr].addr));
 
         // Merge data from the CCU and updated data in the MHQ entry (based on the byte_updated field)
         // Also merge data from current enqueue request to the same entry as the fill if there is one (this one takes priority)
         for (int i = 0; i < `DC_LINE_SIZE; i++) begin
             // Generate mux select signals for the fill data
-            mhq_fill_data_mux_sel[i] = {(mhq_ex_fill_merge && mhq_ex_byte_updated[i]), i_mhq_entries[mhq_head_addr].byte_updated[i]};
+            mhq_fill_data_mux_sel[i] = {(mhq_ex_fill_merge & mhq_ex_byte_updated[i]), i_mhq_entries[mhq_head_addr].byte_updated[i]};
             mhq_fill_data[i*8 +: 8]  = mux4_8b(i_ccu_data[i*8 +: 8], i_mhq_entries[mhq_head_addr].data[i*8 +: 8], mhq_ex_data[i*8 +: 8], mhq_ex_data[i*8 +: 8], mhq_fill_data_mux_sel[i]);
         end
     end

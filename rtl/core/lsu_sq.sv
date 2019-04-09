@@ -43,79 +43,99 @@ module lsu_sq (
     output logic                            o_rob_retire_ack
 );
 
-    typedef logic [`SQ_DEPTH-1:0]           sq_vec_t;
     typedef logic [$clog2(`SQ_DEPTH)-1:0]   sq_idx_t;
+
+    // Each SQ slot is in one of the following states:
+    // INVALID:        Slot is empty
+    // VALID:          Slot contains a valid but not retired store operation
+    // NONSPECULATIVE: Slot contains a store that is at the head of the ROB and thus is ready to be retired
+    // LAUNCHED:       Slot contains a retired store that has been launched into the LSU pipeline
+    //                 It must wait in this state until the LSU indicates if it was retired successfully or if it needs to be relaunched
+    typedef enum logic [1:0] {
+        SQ_STATE_INVALID        = 2'b00,
+        SQ_STATE_VALID          = 2'b01,
+        SQ_STATE_NONSPECULATIVE = 2'b10,
+        SQ_STATE_LAUNCHED       = 2'b11
+    } sq_slot_state_t;
 
     // Each SQ slot contains:
     // lsu_func:        Indicates type of store op (SB, SH, SW)
     // addr:            Store address updated in ID stage
     // data:            Store data updated in ID stage
     // tag:             Destination tag in ROB (used for age comparison for store-to-load forwarding)
-    // valid:           Indicates if slot is valid i.e. not empty
-    // nonspeculative:  Indicates if slot is no longer speculative and can be retired/written out to cache
-    // launched:        Indicates if the retired store has been launched to LSU_EX
+    // state:           Current state of the entry
     typedef struct packed {
         procyon_lsu_func_t                  lsu_func;
         procyon_addr_t                      addr;
         procyon_data_t                      data;
         procyon_tag_t                       tag;
-        logic                               valid;
-        logic                               nonspeculative;
-        logic                               launched;
+        sq_slot_state_t                     state;
     } sq_slot_t;
 
 /* verilator lint_off MULTIDRIVEN */
     sq_slot_t [`SQ_DEPTH-1:0]               sq_slots;
 /* verilator lint_on  MULTIDRIVEN */
+    sq_slot_state_t                         sq_slot_state_next [`SQ_DEPTH-1:0];
     logic                                   sq_full;
-    sq_vec_t                                sq_empty;
-    sq_vec_t                                sq_retirable;
-    sq_vec_t                                sq_allocate_select;
-    sq_vec_t                                sq_rob_select;
+    procyon_sq_select_t                     sq_empty;
+    procyon_sq_select_t                     sq_retirable;
+    procyon_sq_select_t                     sq_rob_tag_match;
+    procyon_sq_select_t                     sq_allocate_select;
+    procyon_sq_select_t                     sq_rob_select;
     procyon_sq_select_t                     sq_update_select;
     logic                                   sq_update_retry;
     procyon_sq_select_t                     sq_retire_select;
-    sq_idx_t                                retire_slot;
-    logic                                   retire_en;
+    sq_idx_t                                sq_retire_slot;
+    logic                                   sq_retire_en;
+    logic                                   sq_retire_ack;
 
-    // This will produce a one-hot vector of the slot that will be used
-    // to allocate the next store op. SQ is full if no bits are set in the
-    // empty vector
     assign sq_allocate_select               = {(`SQ_DEPTH){i_alloc_en}} & (sq_empty & ~(sq_empty - 1'b1));
-    assign sq_full                          = sq_empty == {(`SQ_DEPTH){1'b0}};
-
-    // Retire stores that are non-speculative
-    assign retire_en                        = sq_retirable != {(`SQ_DEPTH){1'b0}};
+    assign sq_rob_select                    = {(`SQ_DEPTH){i_rob_retire_en}} & sq_rob_tag_match;
     assign sq_retire_select                 = {(`SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
-
     assign sq_update_select                 = {(`SQ_DEPTH){i_update_en}} & i_update_select;
-    assign sq_update_retry                  = i_update_retry && i_update_mhq_retry;
+
+    assign sq_retire_en                     = sq_retire_select != {(`SQ_DEPTH){1'b0}};
+    assign sq_retire_ack                    = i_rob_retire_en & sq_retire_en & (sq_slots[sq_retire_slot].tag == i_rob_retire_tag);
+    assign sq_update_retry                  = i_update_retry & i_update_mhq_retry;
 
     // Output full signal
     // FIXME: Can this be registered?
+    assign sq_full                          = ((sq_empty & ~sq_allocate_select) == {(`SQ_DEPTH){1'b0}});
     assign o_full                           = sq_full;
 
     always_comb begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
-            // A slot is ready to be retired if it is non-speculative and valid and not already launched
-            sq_retirable[i]  = sq_slots[i].nonspeculative & ~sq_slots[i].launched & sq_slots[i].valid;
+            // A slot is ready to be retired if it is non-speculative
+            sq_retirable[i]     = (sq_slots[i].state == SQ_STATE_NONSPECULATIVE);
 
-            // Use the ROB tag to determine which slot is no longer speculative and can be retired (i.e. written out to the cache)
+            // Match the ROB retire tag with an entry to determine which entry should be marked nonspeculative (i.e. retirable)
             // Only one valid slot should have the matching tag
-            sq_rob_select[i] = i_rob_retire_en & (sq_slots[i].tag == i_rob_retire_tag) & sq_slots[i].valid;
+            sq_rob_tag_match[i] = (sq_slots[i].tag == i_rob_retire_tag);
 
-            // A slot is considered empty if it is marked as not valid
-            sq_empty[i]      = ~sq_slots[i].valid;
+            // A slot is considered empty if it is invalid
+            sq_empty[i]         = (sq_slots[i].state == SQ_STATE_INVALID);
+        end
+    end
+
+    // Update state for each SQ entry
+    always_comb begin
+        for (int i = 0; i < `SQ_DEPTH; i++) begin
+            sq_slot_state_next[i] = sq_slots[i].state;
+            case (sq_slot_state_next[i])
+                SQ_STATE_INVALID:        sq_slot_state_next[i] = sq_allocate_select[i] ? SQ_STATE_VALID : sq_slot_state_next[i];
+                SQ_STATE_VALID:          sq_slot_state_next[i] = i_flush ? SQ_STATE_INVALID : (sq_rob_select[i] ? SQ_STATE_NONSPECULATIVE : sq_slot_state_next[i]);
+                SQ_STATE_NONSPECULATIVE: sq_slot_state_next[i] = sq_retire_select[i] ? SQ_STATE_LAUNCHED : sq_slot_state_next[i];
+                SQ_STATE_LAUNCHED:       sq_slot_state_next[i] = sq_update_select[i] ? (sq_update_retry ? SQ_STATE_NONSPECULATIVE : SQ_STATE_INVALID) : sq_slot_state_next[i];
+            endcase
         end
     end
 
     // Convert one-hot retire_select vector into binary SQ slot #
     always_comb begin
-        retire_slot = {($clog2(`SQ_DEPTH)){1'b0}};
-
+        sq_retire_slot = {($clog2(`SQ_DEPTH)){1'b0}};
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             if (sq_retire_select[i]) begin
-                retire_slot = sq_idx_t'(i);
+                sq_retire_slot = sq_idx_t'(i);
             end
         end
     end
@@ -123,57 +143,37 @@ module lsu_sq (
     // Send ack back to ROB when launching the retired store
     always_ff @(posedge clk) begin
         if (~n_rst) o_rob_retire_ack <= 1'b0;
-        else        o_rob_retire_ack <= i_rob_retire_en & retire_en & (sq_slots[retire_slot].tag == i_rob_retire_tag);
+        else        o_rob_retire_ack <= sq_retire_ack;
     end
 
     // Retire stores to D$ or to the MHQ if it misses in the cache
-    // The retiring store address and type and retire_en signals is also
-    // sent to the LQ for possible load bypass violation detection
+    // The retiring store address and type and sq_retire_en signals is also sent to the LQ for possible load bypass violation detection
     always_ff @(posedge clk) begin
-        if (~n_rst | i_flush)        o_sq_retire_en <= 1'b0;
-        else if (~i_sq_retire_stall) o_sq_retire_en <= retire_en;
+        if (~n_rst || i_flush)       o_sq_retire_en <= 1'b0;
+        else if (~i_sq_retire_stall) o_sq_retire_en <= sq_retire_en;
     end
 
     always_ff @(posedge clk) begin
         if (~i_sq_retire_stall) begin
-            o_sq_retire_data     <= sq_slots[retire_slot].data;
-            o_sq_retire_addr     <= sq_slots[retire_slot].addr;
-            o_sq_retire_tag      <= sq_slots[retire_slot].tag;
-            o_sq_retire_lsu_func <= sq_slots[retire_slot].lsu_func;
+            o_sq_retire_data     <= sq_slots[sq_retire_slot].data;
+            o_sq_retire_addr     <= sq_slots[sq_retire_slot].addr;
+            o_sq_retire_tag      <= sq_slots[sq_retire_slot].tag;
+            o_sq_retire_lsu_func <= sq_slots[sq_retire_slot].lsu_func;
             o_sq_retire_select   <= sq_retire_select;
-        end
-    end
-
-    // Set the valid bit for a slot only if new store op is being allocated
-    // Clear valid bit on flush, reset and a successful retired store
-    // On a flush, don't clear the valid bit if the entry is marked nonspeculative and is still valid!
-    // Those stores still need to be written out to the cache
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < `SQ_DEPTH; i++) begin
-            if (~n_rst) sq_slots[i].valid <= 1'b0;
-            else        sq_slots[i].valid <= i_flush ? sq_slots[i].nonspeculative & sq_slots[i].valid : sq_allocate_select[i] | (sq_update_select[i] ? sq_update_retry : sq_slots[i].valid);
-        end
-    end
-
-    // Set the launched bit when the store is retired
-    // Clear it if the store retire fails or when allocating a new entry
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < `SQ_DEPTH; i++) begin
-            sq_slots[i].launched <= ~sq_allocate_select[i] & (sq_retire_select[i] | (sq_update_select[i] ? ~sq_update_retry : sq_slots[i].launched));
-        end
-    end
-
-    // Set the non-speculative bit when the ROB indicates that the store is ready to be retired
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < `SQ_DEPTH; i++) begin
-            sq_slots[i].nonspeculative <= (sq_slots[i].nonspeculative & ~sq_allocate_select[i]) | sq_rob_select[i];
         end
     end
 
     // Update slot for newly allocated store op
     always_ff @(posedge clk) begin
         for (int i = 0; i < `SQ_DEPTH; i++) begin
-            if (sq_allocate_select[i]) begin
+            if (~n_rst) sq_slots[i].state <= SQ_STATE_INVALID;
+            else        sq_slots[i].state <= sq_slot_state_next[i];
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        for (int i = 0; i < `SQ_DEPTH; i++) begin
+            if (sq_allocate_select[i] & (sq_slots[i].state == SQ_STATE_INVALID)) begin
                 sq_slots[i].data       <= i_alloc_data;
                 sq_slots[i].addr       <= i_alloc_addr;
                 sq_slots[i].lsu_func   <= i_alloc_lsu_func;

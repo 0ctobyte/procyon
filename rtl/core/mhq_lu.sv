@@ -61,14 +61,14 @@ module mhq_lu (
     assign mhq_full_next                         = ({~i_mhq_tail_next[`MHQ_TAG_WIDTH], i_mhq_tail_next[`MHQ_TAG_WIDTH-1:0]} == i_mhq_head_next);
 
     // Determine if MHQ request in EX stage is going to enqueue and bypass if the lookup address matches the address in the next stage
-    assign mhq_ex_bypass_en                      = i_mhq_ex_bypass_en || (i_mhq_ex_bypass_we && i_mhq_ex_bypass_match);
-    assign bypass_en                             = (mhq_ex_bypass_en && (i_mhq_ex_bypass_addr == mhq_lookup_addr));
+    assign mhq_ex_bypass_en                      = i_mhq_ex_bypass_en | (i_mhq_ex_bypass_we & i_mhq_ex_bypass_match);
+    assign bypass_en                             = (mhq_ex_bypass_en & (i_mhq_ex_bypass_addr == mhq_lookup_addr));
 
     assign mhq_lookup_is_fill                    = (i_mhq_lookup_lsu_func == LSU_FUNC_FILL);
-    assign mhq_lookup_en                         = i_mhq_lookup_valid && ~mhq_lookup_is_fill && ~i_mhq_lookup_dc_hit && ~mhq_full_next;
+    assign mhq_lookup_en                         = i_mhq_lookup_valid & ~mhq_lookup_is_fill & ~i_mhq_lookup_dc_hit & ~mhq_full_next;
     assign mhq_lookup_addr                       = i_mhq_lookup_addr[`ADDR_WIDTH-1:`DC_OFFSET_WIDTH];
     assign mhq_lookup_offset                     = i_mhq_lookup_addr[`DC_OFFSET_WIDTH-1:0];
-    assign mhq_lookup_retry                      = mhq_full_next && ~mhq_lookup_match;
+    assign mhq_lookup_retry                      = mhq_full_next & ~mhq_lookup_match;
 
     always_comb begin
         mhq_tag_select_t match_tag_select        = {(`MHQ_DEPTH){1'b0}};
@@ -88,7 +88,7 @@ module mhq_lu (
 
         // Check each valid entry for a matching lookup address
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
-            match_tag_select[i] = i_mhq_entries[i].valid && (i_mhq_entries[i].addr == mhq_lookup_addr);
+            match_tag_select[i] = i_mhq_entries[i].valid & (i_mhq_entries[i].addr == mhq_lookup_addr);
         end
 
         // If match_tag_select is non-zero than we have found a match
@@ -99,13 +99,12 @@ module mhq_lu (
         mhq_lookup_tag_select   = bypass_en ? bypass_tag_select : (lookup_match ? match_tag_select : tail_tag_select);
 
         // If either lookup_match or bypass_en is true then we have found a match (either in the MHQ or from the bypass)
-        mhq_lookup_match        = i_mhq_lookup_valid && (lookup_match || bypass_en);
+        mhq_lookup_match        = i_mhq_lookup_valid & (lookup_match | bypass_en);
     end
 
     // Convert one-hot mhq_lookup_tag_select vector into binary tag #
     always_comb begin
         mhq_lookup_tag = {(`MHQ_TAG_WIDTH){1'b0}};
-
         for (int i = 0; i < `MHQ_DEPTH; i++) begin
             if (mhq_lookup_tag_select[i]) begin
                 mhq_lookup_tag = procyon_mhq_tag_t'(i);
