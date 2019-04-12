@@ -55,7 +55,12 @@ module mhq (
     procyon_mhq_tag_t                    mhq_lu_tag;
     procyon_mhq_addr_t                   mhq_lu_addr;
     logic                                mhq_lu_retry;
+    procyon_addr_t                       ccu_addr;
 
+    // Output to CCU but also used by MHQ_LU
+    assign o_ccu_addr                    = ccu_addr;
+
+    // Output to LSU
     assign o_mhq_lookup_retry            = mhq_lu_retry;
     assign o_mhq_lookup_tag              = mhq_lu_tag;
 
@@ -84,7 +89,9 @@ module mhq (
         .o_mhq_lu_match(mhq_lu_match),
         .o_mhq_lu_tag(mhq_lu_tag),
         .o_mhq_lu_addr(mhq_lu_addr),
-        .o_mhq_lu_retry(mhq_lu_retry)
+        .o_mhq_lu_retry(mhq_lu_retry),
+        .i_ccu_done(i_ccu_done),
+        .i_ccu_addr(ccu_addr)
     );
 
     mhq_ex mhq_ex_inst (
@@ -110,7 +117,7 @@ module mhq (
         .i_ccu_done(i_ccu_done),
         .i_ccu_data(i_ccu_data),
         .o_ccu_en(o_ccu_en),
-        .o_ccu_addr(o_ccu_addr)
+        .o_ccu_addr(ccu_addr)
     );
 
 endmodule
