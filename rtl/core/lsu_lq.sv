@@ -70,8 +70,7 @@ module lsu_lq (
         LQ_STATE_MHQ_FILL_WAIT = 3'b011,
         LQ_STATE_REPLAYABLE    = 3'b100,
         LQ_STATE_LAUNCHED      = 3'b101,
-        LQ_STATE_COMPLETE      = 3'b110,
-        LQ_STATE_UNUSED        = 3'b111
+        LQ_STATE_COMPLETE      = 3'b110
     } lq_slot_state_t;
 
     // Each entry in the LQ contains the following

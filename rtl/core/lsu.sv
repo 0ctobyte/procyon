@@ -324,6 +324,7 @@ module lsu (
         .i_update_select(update_sq_select),
         .i_update_retry(update_sq_retry),
         .i_update_mhq_retry(i_mhq_lookup_retry),
+        .i_mhq_fill_en(i_mhq_fill_en),
         .i_rob_retire_en(i_rob_retire_sq_en),
         .i_rob_retire_tag(i_rob_retire_tag),
         .o_rob_retire_ack(o_rob_retire_sq_ack)

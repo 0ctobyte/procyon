@@ -37,6 +37,9 @@ module lsu_sq (
     input  logic                            i_update_retry,
     input  logic                            i_update_mhq_retry,
 
+    // MHQ fill interface for waking up waiting stores
+    input  logic                            i_mhq_fill_en,
+
     // ROB signal that a store has been retired
     input  logic                            i_rob_retire_en,
     input  procyon_tag_t                    i_rob_retire_tag,
@@ -48,14 +51,16 @@ module lsu_sq (
     // Each SQ slot is in one of the following states:
     // INVALID:        Slot is empty
     // VALID:          Slot contains a valid but not retired store operation
+    // MHQ_FILL_WAIT:  Slot contains a store op that is waiting for an MHQ fill broadcast
     // NONSPECULATIVE: Slot contains a store that is at the head of the ROB and thus is ready to be retired
     // LAUNCHED:       Slot contains a retired store that has been launched into the LSU pipeline
     //                 It must wait in this state until the LSU indicates if it was retired successfully or if it needs to be relaunched
-    typedef enum logic [1:0] {
-        SQ_STATE_INVALID        = 2'b00,
-        SQ_STATE_VALID          = 2'b01,
-        SQ_STATE_NONSPECULATIVE = 2'b10,
-        SQ_STATE_LAUNCHED       = 2'b11
+    typedef enum logic [2:0] {
+        SQ_STATE_INVALID        = 3'b000,
+        SQ_STATE_VALID          = 3'b001,
+        SQ_STATE_MHQ_FILL_WAIT  = 3'b010,
+        SQ_STATE_NONSPECULATIVE = 3'b011,
+        SQ_STATE_LAUNCHED       = 3'b100
     } sq_slot_state_t;
 
     // Each SQ slot contains:
@@ -83,7 +88,6 @@ module lsu_sq (
     procyon_sq_select_t                     sq_allocate_select;
     procyon_sq_select_t                     sq_rob_select;
     procyon_sq_select_t                     sq_update_select;
-    logic                                   sq_update_retry;
     procyon_sq_select_t                     sq_retire_select;
     sq_idx_t                                sq_retire_slot;
     logic                                   sq_retire_en;
@@ -96,7 +100,6 @@ module lsu_sq (
 
     assign sq_retire_en                     = sq_retire_select != {(`SQ_DEPTH){1'b0}};
     assign sq_retire_ack                    = i_rob_retire_en & sq_retire_en & (sq_slots[sq_retire_slot].tag == i_rob_retire_tag);
-    assign sq_update_retry                  = i_update_retry & i_update_mhq_retry;
 
     // Output full signal
     // FIXME: Can this be registered?
@@ -119,13 +122,22 @@ module lsu_sq (
 
     // Update state for each SQ entry
     always_comb begin
+        sq_slot_state_t sq_fill_bypass_mux;
+        sq_slot_state_t sq_update_state_mux;
+
+        // Bypass fill broadcast if an update comes through on the same cycle as the fill
+        sq_fill_bypass_mux  = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : SQ_STATE_MHQ_FILL_WAIT;
+        sq_update_state_mux = (i_update_retry & i_update_mhq_retry) ? sq_fill_bypass_mux : SQ_STATE_INVALID;
+
         for (int i = 0; i < `SQ_DEPTH; i++) begin
             sq_slot_state_next[i] = sq_slots[i].state;
             case (sq_slot_state_next[i])
                 SQ_STATE_INVALID:        sq_slot_state_next[i] = sq_allocate_select[i] ? SQ_STATE_VALID : sq_slot_state_next[i];
                 SQ_STATE_VALID:          sq_slot_state_next[i] = i_flush ? SQ_STATE_INVALID : (sq_rob_select[i] ? SQ_STATE_NONSPECULATIVE : sq_slot_state_next[i]);
+                SQ_STATE_MHQ_FILL_WAIT:  sq_slot_state_next[i] = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : sq_slot_state_next[i];
                 SQ_STATE_NONSPECULATIVE: sq_slot_state_next[i] = sq_retire_select[i] ? SQ_STATE_LAUNCHED : sq_slot_state_next[i];
-                SQ_STATE_LAUNCHED:       sq_slot_state_next[i] = sq_update_select[i] ? (sq_update_retry ? SQ_STATE_NONSPECULATIVE : SQ_STATE_INVALID) : sq_slot_state_next[i];
+                SQ_STATE_LAUNCHED:       sq_slot_state_next[i] = sq_update_select[i] ? sq_update_state_mux : sq_slot_state_next[i];
+                default:                 sq_slot_state_next[i] = SQ_STATE_INVALID;
             endcase
         end
     end
