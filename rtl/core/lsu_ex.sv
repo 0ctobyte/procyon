@@ -55,15 +55,11 @@ module lsu_ex (
     assign is_store                  = (i_lsu_func == LSU_FUNC_SB) | (i_lsu_func == LSU_FUNC_SH) | (i_lsu_func == LSU_FUNC_SW);
     assign is_load                   = ~is_fill & ~is_store;
 
-    // LB and LH loads 8 bits or 16 bits respectively and sign extends to 32-bits.
-    // LBU and LHU loads 8 bits or 16 bits respectively and zero extends to 32 bits.
+    // LB and LH need to sign extend to DATA_WIDTH
     always_comb begin
         case (i_lsu_func)
             LSU_FUNC_LB:  load_data = {{(`DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            LSU_FUNC_LH:  load_data = {{(`DATA_WIDTH-16){i_dc_data[15]}}, i_dc_data[15:0]};
-            LSU_FUNC_LW:  load_data = i_dc_data;
-            LSU_FUNC_LBU: load_data = {{(`DATA_WIDTH-8){1'b0}}, i_dc_data[7:0]};
-            LSU_FUNC_LHU: load_data = {{(`DATA_WIDTH-16){1'b0}}, i_dc_data[15:0]};
+            LSU_FUNC_LH:  load_data = {{(`DATA_WIDTH-`DATA_WIDTH/2){i_dc_data[`DATA_WIDTH/2-1]}}, i_dc_data[`DATA_WIDTH/2-1:0]};
             default:      load_data = i_dc_data;
         endcase
     end

@@ -62,6 +62,7 @@ module lsu_ad (
     output logic                o_dc_wr_en,
     output procyon_addr_t       o_dc_addr,
     output procyon_data_t       o_dc_data,
+    output procyon_lsu_func_t   o_dc_lsu_func,
     output logic                o_dc_valid,
     output logic                o_dc_dirty,
     output logic                o_dc_fill,
@@ -84,6 +85,7 @@ module lsu_ad (
     logic                       rs_stall;
     logic [1:0]                 lsu_ad_mux_sel;
     procyon_addr_t              lsu_ad_mux_addr;
+    procyon_lsu_func_t          lsu_ad_mux_lsu_func;
 
     // Generate immediates
     assign imm_i                = {{(`DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[24:20]};
@@ -98,6 +100,7 @@ module lsu_ad (
     // Mux AD outputs to next stage depending on replay_en/retire_en
     assign lsu_ad_mux_sel       = {i_lq_replay_en, i_sq_retire_en};
     assign lsu_ad_mux_addr      = i_mhq_fill_en ? i_mhq_fill_addr : mux4_addr(addr, i_sq_retire_addr, i_lq_replay_addr, i_sq_retire_addr, lsu_ad_mux_sel);
+    assign lsu_ad_mux_lsu_func  = procyon_lsu_func_t'(mux4_4b(lsu_func, i_sq_retire_lsu_func, i_lq_replay_lsu_func, i_sq_retire_lsu_func, lsu_ad_mux_sel));
 
     // Stall the LSU RS if either of these conditions apply:
     // 1. There is a cache fill in progress
@@ -147,6 +150,7 @@ module lsu_ad (
     always_ff @(posedge clk) begin
         o_dc_addr      <= lsu_ad_mux_addr;
         o_dc_data      <= i_sq_retire_data;
+        o_dc_lsu_func  <= lsu_ad_mux_lsu_func;
         o_dc_valid     <= 1'b1;
         o_dc_dirty     <= i_mhq_fill_en ? i_mhq_fill_dirty : i_sq_retire_en;
         o_dc_fill      <= i_mhq_fill_en;
@@ -160,7 +164,7 @@ module lsu_ad (
 
     // Assign outputs to next stage in the pipeline
     always_ff @(posedge clk) begin
-        o_lsu_func       <= i_mhq_fill_en ? LSU_FUNC_FILL : procyon_lsu_func_t'(mux4_4b(lsu_func, i_sq_retire_lsu_func, i_lq_replay_lsu_func, i_sq_retire_lsu_func, lsu_ad_mux_sel));
+        o_lsu_func       <= i_mhq_fill_en ? LSU_FUNC_FILL : lsu_ad_mux_lsu_func;
         o_lq_select      <= i_lq_replay_select;
         o_sq_select      <= i_sq_retire_select;
         o_tag            <= i_mhq_fill_en ? {{`TAG_WIDTH}{1'b0}} : mux4_tag(i_tag, i_sq_retire_tag, i_lq_replay_tag, i_sq_retire_tag, lsu_ad_mux_sel);

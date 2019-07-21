@@ -106,8 +106,6 @@ module lsu_lq (
     lq_idx_t                              lq_retire_slot;
     lq_idx_t                              lq_replay_slot;
     logic                                 lq_retire_ack;
-    procyon_addr_t                        sq_retire_addr_start;
-    procyon_addr_t                        sq_retire_addr_end;
 
     assign lq_allocate_select             = {(`LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
     assign lq_update_select               = {(`LQ_DEPTH){i_update_en}} & i_update_select;
@@ -121,6 +119,37 @@ module lsu_lq (
     assign lq_full                        = ((lq_empty & ~lq_allocate_select) == {(`LQ_DEPTH){1'b0}});
     assign o_full                         = lq_full;
 
+    // Calculate misspeculated bit based off of overlapping load and retiring store addresses
+    always_comb begin
+        procyon_addr_t sq_retire_addr_end;
+
+        case (i_sq_retire_lsu_func)
+            LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + procyon_addr_t'(1);
+            LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + procyon_addr_t'(2);
+            LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + procyon_addr_t'(4);
+            default:     sq_retire_addr_end = i_sq_retire_addr + procyon_addr_t'(4);
+        endcase
+
+        for (int i = 0; i < `LQ_DEPTH; i++) begin
+            procyon_addr_t lq_addr_end;
+            logic          lq_overlap_sq;
+            logic          sq_overlap_lq;
+
+            case (lq_slots[i].lsu_func)
+                LSU_FUNC_LB:  lq_addr_end = lq_slots[i].addr + procyon_addr_t'(1);
+                LSU_FUNC_LH:  lq_addr_end = lq_slots[i].addr + procyon_addr_t'(2);
+                LSU_FUNC_LBU: lq_addr_end = lq_slots[i].addr + procyon_addr_t'(1);
+                LSU_FUNC_LHU: lq_addr_end = lq_slots[i].addr + procyon_addr_t'(2);
+                default:      lq_addr_end = lq_slots[i].addr + procyon_addr_t'(4);
+            endcase
+
+            // Compare retired store address with all valid load addresses to detect mis-speculated loads
+            lq_overlap_sq              = (lq_slots[i].addr >= i_sq_retire_addr) & (lq_slots[i].addr < sq_retire_addr_end);
+            sq_overlap_lq              = (i_sq_retire_addr >= lq_slots[i].addr) & (i_sq_retire_addr < lq_addr_end);
+            lq_misspeculated_select[i] = i_sq_retire_en & (lq_overlap_sq | sq_overlap_lq);
+        end
+    end
+
     always_comb begin
         for (int i = 0; i < `LQ_DEPTH; i++) begin
             lq_replayable[i]           = (lq_slots[i].state == LQ_STATE_REPLAYABLE);
@@ -131,9 +160,6 @@ module lsu_lq (
             // Use the ROB tag to determine which slot will be retired by generating a retire_select one-hot bit vector
             // Only one valid slot should have the matching tag
             lq_retire_select[i]        = i_rob_retire_en & (lq_slots[i].tag == i_rob_retire_tag) && (lq_slots[i].state != LQ_STATE_INVALID);
-
-            // Compare retired store address with all valid load addresses to detect mis-speculated loads
-            lq_misspeculated_select[i] = i_sq_retire_en & ((lq_slots[i].addr >= sq_retire_addr_start) & (lq_slots[i].addr < sq_retire_addr_end));
 
             // A slot is considered empty if it is invalid
             lq_empty[i]                = (lq_slots[i].state == LQ_STATE_INVALID);
@@ -160,17 +186,6 @@ module lsu_lq (
                 default:                lq_slot_state_next[i] = LQ_STATE_INVALID;
             endcase
         end
-    end
-
-    // Calculate retiring store end address based off of store type
-    always_comb begin
-        sq_retire_addr_start = i_sq_retire_addr;
-        case (i_sq_retire_lsu_func)
-            LSU_FUNC_SB: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(1);
-            LSU_FUNC_SH: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(2);
-            LSU_FUNC_SW: sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(4);
-            default:     sq_retire_addr_end = sq_retire_addr_start + procyon_addr_t'(4);
-        endcase
     end
 
     // Convert one-hot retire_select vector into binary LQ slot #

@@ -97,6 +97,7 @@ module lsu (
     logic                           lsu_d1_retire;
     logic                           dc_wr_en;
     procyon_addr_t                  dc_addr;
+    procyon_byte_select_t           dc_lsu_func;
     procyon_data_t                  dc_wr_data;
     logic                           dc_valid;
     logic                           dc_dirty;
@@ -178,6 +179,7 @@ module lsu (
         .o_replay(lsu_ad_replay),
         .o_dc_wr_en(dc_wr_en),
         .o_dc_addr(dc_addr),
+        .o_dc_lsu_func(dc_lsu_func),
         .o_dc_data(dc_wr_data),
         .o_dc_valid(dc_valid),
         .o_dc_dirty(dc_dirty),
@@ -335,6 +337,7 @@ module lsu (
         .n_rst(n_rst),
         .i_dc_wr_en(dc_wr_en),
         .i_dc_addr(dc_addr),
+        .i_dc_lsu_func(dc_lsu_func),
         .i_dc_data(dc_wr_data),
         .i_dc_valid(dc_valid),
         .i_dc_dirty(dc_dirty),

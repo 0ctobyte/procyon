@@ -11,6 +11,7 @@ module dcache_d1 (
     input  procyon_dc_tag_t        i_tag,
     input  procyon_dc_index_t      i_index,
     input  procyon_dc_offset_t     i_offset,
+    input  procyon_byte_select_t   i_byte_sel,
     input  procyon_data_t          i_data,
     input  logic                   i_valid,
     input  logic                   i_dirty,
@@ -70,12 +71,16 @@ module dcache_d1 (
     // Generate victim address from tag & index
     assign victim_addr             = {bypass_cache_wr_tag, i_index, {(`DC_OFFSET_WIDTH){1'b0}}};
 
-    // Extract read data word from cacheline
+    // Extract read data word from cacheline masking off bytes according to the byte select
     always_comb begin
         rd_data = {(`DATA_WIDTH){1'b0}};
         for (int i = 0; i < (`DC_LINE_SIZE-`WORD_SIZE); i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
-                rd_data = bypass_cache_wr_data[i*8 +: `DATA_WIDTH];
+                for (int j = 0; j < `WORD_SIZE; j++) begin
+                    if (i_byte_sel[j]) begin
+                        rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
+                    end
+                end
             end
         end
 
@@ -84,18 +89,24 @@ module dcache_d1 (
         for (int i = (`DC_LINE_SIZE-`WORD_SIZE); i < `DC_LINE_SIZE; i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
                 for (int j = 0; j < (`DC_LINE_SIZE-i); j++) begin
-                    rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
+                    if (i_byte_sel[j]) begin
+                        rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
+                    end
                 end
             end
         end
     end
 
-    // Shift write data to correct offset in cacheline
+    // Shift write data to correct offset in cacheline masking off writes to certain bytes according to the byte select
     always_comb begin
         wr_data = bypass_cache_wr_data;
         for (int i = 0; i < (`DC_LINE_SIZE-`WORD_SIZE); i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
-                wr_data[i*8 +: `DATA_WIDTH] = i_data;
+                for (int j = 0; j < `WORD_SIZE; j++) begin
+                    if (i_byte_sel[j]) begin
+                        wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
+                    end
+                end
             end
         end
 
@@ -105,7 +116,9 @@ module dcache_d1 (
         for (int i = (`DC_LINE_SIZE-`WORD_SIZE); i < `DC_LINE_SIZE; i++) begin
             if (procyon_dc_offset_t'(i) == i_offset) begin
                 for (int j = 0; j < (`DC_LINE_SIZE-i); j++) begin
-                    wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
+                    if (i_byte_sel[j]) begin
+                        wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
+                    end
                 end
             end
         end

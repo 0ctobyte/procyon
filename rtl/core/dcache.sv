@@ -20,6 +20,7 @@ module dcache (
     input  logic                   i_dc_wr_en,
     input  procyon_addr_t          i_dc_addr,
     input  procyon_data_t          i_dc_data,
+    input  procyon_lsu_func_t      i_dc_lsu_func,
     input  logic                   i_dc_valid,
     input  logic                   i_dc_dirty,
     input  logic                   i_dc_fill,
@@ -40,6 +41,7 @@ module dcache (
     procyon_dc_tag_t               dcache_dr_tag;
     procyon_dc_index_t             dcache_dr_index;
     procyon_dc_offset_t            dcache_dr_offset;
+    procyon_byte_select_t          dcache_dr_byte_sel;
     procyon_data_t                 dcache_dr_data;
     logic                          dcache_dr_valid;
     logic                          dcache_dr_dirty;
@@ -68,6 +70,7 @@ module dcache (
         .i_tag(dc_tag),
         .i_index(dc_index),
         .i_offset(dc_offset),
+        .i_lsu_func(i_dc_lsu_func),
         .i_data(i_dc_data),
         .i_valid(i_dc_valid),
         .i_dirty(i_dc_dirty),
@@ -77,6 +80,7 @@ module dcache (
         .o_tag(dcache_dr_tag),
         .o_index(dcache_dr_index),
         .o_offset(dcache_dr_offset),
+        .o_byte_sel(dcache_dr_byte_sel),
         .o_data(dcache_dr_data),
         .o_valid(dcache_dr_valid),
         .o_dirty(dcache_dr_dirty),
@@ -91,6 +95,7 @@ module dcache (
         .i_tag(dcache_dr_tag),
         .i_index(dcache_dr_index),
         .i_offset(dcache_dr_offset),
+        .i_byte_sel(dcache_dr_byte_sel),
         .i_data(dcache_dr_data),
         .i_valid(dcache_dr_valid),
         .i_dirty(dcache_dr_dirty),
