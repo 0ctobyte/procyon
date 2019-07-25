@@ -1,3 +1,6 @@
+`define SRAM_ADDR_WIDTH 20
+`define SRAM_DATA_WIDTH 16
+
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_WB_DATA_WIDTH      = 16,
@@ -6,8 +9,6 @@ module dut #(
     parameter OPTN_CACHE_LINE_SIZE    = 32,
     parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
     parameter OPTN_WB_SRAM_FIFO_DEPTH = 8,
-    parameter OPTN_SRAM_DATA_WIDTH    = 16,
-    parameter OPTN_SRAM_ADDR_WIDTH    = 20,
 
     localparam CACHE_INDEX_WIDTH      = $clog2(OPTN_CACHE_SIZE / OPTN_CACHE_LINE_SIZE),
     localparam CACHE_TAG_WIDTH        = OPTN_WB_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
@@ -40,9 +41,9 @@ module dut #(
     output logic                            o_wb_ack,
     output logic                            o_wb_stall,
 
-    output logic [OPTN_SRAM_ADDR_WIDTH-1:0] o_sram_addr,
-    input  logic [OPTN_SRAM_DATA_WIDTH-1:0] i_sram_dq,
-    output logic [OPTN_SRAM_DATA_WIDTH-1:0] o_sram_dq,
+    output logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
+    input  logic [`SRAM_DATA_WIDTH-1:0]     i_sram_dq,
+    output logic [`SRAM_DATA_WIDTH-1:0]     o_sram_dq,
     output logic                            o_sram_ce_n,
     output logic                            o_sram_we_n,
     output logic                            o_sram_oe_n,
@@ -59,7 +60,7 @@ module dut #(
     logic                            wb_stall;
     logic                            sram_we_n;
 /* verilator lint_off UNOPTFLAT */
-    logic [OPTN_SRAM_DATA_WIDTH-1:0] sram_dq;
+    logic [`SRAM_DATA_WIDTH-1:0]     sram_dq;
 /* verilator lint_on  UNOPTFLAT */
 
     assign wb_rst      = ~n_rst;
@@ -68,7 +69,7 @@ module dut #(
     assign o_wb_ack    = wb_ack;
     assign o_wb_stall  = wb_stall;
 
-    assign sram_dq     = sram_we_n ? i_sram_dq : {(OPTN_SRAM_DATA_WIDTH){1'bz}};
+    assign sram_dq     = sram_we_n ? i_sram_dq : {(`SRAM_DATA_WIDTH){1'bz}};
     assign o_sram_we_n = sram_we_n;
     assign o_sram_dq   = sram_dq;
 

@@ -1,58 +1,67 @@
-`timescale 1ns/1ns
+`define SRAM_ADDR_WIDTH 20
+`define SRAM_DATA_WIDTH 16
 
-`include "../common/test_common.svh"
+module dut #(
+   parameter OPTN_WB_DATA_WIDTH      = 16,
+   parameter OPTN_WB_ADDR_WIDTH      = 32,
+   parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
+   parameter OPTN_WB_SRAM_FIFO_DEPTH = 8,
 
-module dut (
-    input  logic                              clk,
-    input  logic                              n_rst,
+   localparam WB_WORD_SIZE           = OPTN_WB_DATA_WIDTH / 8
+)(
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    output logic                              o_wb_rst,
-    input  logic                              i_wb_cyc,
-    input  logic                              i_wb_stb,
-    input  logic                              i_wb_we,
-    input  logic [`WB_DATA_WIDTH/8-1:0]       i_wb_sel,
-    input  logic [`WB_ADDR_WIDTH-1:0]         i_wb_addr,
-    input  logic [`WB_DATA_WIDTH-1:0]         i_wb_data,
-    output logic [`WB_DATA_WIDTH-1:0]         o_wb_data,
-    output logic                              o_wb_ack,
-    output logic                              o_wb_stall,
+    output logic                          o_wb_rst,
+    input  logic                          i_wb_cyc,
+    input  logic                          i_wb_stb,
+    input  logic                          i_wb_we,
+    input  logic [WB_WORD_SIZE-1:0]       i_wb_sel,
+    input  logic [OPTN_WB_ADDR_WIDTH-1:0] i_wb_addr,
+    input  logic [OPTN_WB_DATA_WIDTH-1:0] i_wb_data,
+    output logic [OPTN_WB_DATA_WIDTH-1:0] o_wb_data,
+    output logic                          o_wb_ack,
+    output logic                          o_wb_stall,
 
-    output logic [`SRAM_ADDR_WIDTH-1:0]       o_sram_addr,
-    input  logic [`SRAM_DATA_WIDTH-1:0]       i_sram_dq,
-    output logic [`SRAM_DATA_WIDTH-1:0]       o_sram_dq,
-    output logic                              o_sram_ce_n,
-    output logic                              o_sram_we_n,
-    output logic                              o_sram_oe_n,
-    output logic                              o_sram_ub_n,
-    output logic                              o_sram_lb_n
+    output logic [`SRAM_ADDR_WIDTH-1:0]   o_sram_addr,
+    input  logic [`SRAM_DATA_WIDTH-1:0]   i_sram_dq,
+    output logic [`SRAM_DATA_WIDTH-1:0]   o_sram_dq,
+    output logic                          o_sram_ce_n,
+    output logic                          o_sram_we_n,
+    output logic                          o_sram_oe_n,
+    output logic                          o_sram_ub_n,
+    output logic                          o_sram_lb_n
 );
 
-    logic                              wb_rst;
+   timeunit 1ns;
+   timeprecision 1ns;
 
-    logic [`WB_DATA_WIDTH-1:0]         wb_data;
-    logic                              wb_ack;
-    logic                              wb_stall;
+    logic                          wb_rst;
 
-    logic                              sram_we_n;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data;
+    logic                          wb_ack;
+    logic                          wb_stall;
+
+    logic                          sram_we_n;
 /* verilator lint_off UNOPTFLAT */
-    logic [`SRAM_DATA_WIDTH-1:0]       sram_dq;
+    logic [`SRAM_DATA_WIDTH-1:0]   sram_dq;
 /* verilator lint_on  UNOPTFLAT */
 
-    assign wb_rst              = ~n_rst;
-    assign o_wb_rst            = wb_rst;
-    assign o_wb_data           = wb_data;
-    assign o_wb_ack            = wb_ack;
-    assign o_wb_stall          = wb_stall;
+    assign wb_rst      = ~n_rst;
+    assign o_wb_rst    = wb_rst;
+    assign o_wb_data   = wb_data;
+    assign o_wb_ack    = wb_ack;
+    assign o_wb_stall  = wb_stall;
 
-    assign sram_dq             = sram_we_n ? i_sram_dq : {(`SRAM_DATA_WIDTH){1'bz}};
-    assign o_sram_we_n         = sram_we_n;
-    assign o_sram_dq           = sram_dq;
+    assign sram_dq     = sram_we_n ? i_sram_dq : {(`SRAM_DATA_WIDTH){1'bz}};
+    assign o_sram_we_n = sram_we_n;
+    assign o_sram_dq   = sram_dq;
 
     wb_sram #(
-        .DATA_WIDTH(`WB_DATA_WIDTH),
-        .ADDR_WIDTH(`WB_ADDR_WIDTH),
-        .BASE_ADDR(`WB_SRAM_BASE_ADDR),
-        .FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
+        .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR),
+        .OPTN_FIFO_DEPTH(OPTN_WB_SRAM_FIFO_DEPTH)
     ) wb_sram_inst (
         .i_wb_clk(clk),
         .i_wb_rst(wb_rst),

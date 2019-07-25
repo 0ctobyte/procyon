@@ -1,3 +1,7 @@
+`define SRAM_ADDR_WIDTH 20
+`define SRAM_DATA_WIDTH 16
+
+
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
@@ -14,32 +18,30 @@ module dut #(
     parameter OPTN_WB_DATA_WIDTH      = 16,
     parameter OPTN_WB_ADDR_WIDTH      = 32,
     parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
-    parameter OPTN_WB_SRAM_FIFO_DEPTH = 8,
-    parameter OPTN_SRAM_DATA_WIDTH    = 16,
-    parameter OPTN_SRAM_ADDR_WIDTH    = 20
+    parameter OPTN_WB_SRAM_FIFO_DEPTH = 8
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                        clk,
+    input  logic                        n_rst,
 
     // SRAM interface
-    output logic [OPTN_SRAM_ADDR_WIDTH-1:0] o_sram_addr,
-    input  logic [OPTN_SRAM_DATA_WIDTH-1:0] i_sram_dq,
-    output logic [OPTN_SRAM_DATA_WIDTH-1:0] o_sram_dq,
-    output logic                            o_sram_ce_n,
-    output logic                            o_sram_we_n,
-    output logic                            o_sram_oe_n,
-    output logic                            o_sram_ub_n,
-    output logic                            o_sram_lb_n,
+    output logic [`SRAM_ADDR_WIDTH-1:0] o_sram_addr,
+    input  logic [`SRAM_DATA_WIDTH-1:0] i_sram_dq,
+    output logic [`SRAM_DATA_WIDTH-1:0] o_sram_dq,
+    output logic                        o_sram_ce_n,
+    output logic                        o_sram_we_n,
+    output logic                        o_sram_oe_n,
+    output logic                        o_sram_ub_n,
+    output logic                        o_sram_lb_n,
 
     // FIXME: To test if simulations pass/fail
-    output logic [OPTN_DATA_WIDTH-1:0]      o_sim_tp,
-    output logic                            o_sim_retire,
+    output logic [OPTN_DATA_WIDTH-1:0]  o_sim_tp,
+    output logic                        o_sim_retire,
 
     // FIXME: Temporary instruction cache interface
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_ic_insn,
-    input  logic                            i_ic_valid,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ic_pc,
-    output logic                            o_ic_en
+    input  logic [OPTN_DATA_WIDTH-1:0]  i_ic_insn,
+    input  logic                        i_ic_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0]  o_ic_pc,
+    output logic                        o_ic_en
 );
 
     timeunit 1ns;
@@ -48,30 +50,30 @@ module dut #(
     localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
     localparam WB_WORD_SIZE     = OPTN_WB_DATA_WIDTH / 8;
 
-    logic                            wb_clk;
-    logic                            wb_rst;
-    logic                            wb_ack;
-    logic                            wb_stall;
-    logic [OPTN_WB_DATA_WIDTH-1:0]   wb_data_i;
-    logic                            wb_cyc;
-    logic                            wb_stb;
-    logic                            wb_we;
-    logic [WB_WORD_SIZE-1:0]         wb_sel;
-    logic [OPTN_WB_ADDR_WIDTH-1:0]   wb_addr;
-    logic [OPTN_WB_DATA_WIDTH-1:0]   wb_data_o;
+    logic                          wb_clk;
+    logic                          wb_rst;
+    logic                          wb_ack;
+    logic                          wb_stall;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_i;
+    logic                          wb_cyc;
+    logic                          wb_stb;
+    logic                          wb_we;
+    logic [WB_WORD_SIZE-1:0]       wb_sel;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
 
-    logic                            sram_we_n;
+    logic                          sram_we_n;
 /* verilator lint_off UNOPTFLAT */
-    logic [OPTN_SRAM_DATA_WIDTH-1:0] sram_dq;
+    logic [`SRAM_DATA_WIDTH-1:0]   sram_dq;
 /* verilator lint_on  UNOPTFLAT */
 
 /* verilator lint_off UNUSED */
     // FIXME: FPGA debugging output
-    logic                            rob_redirect;
-    logic [OPTN_ADDR_WIDTH-1:0]      rob_redirect_addr;
-    logic                            regmap_retire_en;
-    logic [REGMAP_IDX_WIDTH-1:0]     regmap_retire_rdest;
-    logic [OPTN_DATA_WIDTH-1:0]      regmap_retire_data;
+    logic                         rob_redirect;
+    logic [OPTN_ADDR_WIDTH-1:0]   rob_redirect_addr;
+    logic                         regmap_retire_en;
+    logic [REGMAP_IDX_WIDTH-1:0]  regmap_retire_rdest;
+    logic [OPTN_DATA_WIDTH-1:0]   regmap_retire_data;
 /* verilator lint_on  UNUSED */
 
     assign o_sim_retire = regmap_retire_en;
@@ -79,7 +81,7 @@ module dut #(
     assign wb_clk       = clk;
     assign wb_rst       = ~n_rst;
 
-    assign sram_dq      = sram_we_n ? i_sram_dq : {(OPTN_SRAM_DATA_WIDTH){1'bz}};
+    assign sram_dq      = sram_we_n ? i_sram_dq : {(`SRAM_DATA_WIDTH){1'bz}};
     assign o_sram_we_n  = sram_we_n;
     assign o_sram_dq    = sram_dq;
 
@@ -125,10 +127,10 @@ module dut #(
     );
 
     wb_sram #(
-        .DATA_WIDTH(OPTN_WB_DATA_WIDTH),
-        .ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
-        .BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR),
-        .FIFO_DEPTH(OPTN_WB_SRAM_FIFO_DEPTH)
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
+        .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR),
+        .OPTN_FIFO_DEPTH(OPTN_WB_SRAM_FIFO_DEPTH)
     ) wb_sram_inst (
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
