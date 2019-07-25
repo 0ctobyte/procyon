@@ -10,60 +10,79 @@
 // Stage 1 - Generate hit signal and cache write signals
 // also output victim data, address and cache state
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module dcache (
-    input  logic                   clk,
-    input  logic                   n_rst,
 
-    input  logic                   i_dc_wr_en,
-    input  procyon_addr_t          i_dc_addr,
-    input  procyon_data_t          i_dc_data,
-    input  procyon_lsu_func_t      i_dc_lsu_func,
-    input  logic                   i_dc_valid,
-    input  logic                   i_dc_dirty,
-    input  logic                   i_dc_fill,
-    input  procyon_cacheline_t     i_dc_fill_data,
+module dcache #(
+    parameter OPTN_DATA_WIDTH    = 32,
+    parameter OPTN_ADDR_WIDTH    = 32,
+    parameter OPTN_DC_CACHE_SIZE = 1024,
+    parameter OPTN_DC_LINE_SIZE  = 32,
+    parameter OPTN_DC_WAY_COUNT  = 1,
 
-    output logic                   o_dc_hit,
-    output procyon_data_t          o_dc_data,
-    output logic                   o_dc_victim_valid,
-    output logic                   o_dc_victim_dirty,
-    output procyon_addr_t          o_dc_victim_addr,
-    output procyon_cacheline_t     o_dc_victim_data
+    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+)(
+    input  logic                            clk,
+    input  logic                            n_rst,
+
+    input  logic                            i_dc_wr_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_dc_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
+    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_dc_lsu_func,
+    input  logic                            i_dc_valid,
+    input  logic                            i_dc_dirty,
+    input  logic                            i_dc_fill,
+    input  logic [DC_LINE_WIDTH-1:0]        i_dc_fill_data,
+
+    output logic                            o_dc_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_dc_data,
+    output logic                            o_dc_victim_valid,
+    output logic                            o_dc_victim_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_dc_victim_addr,
+    output logic [DC_LINE_WIDTH-1:0]        o_dc_victim_data
 );
 
-    procyon_dc_tag_t               dc_tag;
-    procyon_dc_index_t             dc_index;
-    procyon_dc_offset_t            dc_offset;
-    logic                          dcache_dr_wr_en;
-    procyon_dc_tag_t               dcache_dr_tag;
-    procyon_dc_index_t             dcache_dr_index;
-    procyon_dc_offset_t            dcache_dr_offset;
-    procyon_byte_select_t          dcache_dr_byte_sel;
-    procyon_data_t                 dcache_dr_data;
-    logic                          dcache_dr_valid;
-    logic                          dcache_dr_dirty;
-    logic                          dcache_dr_fill;
-    procyon_cacheline_t            dcache_dr_fill_data;
-    logic                          cache_rd_valid;
-    logic                          cache_rd_dirty;
-    procyon_dc_tag_t               cache_rd_tag;
-    procyon_cacheline_t            cache_rd_data;
-    logic                          cache_wr_en;
-    procyon_dc_index_t             cache_wr_index;
-    logic                          cache_wr_valid;
-    logic                          cache_wr_dirty;
-    procyon_dc_tag_t               cache_wr_tag;
-    procyon_cacheline_t            cache_wr_data;
+    localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
+    localparam DC_INDEX_WIDTH  = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT);
+    localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH;
+    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8;
+
+    logic [DC_TAG_WIDTH-1:0]        dc_tag;
+    logic [DC_INDEX_WIDTH-1:0]      dc_index;
+    logic [DC_OFFSET_WIDTH-1:0]     dc_offset;
+    logic                           dcache_dr_wr_en;
+    logic [DC_TAG_WIDTH-1:0]        dcache_dr_tag;
+    logic [DC_INDEX_WIDTH-1:0]      dcache_dr_index;
+    logic [DC_OFFSET_WIDTH-1:0]     dcache_dr_offset;
+    logic [WORD_SIZE-1:0]           dcache_dr_byte_sel;
+    logic [OPTN_DATA_WIDTH-1:0]     dcache_dr_data;
+    logic                           dcache_dr_valid;
+    logic                           dcache_dr_dirty;
+    logic                           dcache_dr_fill;
+    logic [DC_LINE_WIDTH-1:0]       dcache_dr_fill_data;
+    logic                           cache_rd_valid;
+    logic                           cache_rd_dirty;
+    logic [DC_TAG_WIDTH-1:0]        cache_rd_tag;
+    logic [DC_LINE_WIDTH-1:0]       cache_rd_data;
+    logic                           cache_wr_en;
+    logic [DC_INDEX_WIDTH-1:0]      cache_wr_index;
+    logic                           cache_wr_valid;
+    logic                           cache_wr_dirty;
+    logic [DC_TAG_WIDTH-1:0]        cache_wr_tag;
+    logic [DC_LINE_WIDTH-1:0]       cache_wr_data;
 
     // Crack open address into tag, index & offset
-    assign dc_tag                  = i_dc_addr[`ADDR_WIDTH-1:`ADDR_WIDTH-`DC_TAG_WIDTH];
-    assign dc_index                = i_dc_addr[`DC_INDEX_WIDTH+`DC_OFFSET_WIDTH-1:`DC_OFFSET_WIDTH];
-    assign dc_offset               = i_dc_addr[`DC_OFFSET_WIDTH-1:0];
+    assign dc_tag    = i_dc_addr[OPTN_ADDR_WIDTH-1:OPTN_ADDR_WIDTH-DC_TAG_WIDTH];
+    assign dc_index  = i_dc_addr[DC_INDEX_WIDTH+DC_OFFSET_WIDTH-1:DC_OFFSET_WIDTH];
+    assign dc_offset = i_dc_addr[DC_OFFSET_WIDTH-1:0];
 
-    dcache_d0 dcache_d0_inst (
+    dcache_d0 #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
+        .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT)
+    ) dcache_d0_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_wr_en(i_dc_wr_en),
@@ -88,7 +107,13 @@ module dcache (
         .o_fill_data(dcache_dr_fill_data)
     );
 
-    dcache_d1 dcache_d1_inst (
+    dcache_d1 #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
+        .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT)
+    ) dcache_d1_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_wr_en(dcache_dr_wr_en),
@@ -126,10 +151,10 @@ module dcache (
     );
 
     cache #(
-        .DATA_WIDTH(`DATA_WIDTH),
-        .ADDR_WIDTH(`ADDR_WIDTH),
-        .CACHE_SIZE(`DC_CACHE_SIZE),
-        .CACHE_LINE_SIZE(`DC_LINE_SIZE)
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
+        .OPTN_CACHE_LINE_SIZE(OPTN_DC_LINE_SIZE)
     ) data_cache_inst (
         .clk(clk),
         .n_rst(n_rst),

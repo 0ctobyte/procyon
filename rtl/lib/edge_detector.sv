@@ -4,7 +4,7 @@
 // Similarly for negedge detection, the nth flop is HIGH an the n-1 flop is LOW
 
 module edge_detector #(
-    parameter EDGE = 1  // Default "1" == detect posedge
+    parameter OPTN_EDGE = 1  // Default "1" == detect posedge
 ) (
     input  logic clk,
     input  logic n_rst,
@@ -17,7 +17,7 @@ module edge_detector #(
     logic pulse1;
     logic pulse0;
 
-    generate if (~EDGE)
+    generate if (~OPTN_EDGE)
         assign o_pulse = pulse1 & ~pulse0;
     else
         assign o_pulse = ~pulse1 & pulse0;
@@ -32,8 +32,8 @@ module edge_detector #(
     end
 
     synchronizer #(
-        .DATA_WIDTH(1),
-        .SYNC_DEPTH(2)
+        .OPTN_DATA_WIDTH(1),
+        .OPTN_SYNC_DEPTH(2)
     ) sync (
         .clk(clk),
         .n_rst(n_rst),

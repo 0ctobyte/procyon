@@ -1,66 +1,74 @@
 // LSU execute pipeline stage
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module lsu_ex (
-    input  logic                     clk,
-    input  logic                     n_rst,
+module lsu_ex #(
+    parameter OPTN_DATA_WIDTH    = 32,
+    parameter OPTN_ADDR_WIDTH    = 32,
+    parameter OPTN_LQ_DEPTH      = 8,
+    parameter OPTN_SQ_DEPTH      = 8,
+    parameter OPTN_DC_LINE_SIZE  = 32,
+    parameter OPTN_ROB_IDX_WIDTH = 5,
 
-    input  logic                     i_flush,
+    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+)(
+    input  logic                            clk,
+    input  logic                            n_rst,
+
+    input  logic                            i_flush,
 
     // Inputs from previous pipeline stage
-    input  logic                     i_valid,
-    input  procyon_lsu_func_t        i_lsu_func,
-    input  procyon_lq_select_t       i_lq_select,
-    input  procyon_sq_select_t       i_sq_select,
-    input  procyon_tag_t             i_tag,
-    input  procyon_addr_t            i_addr,
-    input  logic                     i_retire,
+    input  logic                            i_valid,
+    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lsu_func,
+    input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_select,
+    input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_select,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_addr,
+    input  logic                            i_retire,
 
     // Inputs from dcache
-    input  logic                     i_dc_hit,
-    input  procyon_data_t            i_dc_data,
-    input  logic                     i_dc_victim_valid,
-    input  logic                     i_dc_victim_dirty,
-    input  procyon_addr_t            i_dc_victim_addr,
-    input  procyon_cacheline_t       i_dc_victim_data,
+    input  logic                            i_dc_hit,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
+    input  logic                            i_dc_victim_valid,
+    input  logic                            i_dc_victim_dirty,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_dc_victim_addr,
+    input  logic [DC_LINE_WIDTH-1:0]        i_dc_victim_data,
 
     // Broadcast CDB results
-    output logic                     o_valid,
-    output procyon_data_t            o_data,
-    output procyon_addr_t            o_addr,
-    output procyon_tag_t             o_tag,
+    output logic                            o_valid,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_data,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_addr,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_tag,
 
     // Update LQ/SQ
-    output logic                     o_update_lq_en,
-    output procyon_lq_select_t       o_update_lq_select,
-    output logic                     o_update_lq_retry,
-    output logic                     o_update_sq_en,
-    output procyon_sq_select_t       o_update_sq_select,
-    output logic                     o_update_sq_retry,
+    output logic                            o_update_lq_en,
+    output logic [OPTN_LQ_DEPTH-1:0]        o_update_lq_select,
+    output logic                            o_update_lq_retry,
+    output logic                            o_update_sq_en,
+    output logic [OPTN_SQ_DEPTH-1:0]        o_update_sq_select,
+    output logic                            o_update_sq_retry,
 
     // Enqueue victim data
-    output logic                     o_victim_en,
-    output procyon_addr_t            o_victim_addr,
-    output procyon_cacheline_t       o_victim_data
+    output logic                            o_victim_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_victim_addr,
+    output logic [DC_LINE_WIDTH-1:0]        o_victim_data
 );
 
-    logic                            is_fill;
-    logic                            is_store;
-    logic                            is_load;
-    procyon_data_t                   load_data;
+    logic                       is_fill;
+    logic                       is_store;
+    logic                       is_load;
+    logic [OPTN_DATA_WIDTH-1:0] load_data;
 
-    assign is_fill                   = i_lsu_func == LSU_FUNC_FILL;
-    assign is_store                  = (i_lsu_func == LSU_FUNC_SB) | (i_lsu_func == LSU_FUNC_SH) | (i_lsu_func == LSU_FUNC_SW);
-    assign is_load                   = ~is_fill & ~is_store;
+    assign is_fill  = i_lsu_func == `PCYN_LSU_FUNC_FILL;
+    assign is_store = (i_lsu_func == `PCYN_LSU_FUNC_SB) | (i_lsu_func == `PCYN_LSU_FUNC_SH) | (i_lsu_func == `PCYN_LSU_FUNC_SW);
+    assign is_load  = ~is_fill & ~is_store;
 
     // LB and LH need to sign extend to DATA_WIDTH
     always_comb begin
         case (i_lsu_func)
-            LSU_FUNC_LB:  load_data = {{(`DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            LSU_FUNC_LH:  load_data = {{(`DATA_WIDTH-`DATA_WIDTH/2){i_dc_data[`DATA_WIDTH/2-1]}}, i_dc_data[`DATA_WIDTH/2-1:0]};
-            default:      load_data = i_dc_data;
+            `PCYN_LSU_FUNC_LB:  load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
+            `PCYN_LSU_FUNC_LH:  load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
+            default:            load_data = i_dc_data;
         endcase
     end
 

@@ -1,32 +1,34 @@
 // ROM with initialized memory
 
 module rom #(
-    parameter DATA_WIDTH = 8,
-    parameter ROM_DEPTH  = 8,
-    parameter BASE_ADDR  = 0,
-    parameter ROM_FILE   = ""
+    parameter OPTN_DATA_WIDTH = 8,
+    parameter OPTN_ROM_DEPTH  = 8,
+    parameter OPTN_BASE_ADDR  = 0,
+    parameter OPTN_ROM_FILE   = "",
+
+    localparam ROM_IDX_WIDTH  = $clog2(OPTN_ROM_DEPTH)
 ) (
-    input  logic                         clk,
-    input  logic                         n_rst,
+    input  logic                       clk,
+    input  logic                       n_rst,
 
     // ROM interface
-    input  logic [$clog2(ROM_DEPTH)-1:0] i_rom_rd_addr,
-    output logic [DATA_WIDTH-1:0]        o_rom_data_out
+    input  logic [ROM_IDX_WIDTH-1:0]   i_rom_rd_addr,
+    output logic [OPTN_DATA_WIDTH-1:0] o_rom_data_out
 );
 
     // Memory array
-    logic [DATA_WIDTH-1:0] rom [BASE_ADDR:BASE_ADDR + ROM_DEPTH - 1];
+    logic [OPTN_DATA_WIDTH-1:0] rom [OPTN_BASE_ADDR:OPTN_BASE_ADDR + OPTN_ROM_DEPTH - 1];
 
     // Used to check if addresses are within range
     logic cs;
 
-    assign cs         = (n_rst && (i_rom_rd_addr >= BASE_ADDR) && (i_rom_rd_addr < (BASE_ADDR + ROM_DEPTH)));
+    assign cs         = (n_rst && (i_rom_rd_addr >= OPTN_BASE_ADDR) && (i_rom_rd_addr < (OPTN_BASE_ADDR + OPTN_ROM_DEPTH)));
 
     // Asynchronous read; perform read combinationally
     assign o_rom_data_out = (cs) ? rom[i_rom_rd_addr] : 'b0;
 
     initial begin
-        $readmemh(ROM_FILE, rom);
+        $readmemh(OPTN_ROM_FILE, rom);
     end
 
 endmodule

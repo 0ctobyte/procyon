@@ -7,7 +7,7 @@ CFLAGS := -I../../common
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
-VSRCS := procyon_types.sv
+VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp ../common/BootRom.cpp ../common/Sram.cpp
 
 TESTS_RUN_DIR := tests

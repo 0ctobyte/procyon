@@ -1,47 +1,58 @@
 // Data Cache - Data/Tag RAM read stage
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module dcache_d0 (
-    input  logic                   clk,
-    input  logic                   n_rst,
+module dcache_d0 #(
+    parameter OPTN_DATA_WIDTH    = 32,
+    parameter OPTN_ADDR_WIDTH    = 32,
+    parameter OPTN_DC_CACHE_SIZE = 1024,
+    parameter OPTN_DC_LINE_SIZE  = 32,
+    parameter OPTN_DC_WAY_COUNT  = 1,
 
-    input  logic                   i_wr_en,
-    input  procyon_dc_tag_t        i_tag,
-    input  procyon_dc_index_t      i_index,
-    input  procyon_dc_offset_t     i_offset,
-    input  procyon_lsu_func_t      i_lsu_func,
-    input  procyon_data_t          i_data,
-    input  logic                   i_valid,
-    input  logic                   i_dirty,
-    input  logic                   i_fill,
-    input  procyon_cacheline_t     i_fill_data,
+    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
+    localparam DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
+    localparam DC_INDEX_WIDTH    = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
+    localparam DC_TAG_WIDTH      = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
+    localparam WORD_SIZE         = OPTN_DATA_WIDTH / 8
+)(
+    input  logic                            clk,
+    input  logic                            n_rst,
 
-    output logic                   o_wr_en,
-    output procyon_dc_tag_t        o_tag,
-    output procyon_dc_index_t      o_index,
-    output procyon_dc_offset_t     o_offset,
-    output procyon_byte_select_t   o_byte_sel,
-    output procyon_data_t          o_data,
-    output logic                   o_valid,
-    output logic                   o_dirty,
-    output logic                   o_fill,
-    output procyon_cacheline_t     o_fill_data
+    input  logic                            i_wr_en,
+    input  logic [DC_TAG_WIDTH-1:0]         i_tag,
+    input  logic [DC_INDEX_WIDTH-1:0]       i_index,
+    input  logic [DC_OFFSET_WIDTH-1:0]      i_offset,
+    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lsu_func,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_data,
+    input  logic                            i_valid,
+    input  logic                            i_dirty,
+    input  logic                            i_fill,
+    input  logic [DC_LINE_WIDTH-1:0]        i_fill_data,
+
+    output logic                            o_wr_en,
+    output logic [DC_TAG_WIDTH-1:0]         o_tag,
+    output logic [DC_INDEX_WIDTH-1:0]       o_index,
+    output logic [DC_OFFSET_WIDTH-1:0]      o_offset,
+    output logic [WORD_SIZE-1:0]            o_byte_sel,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_data,
+    output logic                            o_valid,
+    output logic                            o_dirty,
+    output logic                            o_fill,
+    output logic [DC_LINE_WIDTH-1:0]        o_fill_data
 );
 
-    procyon_byte_select_t          byte_sel;
+    logic [WORD_SIZE-1:0] byte_sel;
 
     // Derive byte select signals from the LSU op type
     always_comb begin
         case (i_lsu_func)
-            LSU_FUNC_LB:  byte_sel = {{(`WORD_SIZE-1){1'b0}}, 1'b1};
-            LSU_FUNC_LH:  byte_sel = {{(`WORD_SIZE/2){1'b0}}, {(`WORD_SIZE/2){1'b1}}};
-            LSU_FUNC_LBU: byte_sel = {{(`WORD_SIZE-1){1'b0}}, 1'b1};
-            LSU_FUNC_LHU: byte_sel = {{(`WORD_SIZE/2){1'b0}}, {(`WORD_SIZE/2){1'b1}}};
-            LSU_FUNC_SB:  byte_sel = {{(`WORD_SIZE-1){1'b0}}, 1'b1};
-            LSU_FUNC_SH:  byte_sel = {{(`WORD_SIZE/2){1'b0}}, {(`WORD_SIZE/2){1'b1}}};
-            default:      byte_sel = {(`WORD_SIZE){1'b1}};
+            `PCYN_LSU_FUNC_LB:  byte_sel = {{(WORD_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_LSU_FUNC_LH:  byte_sel = {{(WORD_SIZE/2){1'b0}}, {(WORD_SIZE/2){1'b1}}};
+            `PCYN_LSU_FUNC_LBU: byte_sel = {{(WORD_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_LSU_FUNC_LHU: byte_sel = {{(WORD_SIZE/2){1'b0}}, {(WORD_SIZE/2){1'b1}}};
+            `PCYN_LSU_FUNC_SB:  byte_sel = {{(WORD_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_LSU_FUNC_SH:  byte_sel = {{(WORD_SIZE/2){1'b0}}, {(WORD_SIZE/2){1'b1}}};
+            default:            byte_sel = {(WORD_SIZE){1'b1}};
         endcase
     end
 

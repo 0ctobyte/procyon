@@ -9,64 +9,73 @@
 // * Lookup source register in ROB and merges them with Register Map sources looked up in the previous cycle
 // * Enqueue instruction in ROB
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module dispatch (
-    input  logic                 clk,
-    input  logic                 n_rst,
+module dispatch #(
+    parameter OPTN_DATA_WIDTH       = 32,
+    parameter OPTN_ADDR_WIDTH       = 32,
+    parameter OPTN_REGMAP_IDX_WIDTH = 5,
+    parameter OPTN_ROB_IDX_WIDTH    = 5
+)(
+    input  logic                             clk,
+    input  logic                             n_rst,
 
-    input  logic                 i_flush,
-    input  logic                 i_rob_stall,
-    input  logic                 i_rs_stall,
+    input  logic                             i_flush,
+    input  logic                             i_rob_stall,
+    input  logic                             i_rs_stall,
 
     // Fetch interface
-    input  procyon_addr_t        i_dispatch_pc,
-    input  procyon_data_t        i_dispatch_insn,
-    input  logic                 i_dispatch_valid,
-    output logic                 o_dispatch_stall,
+    input  logic [OPTN_ADDR_WIDTH-1:0]       i_dispatch_pc,
+    input  logic [OPTN_DATA_WIDTH-1:0]       i_dispatch_insn,
+    input  logic                             i_dispatch_valid,
+    output logic                             o_dispatch_stall,
 
     // Register Map lookup interface
-    output procyon_reg_t         o_regmap_lookup_rsrc [0:1],
-    output logic                 o_regmap_lookup_valid,
+    output logic [OPTN_REGMAP_IDX_WIDTH-1:0] o_regmap_lookup_rsrc [0:1],
+    output logic                             o_regmap_lookup_valid,
 
     // Register Map rename interface
-    output procyon_reg_t         o_regmap_rename_rdest,
-    output logic                 o_regmap_rename_en,
+    output logic [OPTN_REGMAP_IDX_WIDTH-1:0] o_regmap_rename_rdest,
+    output logic                             o_regmap_rename_en,
 
     // ROB tag used to rename destination register in the Register Map
-    input  procyon_tag_t         i_rob_dst_tag,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]    i_rob_dst_tag,
 
     // Override ready signals when ROB looks up source registers
-    output logic                 o_rob_lookup_rdy_ovrd [0:1],
+    output logic                             o_rob_lookup_rdy_ovrd [0:1],
 
     // ROB enqueue interface
-    output logic                 o_rob_enq_en,
-    output procyon_rob_op_t      o_rob_enq_op,
-    output procyon_addr_t        o_rob_enq_pc,
-    output procyon_reg_t         o_rob_enq_rdest,
+    output logic                             o_rob_enq_en,
+    output logic [`PCYN_ROB_OP_WIDTH-1:0]    o_rob_enq_op,
+    output logic [OPTN_ADDR_WIDTH-1:0]       o_rob_enq_pc,
+    output logic [OPTN_REGMAP_IDX_WIDTH-1:0] o_rob_enq_rdest,
 
     // Reservation Station enqueue interface
-    output logic                 o_rs_en,
-    output procyon_opcode_t      o_rs_opcode,
-    output procyon_addr_t        o_rs_pc,
-    output procyon_data_t        o_rs_insn,
-    output procyon_tag_t         o_rs_dst_tag
+    output logic                             o_rs_en,
+    output logic [`PCYN_OPCODE_WIDTH-1:0]    o_rs_opcode,
+    output logic [OPTN_ADDR_WIDTH-1:0]       o_rs_pc,
+    output logic [OPTN_DATA_WIDTH-1:0]       o_rs_insn,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]    o_rs_dst_tag
 );
 
-    logic                        rs_en;
-    procyon_opcode_t             rs_opcode;
-    procyon_addr_t               rs_pc;
-    procyon_data_t               rs_insn;
-    procyon_tag_t                rs_dst_tag;
+    logic                          rs_en;
+    logic [`PCYN_OPCODE_WIDTH-1:0] rs_opcode;
+    logic [OPTN_ADDR_WIDTH-1:0]    rs_pc;
+    logic [OPTN_DATA_WIDTH-1:0]    rs_insn;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_dst_tag;
 
-    assign o_dispatch_stall      = i_rob_stall;
+    assign o_dispatch_stall = i_rob_stall;
 
     // Decode & Rename (first cycle)
     // - Decodes intstruction
     // - Look up source operands in Register Map (bypassing retired destination register if needed)
     // - Renames destination register of instruction
-    decode_rename decode_rename_inst (
+    decode_rename #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_REGMAP_IDX_WIDTH(OPTN_REGMAP_IDX_WIDTH),
+        .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
+    ) decode_rename_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -95,7 +104,11 @@ module dispatch (
     // Map & Dispatch (second cycle)
     // - Take Register Map source operand lookup tags and lookup source operands in ROB (bypassing from CDB if needed)
     // - Enqueues instructions in Reorder Buffer
-    map_dispatch map_dispatch_inst (
+    map_dispatch #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
+    ) map_dispatch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),

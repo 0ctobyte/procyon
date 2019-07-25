@@ -1,59 +1,66 @@
 // Instruction fetch unit
 
-`include "common.svh"
-import procyon_types::*;
+module fetch #(
+    parameter OPTN_DATA_WIDTH = 32,
+    parameter OPTN_ADDR_WIDTH = 32
+)(
+    input  logic                       clk,
+    input  logic                       n_rst,
 
-module fetch (
-    input  logic                     clk,
-    input  logic                     n_rst,
+    input  logic                       i_redirect,
+    input  logic [OPTN_ADDR_WIDTH-1:0] i_redirect_addr,
 
-    input  logic                     i_redirect,
-    input  procyon_addr_t            i_redirect_addr,
-
-    // Interface to instruction memory (TODO: Too simple, needs cache interface)
-    input  procyon_data_t            i_insn,
-    input  logic                     i_data_valid,
-    output procyon_addr_t            o_pc,
-    output logic                     o_en,
+    // Interface to instruction memory simple, needs cache interface)
+    input  logic [OPTN_DATA_WIDTH-1:0] i_insn,
+    input  logic                       i_data_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0] o_pc,
+    output logic                       o_en,
 
     // Interface to dispatcher
-    input  logic                     i_dispatch_stall,
-    output procyon_addr_t            o_dispatch_pc,
-    output procyon_data_t            o_dispatch_insn,
-    output logic                     o_dispatch_valid
+    input  logic                       i_dispatch_stall,
+    output logic [OPTN_ADDR_WIDTH-1:0] o_dispatch_pc,
+    output logic [OPTN_DATA_WIDTH-1:0] o_dispatch_insn,
+    output logic                       o_dispatch_valid
 );
 
-    procyon_addr_t                   pc;
-    procyon_addr_t                   insn_pc;
-    procyon_addr_t                   next_pc;
-    procyon_addr_t                   pc_plus_4;
-    logic [1:0]                      pc_sel;
-    logic                            insn_fifo_ack;
-    logic                            insn_fifo_full;
-    procyon_addr_data_t              insn_fifo_data_o;
-    procyon_addr_data_t              insn_fifo_data_i;
-    logic                            redirect_d;
-    logic                            data_valid;
+    logic [OPTN_ADDR_WIDTH-1:0]                 pc;
+    logic [OPTN_ADDR_WIDTH-1:0]                 insn_pc;
+    logic [OPTN_ADDR_WIDTH-1:0]                 next_pc;
+    logic [OPTN_ADDR_WIDTH-1:0]                 pc_plus_4;
+    logic [1:0]                                 pc_sel;
+    logic                                       insn_fifo_ack;
+    logic                                       insn_fifo_full;
+    logic [OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH-1:0] insn_fifo_data_o;
+    logic [OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH-1:0] insn_fifo_data_i;
+    logic                                       redirect_d;
+    logic                                       data_valid;
 
-    assign data_valid                = i_data_valid | redirect_d;
-    assign insn_fifo_ack             = ~i_dispatch_stall;
-    assign insn_fifo_data_i          = {insn_pc, i_insn};
+    assign data_valid       = i_data_valid | redirect_d;
+    assign insn_fifo_ack    = ~i_dispatch_stall;
+    assign insn_fifo_data_i = {insn_pc, i_insn};
 
-    assign pc_sel                    = {i_redirect, data_valid & ~insn_fifo_full};
-    assign pc_plus_4                 = pc + 4;
+    assign pc_sel           = {i_redirect, data_valid & ~insn_fifo_full};
+    assign pc_plus_4        = pc + 4;
+
+    assign o_en             = ~i_redirect;
+    assign o_pc             = insn_fifo_full | ~data_valid ? insn_pc : pc;
+
+    assign o_dispatch_pc    = insn_fifo_data_o[OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH-1:OPTN_DATA_WIDTH];
+    assign o_dispatch_insn  = insn_fifo_data_o[OPTN_DATA_WIDTH-1:0];
 
     // PC mux
-    assign next_pc                   = mux4_addr(pc, pc_plus_4, i_redirect_addr, i_redirect_addr, pc_sel);
-
-    assign o_en                      = ~i_redirect;
-    assign o_pc                      = insn_fifo_full | ~data_valid ? insn_pc : pc;
-
-    assign o_dispatch_pc             = insn_fifo_data_o[`ADDR_WIDTH+`DATA_WIDTH-1:`DATA_WIDTH];
-    assign o_dispatch_insn           = insn_fifo_data_o[`DATA_WIDTH-1:0];
+    always_comb begin
+        case (pc_sel)
+            2'b00: next_pc = pc;
+            2'b01: next_pc = pc_plus_4;
+            2'b10: next_pc = i_redirect_addr;
+            2'b11: next_pc = i_redirect_addr;
+        endcase
+    end
 
     always_ff @(posedge clk) begin
         if (~n_rst) begin
-            pc         <= {(`ADDR_WIDTH){1'b0}};
+            pc         <= {(OPTN_ADDR_WIDTH){1'b0}};
             redirect_d <= 1'b0;
         end else begin
             pc         <= next_pc;
@@ -66,8 +73,8 @@ module fetch (
     end
 
     sync_fifo #(
-        .DATA_WIDTH(`ADDR_WIDTH+`DATA_WIDTH),
-        .FIFO_DEPTH(8)
+        .OPTN_DATA_WIDTH(OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH),
+        .OPTN_FIFO_DEPTH(8)
     ) insn_fifo (
         .clk(clk),
         .n_rst(n_rst),

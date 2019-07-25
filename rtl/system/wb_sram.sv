@@ -167,8 +167,8 @@ module wb_sram #(
     end
 
     sync_fifo #(
-        .DATA_WIDTH(FIFO_DATA_WIDTH),
-        .FIFO_DEPTH(FIFO_DEPTH)
+        .OPTN_DATA_WIDTH(FIFO_DATA_WIDTH),
+        .OPTN_FIFO_DEPTH(FIFO_DEPTH)
     ) wb_slave_fifo (
         .clk(i_wb_clk),
         .n_rst(n_rst),

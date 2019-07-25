@@ -1,30 +1,31 @@
 // Byte addressable RAM with initialized memory
 
-`define TEST_DP_RAM_WORD_SIZE  (DATA_WIDTH/8)
-
 module test_dp_ram #(
-    parameter  DATA_WIDTH = 32,
-    parameter  RAM_DEPTH  = 8,
-    parameter  BASE_ADDR  = 0,
-    parameter  RAM_FILE   = ""
+    parameter  OPTN_DATA_WIDTH = 32,
+    parameter  OPTN_RAM_DEPTH  = 8,
+    parameter  OPTN_BASE_ADDR  = 0,
+    parameter  OPTN_RAM_FILE   = "",
+
+    localparam RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH),
+    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8
 ) (
-    input  logic                                     clk,
-    input  logic                                     n_rst,
+    input  logic                       clk,
+    input  logic                       n_rst,
 
     // RAM read interface
-    input  logic                                     i_ram_rd_en,
-    input  logic [$clog2(RAM_DEPTH)-1:0]             i_ram_rd_addr,
-    output logic [DATA_WIDTH-1:0]                    o_ram_rd_data,
+    input  logic                       i_ram_rd_en,
+    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_rd_addr,
+    output logic [OPTN_DATA_WIDTH-1:0] o_ram_rd_data,
 
     // RAM write interface
-    input  logic                                     i_ram_wr_en,
-    input  logic [`TEST_DP_RAM_WORD_SIZE-1:0]        i_ram_wr_byte_en,
-    input  logic [$clog2(RAM_DEPTH)-1:0]             i_ram_wr_addr,
-    input  logic [DATA_WIDTH-1:0]                    i_ram_wr_data
+    input  logic                       i_ram_wr_en,
+    input  logic [WORD_SIZE-1:0]       i_ram_wr_byte_en,
+    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_wr_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0] i_ram_wr_data
 );
 
     // Memory array
-    logic [7:0] ram [BASE_ADDR:BASE_ADDR + RAM_DEPTH - 1];
+    logic [7:0] ram [OPTN_BASE_ADDR:OPTN_BASE_ADDR + OPTN_RAM_DEPTH - 1];
 
     // Used to check if addresses are within range
     logic       cs_wr;
@@ -36,14 +37,14 @@ module test_dp_ram #(
     // Asynchronous read; perform read combinationally
     genvar i;
     generate
-    for (i = 0; i < `TEST_DP_RAM_WORD_SIZE; i++) begin : ASYNC_RAM_READ
+    for (i = 0; i < WORD_SIZE; i++) begin : ASYNC_RAM_READ
         assign o_ram_rd_data[i*8 +: 8] = (cs_rd) ? ram[i_ram_rd_addr + i] : 8'b0;
     end
     endgenerate
 
     // Synchronous write; perform write at positive clock edge
     always_ff @(posedge clk) begin
-        for (int i = 0; i < `TEST_DP_RAM_WORD_SIZE; i++) begin : SYNC_RAM_WRITE
+        for (int i = 0; i < WORD_SIZE; i++) begin : SYNC_RAM_WRITE
             if (cs_wr && i_ram_wr_byte_en[i]) begin
                 ram[i_ram_wr_addr+i]   <= i_ram_wr_data[i*8 +: 8];
             end
@@ -51,7 +52,7 @@ module test_dp_ram #(
     end
 
     initial begin
-        $readmemh(RAM_FILE, ram);
+        $readmemh(OPTN_RAM_FILE, ram);
     end
 
 endmodule

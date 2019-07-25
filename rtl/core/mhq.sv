@@ -11,65 +11,82 @@
 // - Enqueue or merges if necessary and writes store retire data into the MHQ entry
 // - Also handle merging write data with fill data from the CCU
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module mhq (
-    input  logic                         clk,
-    input  logic                         n_rst,
+module mhq #(
+    parameter OPTN_DATA_WIDTH   = 32,
+    parameter OPTN_ADDR_WIDTH   = 32,
+    parameter OPTN_MHQ_DEPTH    = 4,
+    parameter OPTN_DC_LINE_SIZE = 1024,
+
+    localparam MHQ_IDX_WIDTH    = $clog2(OPTN_MHQ_DEPTH),
+    localparam DC_LINE_WIDTH    = OPTN_DC_LINE_SIZE * 8
+)(
+    input  logic                            clk,
+    input  logic                            n_rst,
 
     // Interface to LSU to match lookup address to valid entries and return enqueue tag
     // FIXME What if there is a fill for the given lookup address on the same cycle?
-    input  logic                         i_mhq_lookup_valid,
-    input  logic                         i_mhq_lookup_dc_hit,
-    input  procyon_addr_t                i_mhq_lookup_addr,
-    input  procyon_lsu_func_t            i_mhq_lookup_lsu_func,
-    input  procyon_data_t                i_mhq_lookup_data,
-    input  logic                         i_mhq_lookup_we,
-    output procyon_mhq_tag_t             o_mhq_lookup_tag,
-    output logic                         o_mhq_lookup_retry,
+    input  logic                            i_mhq_lookup_valid,
+    input  logic                            i_mhq_lookup_dc_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_lookup_addr,
+    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_mhq_lookup_lsu_func,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_mhq_lookup_data,
+    input  logic                            i_mhq_lookup_we,
+    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
+    output logic                            o_mhq_lookup_retry,
 
     // Fill cacheline interface
-    output logic                         o_mhq_fill_en,
-    output procyon_mhq_tag_t             o_mhq_fill_tag,
-    output logic                         o_mhq_fill_dirty,
-    output procyon_addr_t                o_mhq_fill_addr,
-    output procyon_cacheline_t           o_mhq_fill_data,
+    output logic                            o_mhq_fill_en,
+    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_fill_tag,
+    output logic                            o_mhq_fill_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
+    output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
 
     // CCU interface
-    input  logic                         i_ccu_done,
-    input  procyon_cacheline_t           i_ccu_data,
-    output logic                         o_ccu_en,
-    output procyon_addr_t                o_ccu_addr
+    input  logic                            i_ccu_done,
+    input  logic [DC_LINE_WIDTH-1:0]        i_ccu_data,
+    output logic                            o_ccu_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
 );
 
-    procyon_mhq_entry_t [`MHQ_DEPTH-1:0] mhq_entries;
-    procyon_mhq_tagp_t                   mhq_head_next;
-    procyon_mhq_tagp_t                   mhq_tail_next;
-    logic                                mhq_lu_en;
-    logic                                mhq_lu_we;
-    procyon_dc_offset_t                  mhq_lu_offset;
-    procyon_data_t                       mhq_lu_wr_data;
-    procyon_byte_select_t                mhq_lu_byte_select;
-    logic                                mhq_lu_match;
-    procyon_mhq_tag_t                    mhq_lu_tag;
-    procyon_mhq_addr_t                   mhq_lu_addr;
-    logic                                mhq_lu_retry;
-    procyon_addr_t                       ccu_addr;
+    localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
+    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8;
+
+    logic [MHQ_IDX_WIDTH:0]                   mhq_head_next;
+    logic [MHQ_IDX_WIDTH:0]                   mhq_tail_next;
+    logic                                     mhq_entry_valid [0:OPTN_MHQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_entry_addr  [0:OPTN_MHQ_DEPTH-1];
+    logic                                     mhq_lu_en;
+    logic                                     mhq_lu_we;
+    logic [DC_OFFSET_WIDTH-1:0]               mhq_lu_offset;
+    logic [OPTN_DATA_WIDTH-1:0]               mhq_lu_wr_data;
+    logic [WORD_SIZE-1:0]                     mhq_lu_byte_select;
+    logic                                     mhq_lu_match;
+    logic [MHQ_IDX_WIDTH-1:0]                 mhq_lu_tag;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_addr;
+    logic                                     mhq_lu_retry;
+    logic [OPTN_ADDR_WIDTH-1:0]               ccu_addr;
 
     // Output to CCU but also used by MHQ_LU
-    assign o_ccu_addr                    = ccu_addr;
+    assign o_ccu_addr         = ccu_addr;
 
     // Output to LSU
-    assign o_mhq_lookup_retry            = mhq_lu_retry;
-    assign o_mhq_lookup_tag              = mhq_lu_tag;
+    assign o_mhq_lookup_retry = mhq_lu_retry;
+    assign o_mhq_lookup_tag   = mhq_lu_tag;
 
-    mhq_lu mhq_lu_inst (
+    mhq_lu #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) mhq_lu_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_mhq_entries(mhq_entries),
         .i_mhq_head_next(mhq_head_next),
         .i_mhq_tail_next(mhq_tail_next),
+        .i_mhq_entry_valid(mhq_entry_valid),
+        .i_mhq_entry_addr(mhq_entry_addr),
         .i_mhq_ex_bypass_en(mhq_lu_en),
         .i_mhq_ex_bypass_we(mhq_lu_we),
         .i_mhq_ex_bypass_match(mhq_lu_match),
@@ -94,13 +111,18 @@ module mhq (
         .i_ccu_addr(ccu_addr)
     );
 
-    mhq_ex mhq_ex_inst (
+    mhq_ex #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) mhq_ex_inst (
         .clk(clk),
         .n_rst(n_rst),
-        .i_mhq_entries(mhq_entries),
-        .o_mhq_entries(mhq_entries),
         .o_mhq_head_next(mhq_head_next),
         .o_mhq_tail_next(mhq_tail_next),
+        .o_mhq_entry_valid(mhq_entry_valid),
+        .o_mhq_entry_addr(mhq_entry_addr),
         .i_mhq_lu_en(mhq_lu_en),
         .i_mhq_lu_we(mhq_lu_we),
         .i_mhq_lu_offset(mhq_lu_offset),

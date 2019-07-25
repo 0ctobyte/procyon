@@ -19,21 +19,18 @@ int sc_main(int argc, char** argv) {
     sc_trace(tf, clk, top_name+".clk");
     sc_trace(tf, n_rst, top_name+".n_rst");
 
-    sc_signal<bool> cache_re;
-    sc_signal<bool> cache_we;
-    sc_signal<bool> cache_fe;
-    sc_signal<bool> cache_valid;
-    sc_signal<bool> cache_dirty_i;
-    sc_signal<uint32_t> cache_tag_i;
-    sc_signal<uint32_t> cache_index;
-    sc_signal<uint32_t> cache_offset;
-    sc_signal<uint32_t> cache_wdata;
-    sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_fdata;
-    sc_signal<bool> cache_dirty_o;
-    sc_signal<bool> cache_hit;
-    sc_signal<uint32_t> cache_tag_o;
-    sc_signal<uint32_t> cache_rdata;
-    sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_vdata;
+    sc_signal<bool> cache_wr_en;
+    sc_signal<uint32_t> cache_wr_index;
+    sc_signal<bool> cache_wr_valid;
+    sc_signal<bool> cache_wr_dirty;
+    sc_signal<uint32_t> cache_wr_tag;
+    sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_wr_data;
+    sc_signal<bool> cache_rd_en;
+    sc_signal<uint32_t> cache_rd_index;
+    sc_signal<bool> cache_rd_valid;
+    sc_signal<bool> cache_rd_dirty;
+    sc_signal<uint32_t> cache_rd_tag;
+    sc_signal< sc_bv<CACHE_LINE_WIDTH> > cache_rd_data;
 
     sc_signal<bool> wb_rst;
     sc_signal<bool> wb_cyc;
@@ -137,21 +134,18 @@ int sc_main(int argc, char** argv) {
     Vdut dut("dut");
     dut.clk(clk);
     dut.n_rst(n_rst);
-    dut.i_cache_re(cache_re);
-    dut.i_cache_we(cache_we);
-    dut.i_cache_fe(cache_fe);
-    dut.i_cache_valid(cache_valid);
-    dut.i_cache_dirty(cache_dirty_i);
-    dut.i_cache_tag(cache_tag_i);
-    dut.i_cache_index(cache_index);
-    dut.i_cache_offset(cache_offset);
-    dut.i_cache_wdata(cache_wdata);
-    dut.i_cache_fdata(cache_fdata);
-    dut.o_cache_dirty(cache_dirty_o);
-    dut.o_cache_hit(cache_hit);
-    dut.o_cache_tag(cache_tag_o);
-    dut.o_cache_rdata(cache_rdata);
-    dut.o_cache_vdata(cache_vdata);
+    dut.i_cache_wr_en(cache_wr_en),
+    dut.i_cache_wr_index(cache_wr_index),
+    dut.i_cache_wr_valid(cache_wr_valid),
+    dut.i_cache_wr_dirty(cache_wr_dirty0<
+    dut.i_cache_wr_tag(cache_wr_tag),
+    dut.i_cache_wr_data(cache_wr_data),
+    dut.i_cache_rd_en(cache_rd_en),
+    dut.i_cache_rd_index(cache_rd_index),
+    dut.i_cache_rd_valid(cache_rd_valid),
+    dut.i_cache_rd_dirty(cache_rd_dirty),
+    dut.i_cache_rd_tag(cache_rd_tag),
+    dut.i_cache_rd_data(cache_rd_data),
     dut.o_wb_rst(wb_rst);
     dut.i_wb_cyc(wb_cyc);
     dut.i_wb_stb(wb_stb);

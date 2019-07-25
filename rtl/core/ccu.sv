@@ -2,88 +2,102 @@
 // This module is responsible for arbitrating between the MHQ, fetch and
 // victim requests within the CPU and controlling the BIU
 
-`include "common.svh"
-import procyon_types::*;
+`include "procyon_constants.svh"
 
-module ccu (
-    input  logic                   clk,
-    input  logic                   n_rst,
+module ccu #(
+    parameter OPTN_DATA_WIDTH    = 32,
+    parameter OPTN_ADDR_WIDTH    = 32,
+    parameter OPTN_MHQ_DEPTH     = 4,
+    parameter OPTN_DC_LINE_SIZE  = 1024,
+    parameter OPTN_WB_ADDR_WIDTH = 32,
+    parameter OPTN_WB_DATA_WIDTH = 16,
+
+    localparam MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
+    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
+    localparam WB_WORD_SIZE      = OPTN_WB_DATA_WIDTH / 8
+)(
+    input  logic                            clk,
+    input  logic                            n_rst,
 
     // MHQ address/tag lookup interface
-    input  logic                   i_mhq_lookup_valid,
-    input  logic                   i_mhq_lookup_dc_hit,
-    input  procyon_addr_t          i_mhq_lookup_addr,
-    input  procyon_lsu_func_t      i_mhq_lookup_lsu_func,
-    input  procyon_data_t          i_mhq_lookup_data,
-    input  logic                   i_mhq_lookup_we,
-    output logic                   o_mhq_lookup_retry,
-    output procyon_mhq_tag_t       o_mhq_lookup_tag,
+    input  logic                            i_mhq_lookup_valid,
+    input  logic                            i_mhq_lookup_dc_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_lookup_addr,
+    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_mhq_lookup_lsu_func,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_mhq_lookup_data,
+    input  logic                            i_mhq_lookup_we,
+    output logic                            o_mhq_lookup_retry,
+    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
 
     // Fill cacheline
-    output logic                   o_mhq_fill_en,
-    output procyon_mhq_tag_t       o_mhq_fill_tag,
-    output logic                   o_mhq_fill_dirty,
-    output procyon_addr_t          o_mhq_fill_addr,
-    output procyon_cacheline_t     o_mhq_fill_data,
+    output logic                            o_mhq_fill_en,
+    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_fill_tag,
+    output logic                            o_mhq_fill_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
+    output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
 
     // Wishbone bus interface
-    input  logic                   i_wb_clk,
-    input  logic                   i_wb_rst,
-    input  logic                   i_wb_ack,
-    input  logic                   i_wb_stall,
-    input  wb_data_t               i_wb_data,
-    output logic                   o_wb_cyc,
-    output logic                   o_wb_stb,
-    output logic                   o_wb_we,
-    output wb_byte_select_t        o_wb_sel,
-    output wb_addr_t               o_wb_addr,
-    output wb_data_t               o_wb_data
+    input  logic                            i_wb_clk,
+    input  logic                            i_wb_rst,
+    input  logic                            i_wb_ack,
+    input  logic                            i_wb_stall,
+    input  logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
+    output logic                            o_wb_cyc,
+    output logic                            o_wb_stb,
+    output logic                            o_wb_we,
+    output logic [WB_WORD_SIZE-1:0]         o_wb_sel,
+    output logic [OPTN_WB_ADDR_WIDTH-1:0]   o_wb_addr,
+    output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    typedef enum logic [1:0] {
-        IDLE = 2'b00,
-        REQ  = 2'b01,
-        WAIT = 2'b10,
-        DONE = 2'b11
-    } state_t;
+    localparam CCU_STATE_WIDTH = 2;
+    localparam CCU_STATE_IDLE  = 2'b00;
+    localparam CCU_STATE_REQ   = 2'b01;
+    localparam CCU_STATE_WAIT  = 2'b10;
+    localparam CCU_STATE_DONE  = 2'b11;
 
-    state_t               next_state;
-    state_t               state_q;
-    logic                 ccu_en;
-    logic                 ccu_done;
-    logic                 biu_done;
-    logic                 biu_busy;
-    procyon_cacheline_t   biu_data_r;
-    procyon_cacheline_t   biu_data_w;
-    procyon_addr_t        biu_addr;
-    logic                 biu_we;
-    logic                 biu_en;
+    logic [CCU_STATE_WIDTH-1:0] next_state;
+    logic [CCU_STATE_WIDTH-1:0] state_q;
+    logic                       ccu_en;
+    logic                       ccu_done;
+    logic                       biu_done;
+    logic                       biu_busy;
+    logic [DC_LINE_WIDTH-1:0]   biu_data_r;
+    logic [DC_LINE_WIDTH-1:0]   biu_data_w;
+    logic [OPTN_ADDR_WIDTH-1:0] biu_addr;
+    logic                       biu_we;
+    logic                       biu_en;
 
     // Output to BIU
-    assign biu_data_w     = {{(`DC_LINE_WIDTH){1'b0}}};
-    assign biu_we         = 1'b0;
-    assign biu_en         = state_q == REQ | state_q == WAIT;
+    assign biu_data_w = {{(DC_LINE_WIDTH){1'b0}}};
+    assign biu_we     = 1'b0;
+    assign biu_en     = state_q == CCU_STATE_REQ | state_q == CCU_STATE_WAIT;
 
     // Output done signal
-    assign ccu_done       = state_q == DONE;
+    assign ccu_done   = state_q == CCU_STATE_DONE;
 
     // Latch next state
     always_ff @(posedge clk) begin
-        if (~n_rst) state_q <= IDLE;
+        if (~n_rst) state_q <= CCU_STATE_IDLE;
         else        state_q <= next_state;
     end
 
     // Update state
     always_comb begin
         case (state_q)
-            IDLE: next_state = (ccu_en & ~biu_busy) ? REQ : IDLE;
-            REQ:  next_state = WAIT;
-            WAIT: next_state = biu_done ? DONE : WAIT;
-            DONE: next_state = IDLE;
+            CCU_STATE_IDLE: next_state = (ccu_en & ~biu_busy) ? CCU_STATE_REQ : CCU_STATE_IDLE;
+            CCU_STATE_REQ:  next_state = CCU_STATE_WAIT;
+            CCU_STATE_WAIT: next_state = biu_done ? CCU_STATE_DONE : CCU_STATE_WAIT;
+            CCU_STATE_DONE: next_state = CCU_STATE_IDLE;
         endcase
     end
 
-    mhq mhq_inst (
+    mhq #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_lookup_valid(i_mhq_lookup_valid),
@@ -105,7 +119,12 @@ module ccu (
         .o_ccu_addr(biu_addr)
     );
 
-    wb_biu wb_biu_inst (
+    wb_biu #(
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) wb_biu_inst (
         .i_wb_clk(i_wb_clk),
         .i_wb_rst(i_wb_rst),
         .i_wb_ack(i_wb_ack),
