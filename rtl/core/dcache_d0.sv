@@ -9,11 +9,11 @@ module dcache_d0 #(
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_DC_WAY_COUNT  = 1,
 
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    localparam DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
-    localparam DC_INDEX_WIDTH    = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
-    localparam DC_TAG_WIDTH      = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
-    localparam WORD_SIZE         = OPTN_DATA_WIDTH / 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter DC_OFFSET_WIDTH    = $clog2(OPTN_DC_LINE_SIZE),
+    parameter DC_INDEX_WIDTH     = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
+    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
+    parameter WORD_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,

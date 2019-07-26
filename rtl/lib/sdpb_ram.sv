@@ -4,7 +4,7 @@ module sdpb_ram #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8,
 
-    localparam RAM_IDX_WIDTH  = $clog2(OPTN_RAM_DEPTH)
+    parameter RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH)
 ) (
     input  logic                       clk,
 

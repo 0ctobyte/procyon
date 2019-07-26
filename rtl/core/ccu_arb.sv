@@ -7,7 +7,7 @@ module ccu_arb #(
     parameter OPTN_CCU_ARB_DEPTH = 1,
     parameter OPTN_DC_LINE_SIZE  = 32,
 
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
 )(
     input  logic                       clk,
     input  logic                       n_rst,

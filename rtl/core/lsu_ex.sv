@@ -10,7 +10,7 @@ module lsu_ex #(
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,
 
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,

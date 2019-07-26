@@ -7,10 +7,10 @@ module mhq_ex #(
     parameter OPTN_MHQ_DEPTH    = 4,
     parameter OPTN_DC_LINE_SIZE = 32,
 
-    localparam MHQ_IDX_WIDTH    = $clog2(OPTN_MHQ_DEPTH),
-    localparam DC_LINE_WIDTH    = OPTN_DC_LINE_SIZE * 8,
-    localparam DC_OFFSET_WIDTH  = $clog2(OPTN_DC_LINE_SIZE),
-    localparam WORD_SIZE        = OPTN_DATA_WIDTH / 8
+    parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
+    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
+    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
+    parameter WORD_SIZE         = OPTN_DATA_WIDTH / 8
 )(
     input  logic                                     clk,
     input  logic                                     n_rst,

@@ -19,8 +19,8 @@ module mhq #(
     parameter OPTN_MHQ_DEPTH    = 4,
     parameter OPTN_DC_LINE_SIZE = 1024,
 
-    localparam MHQ_IDX_WIDTH    = $clog2(OPTN_MHQ_DEPTH),
-    localparam DC_LINE_WIDTH    = OPTN_DC_LINE_SIZE * 8
+    parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
+    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,

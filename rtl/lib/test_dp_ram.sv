@@ -6,8 +6,8 @@ module test_dp_ram #(
     parameter  OPTN_BASE_ADDR  = 0,
     parameter  OPTN_RAM_FILE   = "",
 
-    localparam RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH),
-    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8
+    parameter RAM_IDX_WIDTH    = $clog2(OPTN_RAM_DEPTH),
+    parameter WORD_SIZE        = OPTN_DATA_WIDTH / 8
 ) (
     input  logic                       clk,
     input  logic                       n_rst,

@@ -12,7 +12,7 @@ module wb_sram #(
     parameter OPTN_BASE_ADDR     = 0,
     parameter OPTN_FIFO_DEPTH    = 8,
 
-    localparam WB_WORD_SIZE      = OPTN_WB_DATA_WIDTH / 8
+    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
 ) (
     // Wishbone Interface
     input  logic                           i_wb_clk,     // CLK_I

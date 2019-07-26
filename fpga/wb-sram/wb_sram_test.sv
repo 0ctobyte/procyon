@@ -1,5 +1,10 @@
-`define DATA_WIDTH (32)
-`include "../common/test_common.svh"
+`define DATA_WIDTH         (32)
+`define WB_DATA_WIDTH      (16)
+`define WB_ADDR_WIDTH      (32)
+`define WB_SRAM_BASE_ADDR  (0)
+`define WB_SRAM_FIFO_DEPTH (8)
+`define SRAM_ADDR_WIDTH    (20)
+`define SRAM_DATA_WIDTH    (16)
 
 module wb_sram_test (
     input  logic                         CLOCK_50,
@@ -77,10 +82,10 @@ module wb_sram_test (
     end
 
     wb_sram #(
-        .DATA_WIDTH(`WB_DATA_WIDTH),
-        .ADDR_WIDTH(`WB_ADDR_WIDTH),
-        .BASE_ADDR(`WB_SRAM_BASE_ADDR),
-        .FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
+        .OPTN_WB_DATA_WIDTH(`WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(`WB_ADDR_WIDTH),
+        .OPTN_BASE_ADDR(`WB_SRAM_BASE_ADDR),
+        .OPTN_FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
     ) wb_sram_inst (
         .i_wb_clk(CLOCK_50),
         .i_wb_rst(SW[17]),
@@ -103,9 +108,9 @@ module wb_sram_test (
     );
 
     wb_master_driver #(
-        .DATA_WIDTH(`DATA_WIDTH),
-        .WB_DATA_WIDTH(`WB_DATA_WIDTH),
-        .ADDR_WIDTH(`WB_ADDR_WIDTH)
+        .OPTN_DATA_WIDTH(`DATA_WIDTH),
+        .OPTN_WB_DATA_WIDTH(`WB_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(`WB_ADDR_WIDTH)
     ) wb_master_driver_inst (
         .i_wb_clk(CLOCK_50),
         .i_wb_rst(SW[17]),
@@ -131,7 +136,7 @@ module wb_sram_test (
     generate
     for (i = 0; i < 4; i++) begin : GENERATE_EDGE_DETECTORS
         edge_detector #(
-            .EDGE(1)
+            .OPTN_EDGE(1)
         ) edge_detector_inst (
             .clk(CLOCK_50),
             .n_rst(n_rst),

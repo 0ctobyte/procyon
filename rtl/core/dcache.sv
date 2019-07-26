@@ -20,7 +20,7 @@ module dcache #(
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_DC_WAY_COUNT  = 1,
 
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,

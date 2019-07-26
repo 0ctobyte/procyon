@@ -7,7 +7,7 @@ module dut #(
    parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
    parameter OPTN_WB_SRAM_FIFO_DEPTH = 8,
 
-   localparam WB_WORD_SIZE           = OPTN_WB_DATA_WIDTH / 8
+   parameter WB_WORD_SIZE            = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                          clk,
     input  logic                          n_rst,

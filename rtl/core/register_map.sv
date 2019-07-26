@@ -5,7 +5,7 @@ module register_map #(
     parameter OPTN_REGMAP_DEPTH  = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,
 
-    localparam REGMAP_IDX_WIDTH  = $clog2(OPTN_REGMAP_DEPTH)
+    parameter REGMAP_IDX_WIDTH   = $clog2(OPTN_REGMAP_DEPTH)
 )(
     input  logic                           clk,
     input  logic                           n_rst,

@@ -5,7 +5,7 @@ module dp_ram #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8,
 
-    localparam RAM_IDX_WIDTH  = $clog2(OPTN_RAM_DEPTH)
+    parameter RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH)
 ) (
     input  logic                       clk,
     input  logic                       n_rst,
@@ -18,7 +18,7 @@ module dp_ram #(
     // RAM write interface
     input  logic                       i_ram_wr_en,
     input  logic [RAM_IDX_WIDTH-1:0]   i_ram_wr_addr,
-    input  logic [OPTN_DATA_WIDTH-1:0  i_ram_wr_data
+    input  logic [OPTN_DATA_WIDTH-1:0] i_ram_wr_data
 );
 
     // Memory array

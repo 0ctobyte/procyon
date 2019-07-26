@@ -12,9 +12,9 @@ module ccu #(
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
 
-    localparam MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    localparam WB_WORD_SIZE      = OPTN_WB_DATA_WIDTH / 8
+    parameter MHQ_IDX_WIDTH      = $clog2(OPTN_MHQ_DEPTH),
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,

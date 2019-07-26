@@ -8,8 +8,8 @@ module wb_biu #(
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_DC_LINE_SIZE  = 32,
 
-    localparam WB_WORD_SIZE      = OPTN_WB_DATA_WIDTH / 8,
-    localparam DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8,
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
 )(
     // Wishbone interface
     input  logic                          i_wb_clk,

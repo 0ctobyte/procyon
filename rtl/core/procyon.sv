@@ -18,8 +18,8 @@ module procyon #(
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,
 
-    localparam REGMAP_IDX_WIDTH  = $clog2(OPTN_REGMAP_DEPTH),
-    localparam WB_WORD_SIZE      = OPTN_WB_DATA_WIDTH / 8
+    parameter REGMAP_IDX_WIDTH   = $clog2(OPTN_REGMAP_DEPTH),
+    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                          clk,
     input  logic                          n_rst,

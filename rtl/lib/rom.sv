@@ -6,7 +6,7 @@ module rom #(
     parameter OPTN_BASE_ADDR  = 0,
     parameter OPTN_ROM_FILE   = "",
 
-    localparam ROM_IDX_WIDTH  = $clog2(OPTN_ROM_DEPTH)
+    parameter ROM_IDX_WIDTH   = $clog2(OPTN_ROM_DEPTH)
 ) (
     input  logic                       clk,
     input  logic                       n_rst,

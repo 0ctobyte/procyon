@@ -12,7 +12,7 @@ module reorder_buffer #(
     parameter OPTN_ROB_DEPTH        = 32,
     parameter OPTN_REGMAP_IDX_WIDTH = 5,
 
-    localparam ROB_IDX_WIDTH        = $clog2(OPTN_ROB_DEPTH)
+    parameter ROB_IDX_WIDTH         = $clog2(OPTN_ROB_DEPTH)
 )(
     input  logic                              clk,
     input  logic                              n_rst,

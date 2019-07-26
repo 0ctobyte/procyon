@@ -6,10 +6,10 @@ module cache #(
     parameter OPTN_CACHE_SIZE      = 1024,
     parameter OPTN_CACHE_LINE_SIZE = 32,
 
-    localparam CACHE_INDEX_COUNT   = OPTN_CACHE_SIZE / OPTN_CACHE_LINE_SIZE,
-    localparam CACHE_INDEX_WIDTH   = $clog2(CACHE_INDEX_COUNT),
-    localparam CACHE_TAG_WIDTH     = OPTN_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
-    localparam CACHE_LINE_WIDTH    = OPTN_CACHE_LINE_SIZE * 8
+    parameter CACHE_INDEX_COUNT    = OPTN_CACHE_SIZE / OPTN_CACHE_LINE_SIZE,
+    parameter CACHE_INDEX_WIDTH    = $clog2(CACHE_INDEX_COUNT),
+    parameter CACHE_TAG_WIDTH      = OPTN_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
+    parameter CACHE_LINE_WIDTH     = OPTN_CACHE_LINE_SIZE * 8
 ) (
     input  logic                                clk,
     input  logic                                n_rst,
