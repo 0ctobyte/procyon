@@ -284,7 +284,9 @@ module reorder_buffer #(
     // Mux to determine whether to mark rob entry as retired in the LSU
     always_comb begin
         for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
-            logic [1:0] rob_entry_lsu_retired_sel = {rob_lsu_retired_ack[i], rob_dispatch_en[i]};
+            logic [1:0] rob_entry_lsu_retired_sel;
+
+            rob_entry_lsu_retired_sel = {rob_lsu_retired_ack[i], rob_dispatch_en[i]};
             case (rob_entry_lsu_retired_sel)
                 2'b00: rob_entry_lsu_retired_mux[i] = rob_entry_lsu_retired_q[i];
                 2'b01: rob_entry_lsu_retired_mux[i] = rob_enq_op_not_ld_or_st;

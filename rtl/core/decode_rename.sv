@@ -105,7 +105,9 @@ module decode_rename #(
     assign o_regmap_rename_en    = enable & i_dispatch_valid;
 
     always_comb begin
-        logic [1:0] rob_op_sel = {is_store | is_branch | is_jal | is_jalr, is_load | is_branch | is_jal | is_jalr};
+        logic [1:0] rob_op_sel;
+        
+        rob_op_sel = {is_store | is_branch | is_jal | is_jalr, is_load | is_branch | is_jal | is_jalr};
         case (rob_op_sel)
             2'b00: rob_enq_op = `PCYN_ROB_OP_INT;
             2'b01: rob_enq_op = `PCYN_ROB_OP_LD;

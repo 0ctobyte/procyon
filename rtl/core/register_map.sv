@@ -74,7 +74,9 @@ module register_map #(
 
     always_comb begin
         for (int i = 0; i < OPTN_REGMAP_DEPTH; i++) begin
-            logic [1:0] regmap_rdy_sel = {retire_select[i], rename_select[i]};
+            logic [1:0] regmap_rdy_sel;
+
+            regmap_rdy_sel = {retire_select[i], rename_select[i]};
             case (regmap_rdy_sel)
                 2'b00: regmap_rdy_mux[i] = regmap_rdy_q[i];
                 2'b01: regmap_rdy_mux[i] = 1'b0;

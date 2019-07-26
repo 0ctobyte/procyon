@@ -145,7 +145,9 @@ module reservation_station #(
 
     always_comb begin
         for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            logic [1:0] rs_slot_empty_sel = {rs_issue_select[i], rs_dispatch_select[i]};
+            logic [1:0] rs_slot_empty_sel;
+
+            rs_slot_empty_sel = {rs_issue_select[i], rs_dispatch_select[i]};
             case (rs_slot_empty_sel)
                 2'b00: rs_slot_empty_mux[i] = rs_slot_empty_q[i];
                 2'b01: rs_slot_empty_mux[i] = 1'b0;

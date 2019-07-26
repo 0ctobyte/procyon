@@ -49,8 +49,8 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "set_global_assignment -name ALLOW_ANY_RAM_SIZE_FOR_RECOGNITION ON" >> $@
 	echo "" >> $@
 	echo "# Set HEX_FILE parameter for top-level entity" >> $@
-	echo "set_parameter -name HEX_FILE \"$(HEX_FILE)\"" >> $@
-	echo "set_parameter -name HEX_SIZE $(HEX_SIZE)" >> $@
+	echo "set_parameter -name OPTN_HEX_FILE \"$(HEX_FILE)\"" >> $@
+	echo "set_parameter -name OPTN_HEX_SIZE $(HEX_SIZE)" >> $@
 	echo "" >> $@
 	echo "# Set pin assignments" >> $@
 	echo "source \"$(PIN_ASSIGNMENTS_FILE)\"" >> $@

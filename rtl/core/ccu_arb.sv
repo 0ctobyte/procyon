@@ -38,13 +38,20 @@ module ccu_arb #(
 
     logic [CCU_ARB_STATE_WIDTH-1:0] ccu_arb_state;
     logic [CCU_ARB_STATE_WIDTH-1:0] ccu_arb_state_next;
-    logic [OPTN_CCU_ARB_DEPTH-1:0]  ccu_arb_select;
+    logic [CCU_ARB_IDX_WIDTH-1:0]   ccu_arb_select;
     logic [CCU_ARB_IDX_WIDTH-1:0]   ccu_arb_idx;
     logic [CCU_ARB_IDX_WIDTH-1:0]   ccu_arb_idx_q;
     logic                           any_valid;
 
-    assign ccu_arb_select = i_ccu_arb_valid & ~(i_ccu_arb_valid - 1'b1);
     assign any_valid      = (ccu_arb_select != {(OPTN_CCU_ARB_DEPTH){1'b0}});
+
+    always_comb begin
+        logic [CCU_ARB_IDX_WIDTH-1:0] ccu_arb_valid;
+        for (int i = 0; i < CCU_ARB_IDX_WIDTH; i++) begin
+            ccu_arb_valid[i] = i_ccu_arb_valid[i];
+        end
+        ccu_arb_select = ccu_arb_valid & ~(ccu_arb_valid - 1'b1);
+    end
 
     // Output to CCU
     always_ff @(posedge clk) begin

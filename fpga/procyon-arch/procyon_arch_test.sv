@@ -1,109 +1,126 @@
-`include "../common/test_common.svh"
-
-import procyon_types::*;
+`define SRAM_ADDR_WIDTH 20
+`define SRAM_DATA_WIDTH 16
 
 module procyon_arch_test #(
-    parameter HEX_FILE = "",
-    parameter HEX_SIZE = 0
+    parameter OPTN_DATA_WIDTH         = 32,
+    parameter OPTN_ADDR_WIDTH         = 32,
+    parameter OPTN_REGMAP_DEPTH       = 32,
+    parameter OPTN_ROB_DEPTH          = 32,
+    parameter OPTN_RS_IEU_DEPTH       = 16,
+    parameter OPTN_RS_LSU_DEPTH       = 16,
+    parameter OPTN_LQ_DEPTH           = 8,
+    parameter OPTN_SQ_DEPTH           = 8,
+    parameter OPTN_MHQ_DEPTH          = 4,
+    parameter OPTN_DC_CACHE_SIZE      = 1024,
+    parameter OPTN_DC_LINE_SIZE       = 32,
+    parameter OPTN_DC_WAY_COUNT       = 1,
+    parameter OPTN_WB_DATA_WIDTH      = 16,
+    parameter OPTN_WB_ADDR_WIDTH      = 32,
+    parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
+    parameter OPTN_WB_SRAM_FIFO_DEPTH = 8,
+    parameter OPTN_HEX_FILE           = "",
+    parameter OPTN_HEX_SIZE           = 0
 ) (
-    input  logic                         CLOCK_50,
-    input  logic [17:17]                 SW,
+    input  logic                        CLOCK_50,
+    input  logic [17:17]                SW,
 
-    input  logic [0:0]                   KEY,
+    input  logic [0:0]                  KEY,
 
-    output logic [17:0]                  LEDR,
-    output logic [7:0]                   LEDG,
+    output logic [17:0]                 LEDR,
+    output logic [7:0]                  LEDG,
 
-    inout  wire  [`SRAM_DATA_WIDTH-1:0]  SRAM_DQ,
-    output logic [`SRAM_ADDR_WIDTH-1:0]  SRAM_ADDR,
-    output logic                         SRAM_CE_N,
-    output logic                         SRAM_WE_N,
-    output logic                         SRAM_OE_N,
-    output logic                         SRAM_LB_N,
-    output logic                         SRAM_UB_N,
+    inout  wire  [`SRAM_DATA_WIDTH-1:0] SRAM_DQ,
+    output logic [`SRAM_ADDR_WIDTH-1:0] SRAM_ADDR,
+    output logic                        SRAM_CE_N,
+    output logic                        SRAM_WE_N,
+    output logic                        SRAM_OE_N,
+    output logic                        SRAM_LB_N,
+    output logic                        SRAM_UB_N,
 
-    output logic [6:0]                   HEX0,
-    output logic [6:0]                   HEX1,
-    output logic [6:0]                   HEX2,
-    output logic [6:0]                   HEX3,
-    output logic [6:0]                   HEX4,
-    output logic [6:0]                   HEX5,
-    output logic [6:0]                   HEX6,
-    output logic [6:0]                   HEX7
+    output logic [6:0]                  HEX0,
+    output logic [6:0]                  HEX1,
+    output logic [6:0]                  HEX2,
+    output logic [6:0]                  HEX3,
+    output logic [6:0]                  HEX4,
+    output logic [6:0]                  HEX5,
+    output logic [6:0]                  HEX6,
+    output logic [6:0]                  HEX7
 );
-    typedef enum logic {
-        RUN  = 1'b0,
-        HALT = 1'b1
-    } state_t;
 
-    state_t                state;
+    localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
+    localparam WB_WORD_SIZE     = OPTN_WB_DATA_WIDTH / 8;
+    localparam TEST_STATE_WIDTH = 1;
+    localparam TEST_STATE_RUN   = 1'b0;
+    localparam TEST_STATE_HALT  = 1'b1;
 
-    logic                  clk;
-    logic                  n_rst;
+    logic [TEST_STATE_WIDTH-1:0]   state;
+
+    logic                          clk;
+    logic                          n_rst;
 
     // FIXME: To test if simulations pass/fail
-    procyon_data_t         sim_tp;
+    logic [OPTN_DATA_WIDTH-1:0]    sim_tp;
 
     // FIXME: FPGA debugging output
-    logic                  rob_redirect;
-    procyon_addr_t         rob_redirect_addr;
-    logic                  regmap_retire_en;
-    procyon_reg_t          regmap_retire_rdest;
-    procyon_data_t         regmap_retire_data;
+    logic                          rob_redirect;
+    logic [OPTN_ADDR_WIDTH-1:0]    rob_redirect_addr;
+    logic                          regmap_retire_en;
+    logic [REGMAP_IDX_WIDTH-1:0]   regmap_retire_rdest;
+    logic [OPTN_DATA_WIDTH-1:0]    regmap_retire_data;
 
     // FIXME: Temporary instruction cache interface
-    procyon_data_t         ic_insn;
-    logic                  ic_valid;
-    procyon_addr_t         ic_pc;
-    logic                  ic_en;
+    logic [OPTN_DATA_WIDTH-1:0]    ic_insn;
+    logic                          ic_valid;
+    logic [OPTN_ADDR_WIDTH-1:0]    ic_pc;
+    logic                          ic_en;
 
     // Wishbone interface
-    logic                  wb_rst;
-    logic                  wb_ack;
-    logic                  wb_stall;
-    wb_data_t              wb_data_i;
-    logic                  wb_cyc;
-    logic                  wb_stb;
-    logic                  wb_we;
-    wb_byte_select_t       wb_sel;
-    wb_addr_t              wb_addr;
-    wb_data_t              wb_data_o;
+    logic                          wb_rst;
+    logic                          wb_ack;
+    logic                          wb_stall;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_i;
+    logic                          wb_cyc;
+    logic                          wb_stb;
+    logic                          wb_we;
+    logic [WB_WORD_SIZE-1:0]       wb_sel;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
 
-    logic                  key0;
-    logic                  key_pulse;
-    logic [6:0]            o_hex [0:7];
+    logic                          key0;
+    logic                          key_pulse;
+    logic [6:0]                    o_hex [0:7];
 
-    assign n_rst            = SW[17];
-    assign wb_rst           = n_rst;
+    assign n_rst      = SW[17];
+    assign wb_rst     = n_rst;
 
-    assign key0             = ~KEY[0];
-    assign LEDR[17]         = SW[17];
-    assign LEDR[16]         = rob_redirect;
-    assign LEDR[15:0]       = rob_redirect_addr[15:0];
-    assign LEDG             = regmap_retire_rdest;
-    assign HEX0             = o_hex[0];
-    assign HEX1             = o_hex[1];
-    assign HEX2             = o_hex[2];
-    assign HEX3             = o_hex[3];
-    assign HEX4             = o_hex[4];
-    assign HEX5             = o_hex[5];
-    assign HEX6             = o_hex[6];
-    assign HEX7             = o_hex[7];
+    assign key0       = ~KEY[0];
+    assign LEDR[17]   = SW[17];
+    assign LEDR[16]   = rob_redirect;
+    assign LEDR[15:0] = rob_redirect_addr[15:0];
+    assign LEDG       = regmap_retire_rdest;
+    assign HEX0       = o_hex[0];
+    assign HEX1       = o_hex[1];
+    assign HEX2       = o_hex[2];
+    assign HEX3       = o_hex[3];
+    assign HEX4       = o_hex[4];
+    assign HEX5       = o_hex[5];
+    assign HEX6       = o_hex[6];
+    assign HEX7       = o_hex[7];
 
     always_comb begin
         case (state)
-            RUN:  clk = CLOCK_50;
-            HALT: clk = 1'b0;
+            TEST_STATE_RUN:  clk = CLOCK_50;
+            TEST_STATE_HALT: clk = 1'b0;
         endcase
     end
 
     always_ff @(negedge CLOCK_50) begin
         if (~n_rst) begin
-            state <= RUN;
+            state <= TEST_STATE_RUN;
         end else begin
             case (state)
-                RUN:  state <= regmap_retire_en ? HALT : RUN;
-                HALT: state <= key_pulse ? RUN : HALT;
+                TEST_STATE_RUN:  state <= regmap_retire_en ? TEST_STATE_HALT : TEST_STATE_RUN;
+                TEST_STATE_HALT: state <= key_pulse ? TEST_STATE_RUN : TEST_STATE_HALT;
             endcase
         end
     end
@@ -127,8 +144,10 @@ module procyon_arch_test #(
     );
 
     boot_rom #(
-        .HEX_FILE(HEX_FILE),
-        .HEX_SIZE(HEX_SIZE)
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_HEX_FILE(OPTN_HEX_FILE),
+        .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
     ) boot_rom_inst (
         .o_ic_insn(ic_insn),
         .o_ic_valid(ic_valid),
@@ -136,7 +155,22 @@ module procyon_arch_test #(
         .i_ic_en(ic_en)
     );
 
-    procyon procyon (
+    procyon #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
+        .OPTN_RS_IEU_DEPTH(OPTN_RS_IEU_DEPTH),
+        .OPTN_RS_LSU_DEPTH(OPTN_RS_LSU_DEPTH),
+        .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
+        .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
+        .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
+        .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT),
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
+    ) procyon (
         .clk(clk),
         .n_rst(n_rst),
         .o_sim_tp(sim_tp),
@@ -163,10 +197,10 @@ module procyon_arch_test #(
     );
 
     wb_sram #(
-        .DATA_WIDTH(`WB_DATA_WIDTH),
-        .ADDR_WIDTH(`WB_ADDR_WIDTH),
-        .BASE_ADDR(`WB_SRAM_BASE_ADDR),
-        .FIFO_DEPTH(`WB_SRAM_FIFO_DEPTH)
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
+        .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR),
+        .OPTN_FIFO_DEPTH(OPTN_WB_SRAM_FIFO_DEPTH)
     ) wb_sram_inst (
         .i_wb_clk(clk),
         .i_wb_rst(wb_rst),

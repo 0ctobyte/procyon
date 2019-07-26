@@ -104,9 +104,11 @@ module ieu_id #(
     end
 
     always_comb begin
-        logic [1:0] src_a_data_sel = {is_auipc | is_jal, is_lui};
-        logic [1:0] src_b_data_sel = {is_op | is_br, is_opimm | is_jalr};
+        logic [1:0] src_a_data_sel;
+        logic [1:0] src_b_data_sel;
 
+        src_a_data_sel = {is_auipc | is_jal, is_lui};
+        src_b_data_sel = {is_op | is_br, is_opimm | is_jalr};
         case (src_a_data_sel)
             2'b00: src_a_data_mux = i_src_a;
             2'b01: src_a_data_mux = {(OPTN_DATA_WIDTH){1'b0}};
