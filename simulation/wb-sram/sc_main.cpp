@@ -1,10 +1,24 @@
 #include "Vdut.h"
 #include "verilated_vcd_sc.h"
 
-#include "Sram.h"
-#include "WBBusInterfaceUnit.h"
 #include "Driver.h"
 #include "Monitor.h"
+#include "Sram.h"
+#include "WBBusInterfaceUnit.h"
+
+#define SRAM_DATA_WIDTH    (16)
+#define SRAM_ADDR_WIDTH    (20)
+#define SRAM_SIZE          (1 << (SRAM_ADDR_WIDTH+1))
+
+#define CACHE_SIZE         (256)
+#define CACHE_LINE_SIZE    (32)
+#define CACHE_LINE_WIDTH   (CACHE_LINE_SIZE*8)
+
+#define WB_DATA_WIDTH      (16)
+#define WB_ADDR_WIDTH      (32)
+
+#define DATA_WIDTH         (32)
+#define ADDR_WIDTH         (32)
 
 int sc_main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
@@ -47,7 +61,7 @@ int sc_main(int argc, char** argv) {
     sc_signal<bool> sram_ub_n;
     sc_signal<bool> sram_lb_n;
 
-    Sram sram("sram");
+    Sram<SRAM_SIZE> sram("sram");
     sram.trace_all(tf, top_name);
     sram.i_sram_addr(sram_addr);
     sram.i_sram_dq(sram_dq_o);
@@ -58,7 +72,7 @@ int sc_main(int argc, char** argv) {
     sram.i_sram_ub_n(sram_ub_n);
     sram.i_sram_lb_n(sram_lb_n);
 
-    WBBusInterfaceUnit biu("biu");
+    WBBusInterfaceUnit<CACHE_LINE_WIDTH, WB_DATA_WIDTH> biu("biu");
     biu.trace_all(tf, top_name);
     biu.i_wb_clk(clk);
     biu.i_wb_rst(wb_rst);
@@ -79,7 +93,7 @@ int sc_main(int argc, char** argv) {
     biu.o_biu_done(biu_done);
     biu.o_biu_busy(biu_busy);
 
-    Driver driver("wb_driver");
+    Driver<CACHE_LINE_WIDTH, SRAM_SIZE, ADDR_WIDTH> driver("wb_driver");
     driver.trace_all(tf, top_name);
     driver.clk(clk);
     driver.n_rst(n_rst);
@@ -91,7 +105,7 @@ int sc_main(int argc, char** argv) {
     driver.i_biu_busy(biu_busy);
     driver.i_biu_data(biu_data_o);
 
-    Monitor monitor("monitor");
+    Monitor<CACHE_LINE_WIDTH, ADDR_WIDTH> monitor("monitor");
     monitor.trace_all(tf, top_name);
     monitor.i_biu_en(biu_en);
     monitor.i_biu_we(biu_we);

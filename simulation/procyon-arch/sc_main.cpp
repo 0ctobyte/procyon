@@ -4,8 +4,12 @@
 #include "BootRom.h"
 #include "Sram.h"
 
-#define PASS 0x4a33
-#define FAIL 0xfae1
+#define SRAM_DATA_WIDTH    (16)
+#define SRAM_ADDR_WIDTH    (20)
+#define SRAM_SIZE          (1 << (SRAM_ADDR_WIDTH+1))
+
+#define PASS               (0x4a33)
+#define FAIL               (0xfae1)
 
 bool ends_with(const std::string& str, const std::string& suffix) {
     return (str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0);
@@ -44,7 +48,7 @@ int sc_main(int argc, char** argv) {
     sc_signal<bool> sram_ub_n;
     sc_signal<bool> sram_lb_n;
 
-    Sram sram("sram");
+    Sram<SRAM_SIZE> sram("sram");
     sram.trace_all(tf, top_name);
     sram.i_sram_addr(sram_addr);
     sram.i_sram_dq(sram_dq_o);

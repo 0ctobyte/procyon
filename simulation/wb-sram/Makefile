@@ -7,7 +7,7 @@ CFLAGS := -I../../common
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
-SRCS := sc_main.cpp ../common/utils.cpp ../common/Sram.cpp ../common/WBBusInterfaceUnit.cpp Driver.cpp Monitor.cpp
+SRCS := sc_main.cpp ../common/utils.cpp
 
 .PHONY: all sim clean
 all: $(OBJ_DIR)/$(VDUT)
