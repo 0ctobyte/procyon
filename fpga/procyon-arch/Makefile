@@ -9,7 +9,7 @@ TOP_LEVEL_ENTITY := procyon_arch_test
 # Device information
 FAMILY := "Cyclone IV E"
 DEVICE := EP4CE115F29C7
-PIN_ASSIGNMENTS_FILE := de2-115.pin.tcl
+PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 
 # Directory where source files are located
 SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
