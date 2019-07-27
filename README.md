@@ -1,14 +1,13 @@
 # Procyon
 *Procyon is the brightest star in the constellation of Canis Minor*
 
-Procyon is a dynamically scheduling, scalar, speculative RISCV processor. The hardware is implemented in SystemVerilog and simulated in SystemC using Verilator to translate the SystemVerilog modules to C++.
+Procyon is a dynamically scheduling, scalar, speculative RISCV processor. The hardware is implemented in SystemVerilog and simulated in SystemC using Verilator. There is also a bitstream target for the CycloneIVe FPGA on the Terasic DE2-115 board.
 
 # Running Simulations
 
-In the `simulation` directory there are several simulation tests:
+In the `tb` directory there are some tests:
 
 * `procyon-arch`: RISCV CPU architectural tests
-* `cache`: Cache simulation
 * `wb-sram`: Wishbone SRAM slave module simulation
 
 Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests in `procyon-arch/tests` (precompiled from the [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks). It's also possible to run an arbitrary free-standing baremetal binary. From the `procyon-arch` directory:
@@ -25,7 +24,7 @@ The Procyon core and system is functional on the FPGA with the following blocks:
 
 * `procyon`: The actual RISCV core
 * `bootrom`: Interfaces with the fetch unit in the core. This is loaded with a freestanding baremetal binary converted to .hex format
-* `wb_sram`: Wishbone SRAM slave module used to interface with the SRAM chip on the DE2-115 board and connected to the Wishbone bus
+* `wb_sram`: Wishbone SRAM slave module used to interface with the IS61WV102416BLL SRAM chip on the DE2-115 board and connected to the Wishbone bus
 
 To convert a binary to .hex format use the `hexify-bin.py` script in the `fpga/procyon-arch` directory: `hexify-bin.py <binary>`
 To build the FPGA bitstream with a custom binary loaded into the bootrom: `make HEX_FILE=<hex_file>`
