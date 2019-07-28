@@ -3,7 +3,7 @@
 // Posedge detection is easy, the nth flop in the delay line LOW and the n-1 flop is HIGH
 // Similarly for negedge detection, the nth flop is HIGH an the n-1 flop is LOW
 
-module edge_detector #(
+module procyon_edge_detector #(
     parameter OPTN_EDGE = 1  // Default "1" == detect posedge
 ) (
     input  logic clk,
@@ -31,7 +31,7 @@ module edge_detector #(
         end
     end
 
-    synchronizer #(
+    procyon_sync #(
         .OPTN_DATA_WIDTH(1),
         .OPTN_SYNC_DEPTH(2)
     ) sync (

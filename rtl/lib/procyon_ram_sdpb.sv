@@ -1,6 +1,6 @@
 // Simple Dual Port RAM with bypassing
 
-module sdpb_ram #(
+module procyon_ram_sdpb #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8,
 

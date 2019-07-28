@@ -1,6 +1,6 @@
 // Byte addressable RAM with initialized memory
 
-module test_dp_ram #(
+module procyon_ram_dp_test #(
     parameter  OPTN_DATA_WIDTH = 32,
     parameter  OPTN_RAM_DEPTH  = 8,
     parameter  OPTN_BASE_ADDR  = 0,

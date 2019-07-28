@@ -1,6 +1,6 @@
 // Basic direct-mapped cache
 
-module cache #(
+module procyon_cache #(
     parameter OPTN_DATA_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_CACHE_SIZE      = 1024,
@@ -77,7 +77,7 @@ module cache #(
     end
 
     // Instantiate the DATA and TAG RAMs
-    sdpb_ram #(
+    procyon_ram_sdpb #(
         .OPTN_DATA_WIDTH(CACHE_LINE_WIDTH),
         .OPTN_RAM_DEPTH(CACHE_INDEX_COUNT)
     ) data_ram (
@@ -90,7 +90,7 @@ module cache #(
         .i_ram_data(i_cache_wr_data)
     );
 
-    sdpb_ram #(
+    procyon_ram_sdpb #(
         .OPTN_DATA_WIDTH(CACHE_TAG_WIDTH),
         .OPTN_RAM_DEPTH(CACHE_INDEX_COUNT)
     ) tag_ram (

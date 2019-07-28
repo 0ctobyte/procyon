@@ -166,10 +166,10 @@ module wb_sram #(
         endcase
     end
 
-    sync_fifo #(
+    procyon_sync_fifo #(
         .OPTN_DATA_WIDTH(FIFO_DATA_WIDTH),
         .OPTN_FIFO_DEPTH(OPTN_FIFO_DEPTH)
-    ) wb_slave_fifo (
+    ) procyon_wb_slave_fifo (
         .clk(i_wb_clk),
         .n_rst(n_rst),
         .i_flush(wb_slave_fifo_flush),

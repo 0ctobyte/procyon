@@ -1,7 +1,7 @@
 // Dual Port RAM
 // 1 asynchronous read port and 1 synchronous write port
 
-module dp_ram #(
+module procyon_ram_dp #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8,
 

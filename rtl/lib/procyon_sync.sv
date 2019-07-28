@@ -3,7 +3,7 @@
 // The synchronization depth, m, (i.e. the number of flops from input signal
 // to output signal) can be adjusted
 
-module synchronizer #(
+module procyon_sync #(
     parameter                       OPTN_DATA_WIDTH = 1,
     parameter                       OPTN_SYNC_DEPTH = 2,
     parameter [OPTN_DATA_WIDTH-1:0] OPTN_RESET_VAL  = 0

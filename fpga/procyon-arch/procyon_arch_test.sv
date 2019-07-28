@@ -128,7 +128,7 @@ module procyon_arch_test #(
     genvar i;
     generate
         for (i = 0; i < 8; i++) begin : SEG7_DECODER_INSTANCES
-            seg7_decoder seg7_decoder_inst (
+            procyon_seg7_decoder procyon_seg7_decoder_inst (
                 .n_rst(n_rst),
                 .i_hex(regmap_retire_data[i*4+3:i*4]),
                 .o_hex(o_hex[i])
@@ -136,7 +136,7 @@ module procyon_arch_test #(
         end
     endgenerate
 
-    edge_detector edge_detector_inst (
+    procyon_edge_detector procyon_edge_detector_inst (
         .clk(CLOCK_50),
         .n_rst(n_rst),
         .i_async(key0),

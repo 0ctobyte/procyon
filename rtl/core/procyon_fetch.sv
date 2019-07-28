@@ -72,10 +72,10 @@ module procyon_fetch #(
         if (~insn_fifo_full) insn_pc <= pc;
     end
 
-    sync_fifo #(
+    procyon_sync_fifo #(
         .OPTN_DATA_WIDTH(OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH),
         .OPTN_FIFO_DEPTH(8)
-    ) insn_fifo (
+    ) procyon_insn_fifo (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_redirect),

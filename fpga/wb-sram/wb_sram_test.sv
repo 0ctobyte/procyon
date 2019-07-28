@@ -135,9 +135,9 @@ module wb_sram_test (
     genvar i;
     generate
     for (i = 0; i < 4; i++) begin : GENERATE_EDGE_DETECTORS
-        edge_detector #(
+        procyon_edge_detector #(
             .OPTN_EDGE(1)
-        ) edge_detector_inst (
+        ) procyon_edge_detector_inst (
             .clk(CLOCK_50),
             .n_rst(n_rst),
             .i_async(KEY[i]),
@@ -146,49 +146,49 @@ module wb_sram_test (
     end
     endgenerate
 
-    seg7_decoder seg7_inst0 (
+    procyon_seg7_decoder procyon_seg7_inst0 (
         .n_rst(n_rst),
         .i_hex(out_data[3:0]),
         .o_hex(HEX0)
     );
 
-    seg7_decoder seg7_inst1 (
+    procyon_seg7_decoder procyon_seg7_inst1 (
         .n_rst(n_rst),
         .i_hex(out_data[7:4]),
         .o_hex(HEX1)
     );
 
-    seg7_decoder seg7_inst2 (
+    procyon_seg7_decoder procyon_seg7_inst2 (
         .n_rst(n_rst),
         .i_hex(out_data[11:8]),
         .o_hex(HEX2)
     );
 
-    seg7_decoder seg7_inst3 (
+    procyon_seg7_decoder procyon_seg7_inst3 (
         .n_rst(n_rst),
         .i_hex(out_data[15:12]),
         .o_hex(HEX3)
     );
 
-    seg7_decoder seg7_inst4 (
+    procyon_seg7_decoder procyon_seg7_inst4 (
         .n_rst(n_rst),
         .i_hex(out_data[19:16]),
         .o_hex(HEX4)
     );
 
-    seg7_decoder seg7_inst5 (
+    procyon_seg7_decoder procyon_seg7_inst5 (
         .n_rst(n_rst),
         .i_hex(out_data[23:20]),
         .o_hex(HEX5)
     );
 
-    seg7_decoder seg7_inst6 (
+    procyon_seg7_decoder procyon_seg7_inst6 (
         .n_rst(n_rst),
         .i_hex(out_data[27:24]),
         .o_hex(HEX6)
     );
 
-    seg7_decoder seg7_inst7 (
+    procyon_seg7_decoder procyon_seg7_inst7 (
         .n_rst(n_rst),
         .i_hex(out_data[31:28]),
         .o_hex(HEX7)

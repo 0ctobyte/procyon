@@ -2,7 +2,7 @@
 // Take a 4-bit input and drive a 6-bit output powering
 // a seven segment display
 
-module seg7_decoder (
+module procyon_seg7_decoder (
     input  logic       n_rst,
 
     input  logic [3:0] i_hex,

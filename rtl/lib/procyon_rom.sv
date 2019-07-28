@@ -1,6 +1,6 @@
 // ROM with initialized memory
 
-module rom #(
+module procyon_rom #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_ROM_DEPTH  = 8,
     parameter OPTN_BASE_ADDR  = 0,

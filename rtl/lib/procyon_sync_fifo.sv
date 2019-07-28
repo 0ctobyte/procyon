@@ -1,6 +1,6 @@
 // Synchronous FIFO
 
-module sync_fifo #(
+module procyon_sync_fifo #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_FIFO_DEPTH = 8
 ) (
@@ -72,7 +72,7 @@ module sync_fifo #(
         else if (fifo_ack) fifo_head <= fifo_head + 1'b1;
     end
 
-    sdpb_ram #(
+    procyon_ram_sdpb #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_RAM_DEPTH(OPTN_FIFO_DEPTH)
     ) fifo_mem (

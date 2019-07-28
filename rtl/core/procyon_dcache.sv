@@ -150,12 +150,12 @@ module procyon_dcache #(
         .o_victim_data(o_dc_victim_data)
     );
 
-    cache #(
+    procyon_cache #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_CACHE_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) data_cache_inst (
+    ) procyon_data_cache_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_cache_wr_en(cache_wr_en),
