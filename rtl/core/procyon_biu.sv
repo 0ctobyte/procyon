@@ -2,7 +2,7 @@
 // This module is the interface to the Wishbone Bus
 // All transactions from the CPU will go through here
 
-module wb_biu #(
+module procyon_biu #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,

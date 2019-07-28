@@ -13,7 +13,7 @@
 `include "procyon_constants.svh"
 
 
-module dcache #(
+module procyon_dcache #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,
@@ -76,13 +76,13 @@ module dcache #(
     assign dc_index  = i_dc_addr[DC_INDEX_WIDTH+DC_OFFSET_WIDTH-1:DC_OFFSET_WIDTH];
     assign dc_offset = i_dc_addr[DC_OFFSET_WIDTH-1:0];
 
-    dcache_d0 #(
+    procyon_dcache_d0 #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT)
-    ) dcache_d0_inst (
+    ) procyon_dcache_d0_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_wr_en(i_dc_wr_en),
@@ -107,13 +107,13 @@ module dcache #(
         .o_fill_data(dcache_dr_fill_data)
     );
 
-    dcache_d1 #(
+    procyon_dcache_d1 #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT)
-    ) dcache_d1_inst (
+    ) procyon_dcache_d1_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_wr_en(dcache_dr_wr_en),

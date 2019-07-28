@@ -1,7 +1,7 @@
 // MHQ execute stage
 // Enqueue entries and handle fills from the CCU
 
-module mhq_ex #(
+module procyon_mhq_ex #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,

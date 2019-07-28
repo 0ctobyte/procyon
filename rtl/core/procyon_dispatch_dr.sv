@@ -7,7 +7,7 @@
 
 `include "procyon_constants.svh"
 
-module decode_rename #(
+module procyon_dispatch_dr #(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_REGMAP_IDX_WIDTH = 5,

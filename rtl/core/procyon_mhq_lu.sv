@@ -3,7 +3,7 @@
 
 `include "procyon_constants.svh"
 
-module mhq_lu #(
+module procyon_mhq_lu #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,

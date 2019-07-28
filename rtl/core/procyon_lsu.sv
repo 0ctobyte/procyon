@@ -3,7 +3,7 @@
 
 `include "procyon_constants.svh"
 
-module lsu #(
+module procyon_lsu #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
@@ -149,14 +149,14 @@ module lsu #(
     assign o_mhq_lookup_data     = lsu_d1_retire_data;
     assign o_mhq_lookup_we       = lsu_d1_retire;
 
-    lsu_ad #(
+    procyon_lsu_ad #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) lsu_ad_inst (
+    ) procyon_lsu_ad_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -211,13 +211,13 @@ module lsu #(
         .o_alloc_addr(alloc_addr)
     );
 
-    lsu_d0 #(
+    procyon_lsu_d0 #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) lsu_d0_inst (
+    ) procyon_lsu_d0_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -241,13 +241,13 @@ module lsu #(
         .o_replay(lsu_d0_replay)
     );
 
-    lsu_d1 #(
+    procyon_lsu_d1 #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) lsu_d1_inst (
+    ) procyon_lsu_d1_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -271,14 +271,14 @@ module lsu #(
         .o_retire(lsu_d1_retire)
     );
 
-    lsu_ex #(
+    procyon_lsu_ex #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) lsu_ex_inst (
+    ) procyon_lsu_ex_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -310,13 +310,13 @@ module lsu #(
         .o_victim_data(victim_data)
     );
 
-    lsu_lq #(
+    procyon_lsu_lq #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
         .OPTN_MHQ_IDX_WIDTH(OPTN_MHQ_IDX_WIDTH)
-    ) lsu_lq_inst (
+    ) procyon_lsu_lq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -348,12 +348,12 @@ module lsu #(
         .o_rob_retire_misspeculated(o_rob_retire_misspeculated)
     );
 
-    lsu_sq #(
+    procyon_lsu_sq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) lsu_sq_inst (
+    ) procyon_lsu_sq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -380,13 +380,13 @@ module lsu #(
         .o_rob_retire_ack(o_rob_retire_sq_ack)
     );
 
-    dcache #(
+    procyon_dcache #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT)
-    ) dcache_inst (
+    ) procyon_dcache_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_dc_wr_en(dc_wr_en),

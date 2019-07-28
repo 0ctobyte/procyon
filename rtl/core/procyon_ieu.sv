@@ -4,7 +4,7 @@
 
 `include "procyon_constants.svh"
 
-module ieu #(
+module procyon_ieu #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5
@@ -46,11 +46,11 @@ module ieu #(
 
     assign o_fu_stall = 1'b0;
 
-    ieu_id #(
+    procyon_ieu_id #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) ieu_id_inst (
+    ) procyon_ieu_id_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -73,11 +73,11 @@ module ieu #(
         .o_valid(valid)
     );
 
-    ieu_ex #(
+    procyon_ieu_ex #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) ieu_ex_inst (
+    ) procyon_ieu_ex_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),

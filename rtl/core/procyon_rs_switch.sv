@@ -4,7 +4,7 @@
 
 `include "procyon_constants.svh"
 
-module rs_switch #(
+module procyon_rs_switch #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,

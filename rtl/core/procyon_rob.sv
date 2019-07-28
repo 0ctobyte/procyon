@@ -5,7 +5,7 @@
 
 `include "procyon_constants.svh"
 
-module reorder_buffer #(
+module procyon_rob #(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_CDB_DEPTH        = 2,

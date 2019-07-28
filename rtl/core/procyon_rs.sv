@@ -8,7 +8,7 @@
 
 `include "procyon_constants.svh"
 
-module reservation_station #(
+module procyon_rs #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,

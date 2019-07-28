@@ -2,7 +2,7 @@
 
 `include "procyon_constants.svh"
 
-module dcache_d0 #(
+module procyon_dcache_d0 #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,

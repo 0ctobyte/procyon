@@ -150,10 +150,10 @@ module procyon #(
     assign o_regmap_retire_data  = regmap_retire_data;
 
     // Module Instances
-    fetch #(
+    procyon_fetch #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH)
-    ) fetch_inst (
+    ) procyon_fetch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_redirect(rob_redirect),
@@ -168,12 +168,12 @@ module procyon #(
         .o_dispatch_valid(dispatch_valid)
     );
 
-    dispatch #(
+    procyon_dispatch #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_REGMAP_IDX_WIDTH(REGMAP_IDX_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) dispatch_inst (
+    ) procyon_dispatch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -200,11 +200,11 @@ module procyon #(
         .o_rs_dst_tag(rs_dst_tag)
     );
 
-    register_map #(
+    procyon_regmap #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) register_map_inst (
+    ) procyon_regmap_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_sim_tp(o_sim_tp),
@@ -223,13 +223,13 @@ module procyon #(
         .o_regmap_lookup_data(regmap_lookup_data)
     );
 
-    reorder_buffer #(
+    procyon_rob #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
         .OPTN_REGMAP_IDX_WIDTH(REGMAP_IDX_WIDTH)
-    ) rob_inst (
+    ) procyon_rob_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_redirect(rob_redirect),
@@ -266,12 +266,12 @@ module procyon #(
         .o_lsu_retire_tag(lsu_retire_tag)
     );
 
-    rs_switch #(
+    procyon_rs_switch #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH)
-    ) rs_switch_inst (
+    ) procyon_rs_switch_inst (
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
@@ -288,13 +288,13 @@ module procyon #(
         .o_rs_stall(rs_stall)
     );
 
-    reservation_station #(
+    procyon_rs #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
         .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH)
-    ) rs_ieu_inst (
+    ) procyon_rs_ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -320,11 +320,11 @@ module procyon #(
         .o_fu_tag(fu_tag[0])
     );
 
-    ieu #(
+    procyon_ieu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) ieu_inst (
+    ) procyon_ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -343,13 +343,13 @@ module procyon #(
         .o_fu_stall(fu_stall[0])
     );
 
-    reservation_station #(
+    procyon_rs #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
         .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH)
-    ) rs_lsu_inst (
+    ) procyon_rs_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -375,7 +375,7 @@ module procyon #(
         .o_fu_tag(fu_tag[1])
     );
 
-    lsu #(
+    procyon_lsu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
@@ -383,7 +383,7 @@ module procyon #(
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_MHQ_IDX_WIDTH(MHQ_IDX_WIDTH)
-    ) lsu_inst (
+    ) procyon_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -421,14 +421,14 @@ module procyon #(
         .i_mhq_fill_data(mhq_fill_data)
     );
 
-    ccu #(
+    procyon_ccu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH)
-    ) ccu_inst (
+    ) procyon_ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_lookup_valid(mhq_lookup_valid),

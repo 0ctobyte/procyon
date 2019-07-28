@@ -6,7 +6,7 @@
 
 `include "procyon_constants.svh"
 
-module lsu_sq #(
+module procyon_lsu_sq #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_SQ_DEPTH      = 8,

@@ -11,7 +11,7 @@
 
 `include "procyon_constants.svh"
 
-module dispatch #(
+module procyon_dispatch #(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_REGMAP_IDX_WIDTH = 5,
@@ -70,12 +70,12 @@ module dispatch #(
     // - Decodes intstruction
     // - Look up source operands in Register Map (bypassing retired destination register if needed)
     // - Renames destination register of instruction
-    decode_rename #(
+    procyon_dispatch_dr #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_REGMAP_IDX_WIDTH(OPTN_REGMAP_IDX_WIDTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) decode_rename_inst (
+    ) procyon_dispatch_dr_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -104,11 +104,11 @@ module dispatch #(
     // Map & Dispatch (second cycle)
     // - Take Register Map source operand lookup tags and lookup source operands in ROB (bypassing from CDB if needed)
     // - Enqueues instructions in Reorder Buffer
-    map_dispatch #(
+    procyon_dispatch_md #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) map_dispatch_inst (
+    ) procyon_dispatch_md_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),

@@ -2,7 +2,7 @@
 
 `include "procyon_constants.svh"
 
-module ieu_id #(
+module procyon_ieu_id #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5

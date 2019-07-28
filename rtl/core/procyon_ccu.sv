@@ -4,7 +4,7 @@
 
 `include "procyon_constants.svh"
 
-module ccu #(
+module procyon_ccu #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_MHQ_DEPTH     = 4,
@@ -92,12 +92,12 @@ module ccu #(
         endcase
     end
 
-    mhq #(
+    procyon_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) mhq_inst (
+    ) procyon_mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_lookup_valid(i_mhq_lookup_valid),
@@ -119,12 +119,12 @@ module ccu #(
         .o_ccu_addr(biu_addr)
     );
 
-    wb_biu #(
+    procyon_biu #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) wb_biu_inst (
+    ) procyon_biu_inst (
         .i_wb_clk(i_wb_clk),
         .i_wb_rst(i_wb_rst),
         .i_wb_ack(i_wb_ack),

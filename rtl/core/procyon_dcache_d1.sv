@@ -1,6 +1,6 @@
 // Data Cache - Dcache hit check and generate dcache write signals stage
 
-module dcache_d1 #(
+module procyon_dcache_d1 #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,

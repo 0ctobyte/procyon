@@ -5,7 +5,7 @@
 
 `include "procyon_constants.svh"
 
-module map_dispatch #(
+module procyon_dispatch_md #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5

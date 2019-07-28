@@ -13,7 +13,7 @@
 
 `include "procyon_constants.svh"
 
-module mhq #(
+module procyon_mhq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,
@@ -75,12 +75,12 @@ module mhq #(
     assign o_mhq_lookup_retry = mhq_lu_retry;
     assign o_mhq_lookup_tag   = mhq_lu_tag;
 
-    mhq_lu #(
+    procyon_mhq_lu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) mhq_lu_inst (
+    ) procyon_mhq_lu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_head_next(mhq_head_next),
@@ -111,12 +111,12 @@ module mhq #(
         .i_ccu_addr(ccu_addr)
     );
 
-    mhq_ex #(
+    procyon_mhq_ex #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) mhq_ex_inst (
+    ) procyon_mhq_ex_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_mhq_head_next(mhq_head_next),

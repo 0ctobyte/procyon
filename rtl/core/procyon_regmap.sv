@@ -1,6 +1,6 @@
 // Register Map with tag information for register renaming
 
-module register_map #(
+module procyon_regmap #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_REGMAP_DEPTH  = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,
