@@ -3,7 +3,7 @@ module wb_master_driver #(
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_ADDR_WIDTH    = 32,
 
-    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 ) (
     // Wishbone interface
     input  logic                          i_wb_clk,
@@ -11,7 +11,7 @@ module wb_master_driver #(
     output logic                          o_wb_cyc,
     output logic                          o_wb_stb,
     output logic                          o_wb_we,
-    output logic [WB_WORD_SIZE-1:0]       o_wb_sel,
+    output logic [WB_DATA_SIZE-1:0]       o_wb_sel,
     output logic [OPTN_ADDR_WIDTH-1:0]    o_wb_addr,
     output logic [OPTN_WB_DATA_WIDTH-1:0] o_wb_data,
     input  logic [OPTN_WB_DATA_WIDTH-1:0] i_wb_data,
@@ -28,7 +28,7 @@ module wb_master_driver #(
     output logic                          o_drv_busy
 );
 
-    localparam WORD_SIZE         = OPTN_DATA_WIDTH / 8;
+    localparam DATA_SIZE         = OPTN_DATA_WIDTH / 8;
     localparam NUM_REQS          = OPTN_DATA_WIDTH / OPTN_WB_DATA_WIDTH;
     localparam NUM_ACKS          = NUM_REQS;
     localparam NUM_REQS_WIDTH    = $clog2(NUM_REQS);
@@ -63,17 +63,17 @@ module wb_master_driver #(
             WB_MD_STATE_IDLE: begin
                 o_wb_cyc  = 1'b0;
                 o_wb_stb  = 1'b0;
-                o_wb_sel  = {(WB_WORD_SIZE){1'b1}};
+                o_wb_sel  = {(WB_DATA_SIZE){1'b1}};
             end
             WB_MD_STATE_REQS: begin
                 o_wb_cyc  = 1'b1;
                 o_wb_stb  = 1'b1;
-                o_wb_sel  = {(WB_WORD_SIZE){1'b1}};
+                o_wb_sel  = {(WB_DATA_SIZE){1'b1}};
             end
             WB_MD_STATE_ACKS: begin
                 o_wb_cyc  = 1'b1;
                 o_wb_stb  = 1'b0;
-                o_wb_sel  = {(WB_WORD_SIZE){1'b1}};
+                o_wb_sel  = {(WB_DATA_SIZE){1'b1}};
             end
         endcase
     end
@@ -97,7 +97,7 @@ module wb_master_driver #(
             drv_addr_q   <= i_drv_addr;
             drv_data_i_q <= i_drv_data;
         end else if (state == WB_MD_STATE_REQS) begin
-            drv_addr_q   <= drv_addr_q + WB_WORD_SIZE;
+            drv_addr_q   <= drv_addr_q + WB_DATA_SIZE;
             drv_data_i_q <= {{(OPTN_WB_DATA_WIDTH){1'b0}}, drv_data_i_q[OPTN_DATA_WIDTH-1:OPTN_WB_DATA_WIDTH]};
         end
     end

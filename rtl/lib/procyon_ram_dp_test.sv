@@ -7,7 +7,7 @@ module procyon_ram_dp_test #(
     parameter  OPTN_RAM_FILE   = "",
 
     parameter RAM_IDX_WIDTH    = $clog2(OPTN_RAM_DEPTH),
-    parameter WORD_SIZE        = OPTN_DATA_WIDTH / 8
+    parameter DATA_SIZE        = OPTN_DATA_WIDTH / 8
 ) (
     input  logic                       clk,
     input  logic                       n_rst,
@@ -19,7 +19,7 @@ module procyon_ram_dp_test #(
 
     // RAM write interface
     input  logic                       i_ram_wr_en,
-    input  logic [WORD_SIZE-1:0]       i_ram_wr_byte_en,
+    input  logic [DATA_SIZE-1:0]       i_ram_wr_byte_en,
     input  logic [RAM_IDX_WIDTH-1:0]   i_ram_wr_addr,
     input  logic [OPTN_DATA_WIDTH-1:0] i_ram_wr_data
 );
@@ -37,14 +37,14 @@ module procyon_ram_dp_test #(
     // Asynchronous read; perform read combinationally
     genvar i;
     generate
-    for (i = 0; i < WORD_SIZE; i++) begin : ASYNC_RAM_READ
+    for (i = 0; i < DATA_SIZE; i++) begin : ASYNC_RAM_READ
         assign o_ram_rd_data[i*8 +: 8] = (cs_rd) ? ram[i_ram_rd_addr + i] : 8'b0;
     end
     endgenerate
 
     // Synchronous write; perform write at positive clock edge
     always_ff @(posedge clk) begin
-        for (int i = 0; i < WORD_SIZE; i++) begin : SYNC_RAM_WRITE
+        for (int i = 0; i < DATA_SIZE; i++) begin : SYNC_RAM_WRITE
             if (cs_wr && i_ram_wr_byte_en[i]) begin
                 ram[i_ram_wr_addr+i]   <= i_ram_wr_data[i*8 +: 8];
             end

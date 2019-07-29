@@ -12,7 +12,7 @@ module procyon_mhq_lu #(
     parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
     parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
-    parameter WORD_SIZE         = OPTN_DATA_WIDTH / 8
+    parameter DATA_SIZE         = OPTN_DATA_WIDTH / 8
 )(
     input  logic                                     clk,
     input  logic                                     n_rst,
@@ -45,7 +45,7 @@ module procyon_mhq_lu #(
     output logic                                     o_mhq_lu_we,
     output logic [DC_OFFSET_WIDTH-1:0]               o_mhq_lu_offset,
     output logic [OPTN_DATA_WIDTH-1:0]               o_mhq_lu_wr_data,
-    output logic [WORD_SIZE-1:0]                     o_mhq_lu_byte_select,
+    output logic [DATA_SIZE-1:0]                     o_mhq_lu_byte_select,
     output logic                                     o_mhq_lu_match,
     output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_lu_tag,
     output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_lu_addr,
@@ -63,7 +63,7 @@ module procyon_mhq_lu #(
     logic                                     mhq_lookup_retry;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lookup_addr;
     logic [DC_OFFSET_WIDTH-1:0]               mhq_lookup_offset;
-    logic [WORD_SIZE-1:0]                     mhq_lookup_byte_select;
+    logic [DATA_SIZE-1:0]                     mhq_lookup_byte_select;
     logic                                     mhq_lookup_match;
     logic [MHQ_IDX_WIDTH-1:0]                 mhq_lookup_tag;
     logic [OPTN_MHQ_DEPTH-1:0]                mhq_lookup_tag_select;
@@ -131,10 +131,10 @@ module procyon_mhq_lu #(
     // Generate byte select signals based on store type
     always_comb begin
         case (i_mhq_lookup_lsu_func)
-            `PCYN_LSU_FUNC_SB: mhq_lookup_byte_select = WORD_SIZE'(1);
-            `PCYN_LSU_FUNC_SH: mhq_lookup_byte_select = WORD_SIZE'(3);
-            `PCYN_LSU_FUNC_SW: mhq_lookup_byte_select = WORD_SIZE'(15);
-            default:           mhq_lookup_byte_select = WORD_SIZE'(0);
+            `PCYN_LSU_FUNC_SB: mhq_lookup_byte_select = DATA_SIZE'(1);
+            `PCYN_LSU_FUNC_SH: mhq_lookup_byte_select = DATA_SIZE'(3);
+            `PCYN_LSU_FUNC_SW: mhq_lookup_byte_select = DATA_SIZE'(15);
+            default:           mhq_lookup_byte_select = DATA_SIZE'(0);
         endcase
     end
 

@@ -37,7 +37,7 @@ module wb_sram_test (
     logic                        wb_cyc;
     logic                        wb_stb;
     logic                        wb_we;
-    logic [`WB_WORD_SIZE-1:0]    wb_sel;
+    logic [`WB_DATA_SIZE-1:0]    wb_sel;
     logic [`WB_ADDR_WIDTH-1:0]   wb_addr;
     logic [`WB_DATA_WIDTH-1:0]   wb_data_i;
     logic [`WB_DATA_WIDTH-1:0]   wb_data_o;

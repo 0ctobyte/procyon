@@ -8,7 +8,7 @@ module procyon_biu #(
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_DC_LINE_SIZE  = 32,
 
-    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8,
+    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8,
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
 )(
     // Wishbone interface
@@ -20,7 +20,7 @@ module procyon_biu #(
     output logic                          o_wb_cyc,
     output logic                          o_wb_stb,
     output logic                          o_wb_we,
-    output logic [WB_WORD_SIZE-1:0]       o_wb_sel,
+    output logic [WB_DATA_SIZE-1:0]       o_wb_sel,
     output logic [OPTN_WB_ADDR_WIDTH-1:0] o_wb_addr,
     output logic [OPTN_WB_DATA_WIDTH-1:0] o_wb_data,
 
@@ -104,7 +104,7 @@ module procyon_biu #(
         num_reqs    <= state_in_idle ? (BIU_REQ_COUNT_WIDTH+1)'(BIU_REQ_COUNT-1) : num_reqs - (BIU_REQ_COUNT_WIDTH+1)'(requesting);
         ack_idx     <= state_in_idle ? {{(BIU_REQ_COUNT_WIDTH+1){1'b0}}} : ack_idx + BIU_REQ_COUNT_WIDTH'(i_wb_ack);
         req_idx     <= state_in_idle ? {{(BIU_REQ_COUNT_WIDTH+1){1'b0}}} : req_idx + BIU_REQ_COUNT_WIDTH'(requesting);
-        addr_offset <= state_in_idle ? {{(BIU_REQ_COUNT_WIDTH+1){1'b0}}} : requesting ? addr_offset + (WB_WORD_SIZE) : addr_offset;
+        addr_offset <= state_in_idle ? {{(BIU_REQ_COUNT_WIDTH+1){1'b0}}} : requesting ? addr_offset + (WB_DATA_SIZE) : addr_offset;
     end
 
     always_ff @(posedge i_wb_clk) begin

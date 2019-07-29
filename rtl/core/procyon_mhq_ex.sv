@@ -10,7 +10,7 @@ module procyon_mhq_ex #(
     parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
     parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
-    parameter WORD_SIZE         = OPTN_DATA_WIDTH / 8
+    parameter DATA_SIZE         = OPTN_DATA_WIDTH / 8
 )(
     input  logic                                     clk,
     input  logic                                     n_rst,
@@ -28,7 +28,7 @@ module procyon_mhq_ex #(
     input  logic                                     i_mhq_lu_we,
     input  logic [DC_OFFSET_WIDTH-1:0]               i_mhq_lu_offset,
     input  logic [OPTN_DATA_WIDTH-1:0]               i_mhq_lu_wr_data,
-    input  logic [WORD_SIZE-1:0]                     i_mhq_lu_byte_select,
+    input  logic [DATA_SIZE-1:0]                     i_mhq_lu_byte_select,
     input  logic                                     i_mhq_lu_match,
     input  logic [MHQ_IDX_WIDTH-1:0]                 i_mhq_lu_tag,
     input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_lu_addr,

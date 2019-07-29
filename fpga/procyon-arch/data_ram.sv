@@ -3,7 +3,7 @@ module data_ram #(
     parameter OPTN_ADDR_WIDTH = 32,
     parameter OPTN_HEX_FILE   = "",
 
-    parameter WORD_SIZE       = OPTN_DATA_WIDTH / 8
+    parameter DATA_SIZE       = OPTN_DATA_WIDTH / 8
 ) (
     input  logic                       clk,
 
@@ -12,7 +12,7 @@ module data_ram #(
     input  logic                       i_dc_we,
     input  logic [OPTN_ADDR_WIDTH-1:0] i_dc_addr,
     input  logic [OPTN_DATA_WIDTH-1:0] i_dc_data,
-    input  logic [WORD_SIZE-1:0]       i_dc_byte_select
+    input  logic [DATA_SIZE-1:0]       i_dc_byte_select
 );
 
     localparam MEM_SIZE      = 64;

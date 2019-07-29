@@ -48,7 +48,7 @@ module dut #(
     timeprecision 1ns;
 
     localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
-    localparam WB_WORD_SIZE     = OPTN_WB_DATA_WIDTH / 8;
+    localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
 
     logic                          wb_clk;
     logic                          wb_rst;
@@ -58,7 +58,7 @@ module dut #(
     logic                          wb_cyc;
     logic                          wb_stb;
     logic                          wb_we;
-    logic [WB_WORD_SIZE-1:0]       wb_sel;
+    logic [WB_DATA_SIZE-1:0]       wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
 

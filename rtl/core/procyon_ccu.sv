@@ -14,7 +14,7 @@ module procyon_ccu #(
 
     parameter MHQ_IDX_WIDTH      = $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
-    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,
@@ -45,7 +45,7 @@ module procyon_ccu #(
     output logic                            o_wb_cyc,
     output logic                            o_wb_stb,
     output logic                            o_wb_we,
-    output logic [WB_WORD_SIZE-1:0]         o_wb_sel,
+    output logic [WB_DATA_SIZE-1:0]         o_wb_sel,
     output logic [OPTN_WB_ADDR_WIDTH-1:0]   o_wb_addr,
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );

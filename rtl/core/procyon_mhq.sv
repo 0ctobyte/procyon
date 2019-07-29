@@ -51,7 +51,7 @@ module procyon_mhq #(
 );
 
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
-    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8;
+    localparam DATA_SIZE       = OPTN_DATA_WIDTH / 8;
 
     logic [MHQ_IDX_WIDTH:0]                   mhq_head_next;
     logic [MHQ_IDX_WIDTH:0]                   mhq_tail_next;
@@ -61,7 +61,7 @@ module procyon_mhq #(
     logic                                     mhq_lu_we;
     logic [DC_OFFSET_WIDTH-1:0]               mhq_lu_offset;
     logic [OPTN_DATA_WIDTH-1:0]               mhq_lu_wr_data;
-    logic [WORD_SIZE-1:0]                     mhq_lu_byte_select;
+    logic [DATA_SIZE-1:0]                     mhq_lu_byte_select;
     logic                                     mhq_lu_match;
     logic [MHQ_IDX_WIDTH-1:0]                 mhq_lu_tag;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_addr;

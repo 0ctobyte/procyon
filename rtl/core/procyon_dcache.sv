@@ -45,7 +45,7 @@ module procyon_dcache #(
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
     localparam DC_INDEX_WIDTH  = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT);
     localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH;
-    localparam WORD_SIZE       = OPTN_DATA_WIDTH / 8;
+    localparam DATA_SIZE       = OPTN_DATA_WIDTH / 8;
 
     logic [DC_TAG_WIDTH-1:0]        dc_tag;
     logic [DC_INDEX_WIDTH-1:0]      dc_index;
@@ -54,7 +54,7 @@ module procyon_dcache #(
     logic [DC_TAG_WIDTH-1:0]        dcache_dr_tag;
     logic [DC_INDEX_WIDTH-1:0]      dcache_dr_index;
     logic [DC_OFFSET_WIDTH-1:0]     dcache_dr_offset;
-    logic [WORD_SIZE-1:0]           dcache_dr_byte_sel;
+    logic [DATA_SIZE-1:0]           dcache_dr_byte_sel;
     logic [OPTN_DATA_WIDTH-1:0]     dcache_dr_data;
     logic                           dcache_dr_valid;
     logic                           dcache_dr_dirty;

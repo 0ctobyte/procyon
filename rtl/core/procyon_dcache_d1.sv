@@ -11,7 +11,7 @@ module procyon_dcache_d1 #(
     parameter DC_OFFSET_WIDTH    = $clog2(OPTN_DC_LINE_SIZE),
     parameter DC_INDEX_WIDTH     = $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
     parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
-    parameter WORD_SIZE          = OPTN_DATA_WIDTH / 8
+    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                       clk,
     input  logic                       n_rst,
@@ -20,7 +20,7 @@ module procyon_dcache_d1 #(
     input  logic [DC_TAG_WIDTH-1:0]    i_tag,
     input  logic [DC_INDEX_WIDTH-1:0]  i_index,
     input  logic [DC_OFFSET_WIDTH-1:0] i_offset,
-    input  logic [WORD_SIZE-1:0]       i_byte_sel,
+    input  logic [DATA_SIZE-1:0]       i_byte_sel,
     input  logic [OPTN_DATA_WIDTH-1:0] i_data,
     input  logic                       i_valid,
     input  logic                       i_dirty,
@@ -83,9 +83,9 @@ module procyon_dcache_d1 #(
     // Extract read data word from cacheline masking off bytes according to the byte select
     always_comb begin
         rd_data = {(OPTN_DATA_WIDTH){1'b0}};
-        for (int i = 0; i < (OPTN_DC_LINE_SIZE-WORD_SIZE); i++) begin
+        for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
             if (DC_OFFSET_WIDTH'(i) == i_offset) begin
-                for (int j = 0; j < WORD_SIZE; j++) begin
+                for (int j = 0; j < DATA_SIZE; j++) begin
                     if (i_byte_sel[j]) begin
                         rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
                     end
@@ -94,8 +94,8 @@ module procyon_dcache_d1 #(
         end
 
         // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
-        // So special case the accesses to the last WORD_SIZE portion of the line by only reading the bytes we can access
-        for (int i = (OPTN_DC_LINE_SIZE-WORD_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
+        // So special case the accesses to the last DATA_SIZE portion of the line by only reading the bytes we can access
+        for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
             if (DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     if (i_byte_sel[j]) begin
@@ -109,9 +109,9 @@ module procyon_dcache_d1 #(
     // Shift write data to correct offset in cacheline masking off writes to certain bytes according to the byte select
     always_comb begin
         wr_data = bypass_cache_wr_data;
-        for (int i = 0; i < (OPTN_DC_LINE_SIZE-WORD_SIZE); i++) begin
+        for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
             if (DC_OFFSET_WIDTH'(i) == i_offset) begin
-                for (int j = 0; j < WORD_SIZE; j++) begin
+                for (int j = 0; j < DATA_SIZE; j++) begin
                     if (i_byte_sel[j]) begin
                         wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
                     end
@@ -120,9 +120,9 @@ module procyon_dcache_d1 #(
         end
 
         // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
-        // So special case the writes to the last WORD_SIZE portion of the line by only writing to the number of bytes
-        // remaining in the line rather than the whole WORD_SIZE data
-        for (int i = (OPTN_DC_LINE_SIZE-WORD_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
+        // So special case the writes to the last DATA_SIZE portion of the line by only writing to the number of bytes
+        // remaining in the line rather than the whole DATA_SIZE data
+        for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
             if (DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     if (i_byte_sel[j]) begin

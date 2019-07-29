@@ -12,7 +12,7 @@ module wb_sram #(
     parameter OPTN_BASE_ADDR     = 0,
     parameter OPTN_FIFO_DEPTH    = 8,
 
-    parameter WB_WORD_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 ) (
     // Wishbone Interface
     input  logic                           i_wb_clk,     // CLK_I
@@ -20,7 +20,7 @@ module wb_sram #(
     input  logic                           i_wb_cyc,     // CYC_I
     input  logic                           i_wb_stb,     // STB_I
     input  logic                           i_wb_we,      // WE_I
-    input  logic [WB_WORD_SIZE-1:0]        i_wb_sel,     // SEL_I
+    input  logic [WB_DATA_SIZE-1:0]        i_wb_sel,     // SEL_I
     input  logic [OPTN_WB_ADDR_WIDTH-1:0]  i_wb_addr,    // ADR_I
     input  logic [OPTN_WB_DATA_WIDTH-1:0]  i_wb_data,    // DAT_I
     output logic [OPTN_WB_DATA_WIDTH-1:0]  o_wb_data,    // DAT_O
@@ -37,8 +37,8 @@ module wb_sram #(
     output logic                           o_sram_lb_n
 );
 
-    localparam WB_SRAM_WORD_SIZE   = `WB_SRAM_DATA_WIDTH / 8;
-    localparam FIFO_DATA_WIDTH     = `WB_SRAM_DATA_WIDTH + `WB_SRAM_ADDR_WIDTH + 1 + WB_SRAM_WORD_SIZE + 1;
+    localparam WB_SRAM_DATA_SIZE   = `WB_SRAM_DATA_WIDTH / 8;
+    localparam FIFO_DATA_WIDTH     = `WB_SRAM_DATA_WIDTH + `WB_SRAM_ADDR_WIDTH + 1 + WB_SRAM_DATA_SIZE + 1;
     localparam WB_SRAM_STATE_WIDTH = 2;
     localparam WB_SRAM_STATE_IDLE  = 2'b00;
     localparam WB_SRAM_STATE_ACK0  = 2'b01;
@@ -61,13 +61,13 @@ module wb_sram #(
 
     logic [`WB_SRAM_DATA_WIDTH-1:0] sram_data;
     logic [`WB_SRAM_ADDR_WIDTH:0]   sram_addr;
-    logic [WB_SRAM_WORD_SIZE-1:0]   sram_sel;
+    logic [WB_SRAM_DATA_SIZE-1:0]   sram_sel;
     logic                           sram_we;
 
     logic [7:0]                     sram_data_q;
 /* verilator lint_off UNUSED */
     logic [`WB_SRAM_ADDR_WIDTH:0]   sram_addr_q;
-    logic [WB_SRAM_WORD_SIZE-1:0]   sram_sel_q;
+    logic [WB_SRAM_DATA_SIZE-1:0]   sram_sel_q;
 /* verilator lint_on  UNUSED */
     logic                           sram_we_q;
 
@@ -79,15 +79,15 @@ module wb_sram #(
     // Wire up FIFO interface, stall if FIFO is full, flush FIFO if there is
     // no valid bus cycle but the FIFO is not empty
     assign wb_slave_fifo_flush   = wb_slave_fifo_valid & ~i_wb_cyc;
-    assign wb_slave_fifo_wr_data = {i_wb_data[`WB_SRAM_DATA_WIDTH-1:0], i_wb_addr[`WB_SRAM_ADDR_WIDTH:0], i_wb_sel[WB_SRAM_WORD_SIZE-1:0], i_wb_we};
+    assign wb_slave_fifo_wr_data = {i_wb_data[`WB_SRAM_DATA_WIDTH-1:0], i_wb_addr[`WB_SRAM_ADDR_WIDTH:0], i_wb_sel[WB_SRAM_DATA_SIZE-1:0], i_wb_we};
     assign wb_slave_fifo_we      = i_wb_cyc & i_wb_stb & cs;
     assign wb_slave_fifo_ack     = next_state == WB_SRAM_STATE_ACK0;
     assign o_wb_stall            = wb_slave_fifo_full;
 
     // Pull out signals from FIFO
     assign sram_data             = wb_slave_fifo_rd_data[FIFO_DATA_WIDTH-1:FIFO_DATA_WIDTH-`WB_SRAM_DATA_WIDTH];
-    assign sram_addr             = wb_slave_fifo_rd_data[`WB_SRAM_ADDR_WIDTH+WB_SRAM_WORD_SIZE+1:WB_SRAM_WORD_SIZE+1];
-    assign sram_sel              = wb_slave_fifo_rd_data[WB_SRAM_WORD_SIZE:1];
+    assign sram_addr             = wb_slave_fifo_rd_data[`WB_SRAM_ADDR_WIDTH+WB_SRAM_DATA_SIZE+1:WB_SRAM_DATA_SIZE+1];
+    assign sram_sel              = wb_slave_fifo_rd_data[WB_SRAM_DATA_SIZE:1];
     assign sram_we               = wb_slave_fifo_rd_data[0];
     assign unaligned             = sram_addr[0];
 
