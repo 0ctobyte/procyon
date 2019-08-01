@@ -49,6 +49,7 @@ module procyon_lsu #(
 
     // MHQ address/tag lookup interface
     input  logic                            i_mhq_lookup_retry,
+    input  logic                            i_mhq_lookup_replay,
     input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_mhq_lookup_tag,
     output logic                            o_mhq_lookup_valid,
     output logic                            o_mhq_lookup_dc_hit,
@@ -337,6 +338,7 @@ module procyon_lsu #(
         .i_update_retry(update_lq_retry),
         .i_update_mhq_tag(i_mhq_lookup_tag),
         .i_update_mhq_retry(i_mhq_lookup_retry),
+        .i_update_mhq_replay(i_mhq_lookup_replay),
         .i_mhq_fill_en(i_mhq_fill_en),
         .i_mhq_fill_tag(i_mhq_fill_tag),
         .i_sq_retire_en(sq_retire_en),
@@ -374,6 +376,7 @@ module procyon_lsu #(
         .i_update_select(update_sq_select),
         .i_update_retry(update_sq_retry),
         .i_update_mhq_retry(i_mhq_lookup_retry),
+        .i_update_mhq_replay(i_mhq_lookup_replay),
         .i_mhq_fill_en(i_mhq_fill_en),
         .i_rob_retire_en(i_rob_retire_sq_en),
         .i_rob_retire_tag(i_rob_retire_tag),

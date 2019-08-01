@@ -35,6 +35,7 @@ module procyon_mhq #(
     input  logic                            i_mhq_lookup_we,
     output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
     output logic                            o_mhq_lookup_retry,
+    output logic                            o_mhq_lookup_replay,
 
     // Fill cacheline interface
     output logic                            o_mhq_fill_en,
@@ -66,14 +67,26 @@ module procyon_mhq #(
     logic [MHQ_IDX_WIDTH-1:0]                 mhq_lu_tag;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_addr;
     logic                                     mhq_lu_retry;
+    logic                                     mhq_lu_replay;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_biu_addr;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_fill_addr;
+    logic                                     mhq_fill_en;
+    logic [OPTN_ADDR_WIDTH-1:0]               mhq_fill_addr;
     logic [OPTN_ADDR_WIDTH-1:0]               biu_addr;
 
+    // Bypass addresses to the MHQ_LU stage
+    assign mhq_lu_biu_addr     = biu_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    assign mhq_lu_fill_addr    = mhq_fill_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+
     // Output to BIU but also used by MHQ_LU
-    assign o_biu_addr         = biu_addr;
+    assign o_biu_addr          = biu_addr;
 
     // Output to LSU
-    assign o_mhq_lookup_retry = mhq_lu_retry;
-    assign o_mhq_lookup_tag   = mhq_lu_tag;
+    assign o_mhq_lookup_retry  = mhq_lu_retry;
+    assign o_mhq_lookup_replay = mhq_lu_replay;
+    assign o_mhq_lookup_tag    = mhq_lu_tag;
+    assign o_mhq_fill_en       = mhq_fill_en;
+    assign o_mhq_fill_addr     = mhq_fill_addr;
 
     procyon_mhq_lu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -107,8 +120,11 @@ module procyon_mhq #(
         .o_mhq_lu_tag(mhq_lu_tag),
         .o_mhq_lu_addr(mhq_lu_addr),
         .o_mhq_lu_retry(mhq_lu_retry),
+        .o_mhq_lu_replay(mhq_lu_replay),
+        .i_mhq_fill_en(mhq_fill_en),
+        .i_mhq_fill_addr(mhq_lu_fill_addr),
         .i_biu_done(i_biu_done),
-        .i_biu_addr(biu_addr)
+        .i_biu_addr(mhq_lu_biu_addr)
     );
 
     procyon_mhq_ex #(
@@ -131,10 +147,10 @@ module procyon_mhq #(
         .i_mhq_lu_match(mhq_lu_match),
         .i_mhq_lu_tag(mhq_lu_tag),
         .i_mhq_lu_addr(mhq_lu_addr),
-        .o_mhq_fill_en(o_mhq_fill_en),
+        .o_mhq_fill_en(mhq_fill_en),
         .o_mhq_fill_tag(o_mhq_fill_tag),
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
-        .o_mhq_fill_addr(o_mhq_fill_addr),
+        .o_mhq_fill_addr(mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
         .i_biu_done(i_biu_done),
         .i_biu_data(i_biu_data),

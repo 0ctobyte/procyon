@@ -133,6 +133,7 @@ module procyon #(
     logic [OPTN_DATA_WIDTH-1:0]      mhq_lookup_data;
     logic                            mhq_lookup_we;
     logic                            mhq_lookup_retry;
+    logic                            mhq_lookup_replay;
     logic [MHQ_IDX_WIDTH-1:0]        mhq_lookup_tag;
     logic                            mhq_fill_en;
     logic [MHQ_IDX_WIDTH-1:0]        mhq_fill_tag;
@@ -408,6 +409,7 @@ module procyon #(
         .o_rob_retire_sq_ack(lsu_retire_sq_ack),
         .o_rob_retire_misspeculated(lsu_retire_misspeculated),
         .i_mhq_lookup_retry(mhq_lookup_retry),
+        .i_mhq_lookup_replay(mhq_lookup_replay),
         .i_mhq_lookup_tag(mhq_lookup_tag),
         .o_mhq_lookup_valid(mhq_lookup_valid),
         .o_mhq_lookup_dc_hit(mhq_lookup_dc_hit),
@@ -439,6 +441,7 @@ module procyon #(
         .i_mhq_lookup_data(mhq_lookup_data),
         .i_mhq_lookup_we(mhq_lookup_we),
         .o_mhq_lookup_retry(mhq_lookup_retry),
+        .o_mhq_lookup_replay(mhq_lookup_replay),
         .o_mhq_lookup_tag(mhq_lookup_tag),
         .o_mhq_fill_en(mhq_fill_en),
         .o_mhq_fill_tag(mhq_fill_tag),

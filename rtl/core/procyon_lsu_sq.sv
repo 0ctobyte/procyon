@@ -35,11 +35,12 @@ module procyon_lsu_sq #(
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_sq_retire_tag,
     output logic [OPTN_DATA_WIDTH-1:0]      o_sq_retire_data,
 
-    // Signals from the LSU and MHQ to indicate if the last retiring store needs to be retried
+    // Signals from the LSU and MHQ to indicate if the last retiring store needs to be retried later or replayed ASAP
     input  logic                            i_update_en,
     input  logic [OPTN_SQ_DEPTH-1:0]        i_update_select,
     input  logic                            i_update_retry,
     input  logic                            i_update_mhq_retry,
+    input  logic                            i_update_mhq_replay,
 
     // MHQ fill interface for waking up waiting stores
     input  logic                            i_mhq_fill_en,
@@ -121,10 +122,22 @@ module procyon_lsu_sq #(
     always_comb begin
         logic [SQ_STATE_WIDTH-1:0] sq_fill_bypass_mux;
         logic [SQ_STATE_WIDTH-1:0] sq_update_state_mux;
+        logic [2:0]                sq_update_state_sel;
 
         // Bypass fill broadcast if an update comes through on the same cycle as the fill
         sq_fill_bypass_mux  = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : SQ_STATE_MHQ_FILL_WAIT;
-        sq_update_state_mux = (i_update_retry & i_update_mhq_retry) ? sq_fill_bypass_mux : SQ_STATE_INVALID;
+        sq_update_state_sel = {i_update_retry, i_update_mhq_replay, i_update_mhq_retry};
+
+        case (sq_update_state_sel)
+            3'b000: sq_update_state_mux = SQ_STATE_INVALID;
+            3'b001: sq_update_state_mux = SQ_STATE_INVALID;
+            3'b010: sq_update_state_mux = SQ_STATE_INVALID;
+            3'b011: sq_update_state_mux = SQ_STATE_INVALID;
+            3'b100: sq_update_state_mux = SQ_STATE_INVALID;
+            3'b101: sq_update_state_mux = sq_fill_bypass_mux;
+            3'b110: sq_update_state_mux = SQ_STATE_NONSPECULATIVE;
+            3'b111: sq_update_state_mux = SQ_STATE_NONSPECULATIVE;
+        endcase
 
         for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
             sq_entry_state_next[i] = sq_entry_state_q[i];

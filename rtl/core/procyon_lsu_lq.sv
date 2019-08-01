@@ -35,12 +35,13 @@ module procyon_lsu_lq #(
     output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
 
-    // Signals from LSU_EX and MHQ_LU to update a load when it needs replaying
+    // Signals from LSU_EX and MHQ_LU to update a load when it needs to be retried later or replayed ASAP
     input  logic                            i_update_en,
     input  logic [OPTN_LQ_DEPTH-1:0]        i_update_select,
     input  logic                            i_update_retry,
     input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_update_mhq_tag,
     input  logic                            i_update_mhq_retry,
+    input  logic                            i_update_mhq_replay,
 
     // MHQ fill broadcast
     input  logic                            i_mhq_fill_en,
@@ -166,18 +167,24 @@ module procyon_lsu_lq #(
 
     always_comb begin
         logic [LQ_STATE_WIDTH-1:0] lq_update_state_mux;
+        logic [LQ_STATE_WIDTH-1:0] lq_fill_tag_bypass_mux;
         logic [LQ_STATE_WIDTH-1:0] lq_fill_bypass_mux;
-        logic [1:0]                lq_update_state_sel;
+        logic [2:0]                lq_update_state_sel;
 
         // Bypass fill broadcast if an update comes through on the same cycle with an mhq_tag that matches the fill tag
-        lq_fill_bypass_mux  = ((i_mhq_fill_en & (i_update_mhq_tag == i_mhq_fill_tag)) ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_TAG_WAIT);
-        lq_update_state_sel = {i_update_mhq_retry, i_update_retry};
+        lq_fill_tag_bypass_mux = ((i_mhq_fill_en & (i_update_mhq_tag == i_mhq_fill_tag)) ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_TAG_WAIT);
+        lq_fill_bypass_mux     = i_mhq_fill_en ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_FILL_WAIT;
+        lq_update_state_sel    = {i_update_retry, i_update_mhq_replay, i_update_mhq_retry};
 
         case (lq_update_state_sel)
-            2'b00: lq_update_state_mux = LQ_STATE_COMPLETE;
-            2'b01: lq_update_state_mux = lq_fill_bypass_mux;
-            2'b10: lq_update_state_mux = LQ_STATE_COMPLETE;
-            2'b11: lq_update_state_mux = LQ_STATE_MHQ_FILL_WAIT;
+            3'b000: lq_update_state_mux = LQ_STATE_COMPLETE;
+            3'b001: lq_update_state_mux = LQ_STATE_COMPLETE;
+            3'b010: lq_update_state_mux = LQ_STATE_COMPLETE;
+            3'b011: lq_update_state_mux = LQ_STATE_COMPLETE;
+            3'b100: lq_update_state_mux = lq_fill_tag_bypass_mux;
+            3'b101: lq_update_state_mux = lq_fill_bypass_mux;
+            3'b110: lq_update_state_mux = LQ_STATE_REPLAYABLE;
+            3'b111: lq_update_state_mux = LQ_STATE_REPLAYABLE;
         endcase
 
         for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin

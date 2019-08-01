@@ -27,6 +27,7 @@ module procyon_ccu #(
     input  logic [OPTN_DATA_WIDTH-1:0]      i_mhq_lookup_data,
     input  logic                            i_mhq_lookup_we,
     output logic                            o_mhq_lookup_retry,
+    output logic                            o_mhq_lookup_replay,
     output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
 
     // Fill cacheline
@@ -81,6 +82,7 @@ module procyon_ccu #(
         .i_mhq_lookup_data(i_mhq_lookup_data),
         .i_mhq_lookup_we(i_mhq_lookup_we),
         .o_mhq_lookup_retry(o_mhq_lookup_retry),
+        .o_mhq_lookup_replay(o_mhq_lookup_replay),
         .o_mhq_lookup_tag(o_mhq_lookup_tag),
         .o_mhq_fill_en(o_mhq_fill_en),
         .o_mhq_fill_tag(o_mhq_fill_tag),
