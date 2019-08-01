@@ -51,9 +51,9 @@ module procyon_mhq_lu #(
     output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_lu_addr,
     output logic                                     o_mhq_lu_retry,
 
-    // CCU interface to check for fill conflicts
-    input  logic                                     i_ccu_done,
-    input  logic [OPTN_ADDR_WIDTH-1:0]               i_ccu_addr
+    // BIU interface to check for fill conflicts
+    input  logic                                     i_biu_done,
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_biu_addr
 );
 
     logic [MHQ_IDX_WIDTH-1:0]                 mhq_tail_addr;
@@ -78,12 +78,12 @@ module procyon_mhq_lu #(
     assign mhq_ex_bypass_en   = i_mhq_ex_bypass_en | (i_mhq_ex_bypass_we & i_mhq_ex_bypass_match);
     assign bypass_en          = (mhq_ex_bypass_en & (i_mhq_ex_bypass_addr == mhq_lookup_addr));
 
-    // mhq_lookup_retry is asserted if the MHQ is full and there was no match OR if the CCU signals a fill on the same cycle with the same address as the lookup
+    // mhq_lookup_retry is asserted if the MHQ is full and there was no match OR if the BIU signals a fill on the same cycle with the same address as the lookup
     // The same cycle fill case causes a fill conflict where the lookup will return an MHQ tag and enqueue on that entry when it will be invalidated by the current fill
     assign mhq_lookup_is_fill = (i_mhq_lookup_lsu_func == `PCYN_LSU_FUNC_FILL);
     assign mhq_lookup_addr    = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
     assign mhq_lookup_offset  = i_mhq_lookup_addr[DC_OFFSET_WIDTH-1:0];
-    assign mhq_lookup_retry   = (mhq_full_next & ~mhq_lookup_match) | (i_ccu_done & (i_ccu_addr == i_mhq_lookup_addr));
+    assign mhq_lookup_retry   = (mhq_full_next & ~mhq_lookup_match) | (i_biu_done & (i_biu_addr == i_mhq_lookup_addr));
     assign mhq_lookup_en      = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & ~mhq_lookup_is_fill & ~mhq_lookup_retry;
 
     always_comb begin

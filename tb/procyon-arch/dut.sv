@@ -1,6 +1,8 @@
 `define SRAM_ADDR_WIDTH 20
 `define SRAM_DATA_WIDTH 16
 
+`define WB_CTI_WIDTH    3
+`define WB_BTE_WIDTH    2
 
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
@@ -17,8 +19,7 @@ module dut #(
     parameter OPTN_DC_WAY_COUNT       = 1,
     parameter OPTN_WB_DATA_WIDTH      = 16,
     parameter OPTN_WB_ADDR_WIDTH      = 32,
-    parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
-    parameter OPTN_WB_SRAM_FIFO_DEPTH = 8
+    parameter OPTN_WB_SRAM_BASE_ADDR  = 0
 )(
     input  logic                        clk,
     input  logic                        n_rst,
@@ -53,11 +54,12 @@ module dut #(
     logic                          wb_clk;
     logic                          wb_rst;
     logic                          wb_ack;
-    logic                          wb_stall;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_i;
     logic                          wb_cyc;
     logic                          wb_stb;
     logic                          wb_we;
+    logic [`WB_CTI_WIDTH-1:0]      wb_cti;
+    logic [`WB_BTE_WIDTH-1:0]      wb_bte;
     logic [WB_DATA_SIZE-1:0]       wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
@@ -116,40 +118,41 @@ module dut #(
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),
-        .i_wb_stall(wb_stall),
         .i_wb_data(wb_data_i),
         .o_wb_cyc(wb_cyc),
         .o_wb_stb(wb_stb),
         .o_wb_we(wb_we),
+        .o_wb_cti(wb_cti),
+        .o_wb_bte(wb_bte),
         .o_wb_sel(wb_sel),
         .o_wb_addr(wb_addr),
         .o_wb_data(wb_data_o)
     );
 
-    wb_sram #(
+    sram_wb #(
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
-        .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR),
-        .OPTN_FIFO_DEPTH(OPTN_WB_SRAM_FIFO_DEPTH)
-    ) wb_sram_inst (
+        .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR)
+    ) sram_wb_inst (
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
         .i_wb_cyc(wb_cyc),
         .i_wb_stb(wb_stb),
         .i_wb_we(wb_we),
+        .i_wb_cti(wb_cti),
+        .i_wb_bte(wb_bte),
         .i_wb_sel(wb_sel),
         .i_wb_addr(wb_addr),
         .i_wb_data(wb_data_o),
         .o_wb_data(wb_data_i),
         .o_wb_ack(wb_ack),
-        .o_wb_stall(wb_stall),
-        .io_sram_dq(sram_dq),
-        .o_sram_addr(o_sram_addr),
         .o_sram_ce_n(o_sram_ce_n),
         .o_sram_oe_n(o_sram_oe_n),
         .o_sram_we_n(sram_we_n),
+        .o_sram_lb_n(o_sram_lb_n),
         .o_sram_ub_n(o_sram_ub_n),
-        .o_sram_lb_n(o_sram_lb_n)
+        .o_sram_addr(o_sram_addr),
+        .io_sram_dq(sram_dq)
     );
 
 endmodule

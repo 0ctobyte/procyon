@@ -9,7 +9,7 @@
 // - The lsu_lq uses the MHQ tag information to wake up loads that missed in the cache and are waiting on fills from the MHQ
 // Execute Stage:
 // - Enqueue or merges if necessary and writes store retire data into the MHQ entry
-// - Also handle merging write data with fill data from the CCU
+// - Also handle merging write data with fill data from the BIU
 
 `include "procyon_constants.svh"
 
@@ -43,11 +43,11 @@ module procyon_mhq #(
     output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
     output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
 
-    // CCU interface
-    input  logic                            i_ccu_done,
-    input  logic [DC_LINE_WIDTH-1:0]        i_ccu_data,
-    output logic                            o_ccu_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
+    // BIU interface
+    input  logic                            i_biu_done,
+    input  logic [DC_LINE_WIDTH-1:0]        i_biu_data,
+    output logic                            o_biu_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_biu_addr
 );
 
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
@@ -66,10 +66,10 @@ module procyon_mhq #(
     logic [MHQ_IDX_WIDTH-1:0]                 mhq_lu_tag;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lu_addr;
     logic                                     mhq_lu_retry;
-    logic [OPTN_ADDR_WIDTH-1:0]               ccu_addr;
+    logic [OPTN_ADDR_WIDTH-1:0]               biu_addr;
 
-    // Output to CCU but also used by MHQ_LU
-    assign o_ccu_addr         = ccu_addr;
+    // Output to BIU but also used by MHQ_LU
+    assign o_biu_addr         = biu_addr;
 
     // Output to LSU
     assign o_mhq_lookup_retry = mhq_lu_retry;
@@ -107,8 +107,8 @@ module procyon_mhq #(
         .o_mhq_lu_tag(mhq_lu_tag),
         .o_mhq_lu_addr(mhq_lu_addr),
         .o_mhq_lu_retry(mhq_lu_retry),
-        .i_ccu_done(i_ccu_done),
-        .i_ccu_addr(ccu_addr)
+        .i_biu_done(i_biu_done),
+        .i_biu_addr(biu_addr)
     );
 
     procyon_mhq_ex #(
@@ -136,10 +136,10 @@ module procyon_mhq #(
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
-        .i_ccu_done(i_ccu_done),
-        .i_ccu_data(i_ccu_data),
-        .o_ccu_en(o_ccu_en),
-        .o_ccu_addr(ccu_addr)
+        .i_biu_done(i_biu_done),
+        .i_biu_data(i_biu_data),
+        .o_biu_en(o_biu_en),
+        .o_biu_addr(biu_addr)
     );
 
 endmodule

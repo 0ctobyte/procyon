@@ -8,7 +8,7 @@ module procyon_ccu #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_MHQ_DEPTH     = 4,
-    parameter OPTN_DC_LINE_SIZE  = 1024,
+    parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
 
@@ -40,57 +40,31 @@ module procyon_ccu #(
     input  logic                            i_wb_clk,
     input  logic                            i_wb_rst,
     input  logic                            i_wb_ack,
-    input  logic                            i_wb_stall,
     input  logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
     output logic                            o_wb_cyc,
     output logic                            o_wb_stb,
     output logic                            o_wb_we,
+    output logic [`WB_CTI_WIDTH-1:0]        o_wb_cti,
+    output logic [`WB_BTE_WIDTH-1:0]        o_wb_bte,
     output logic [WB_DATA_SIZE-1:0]         o_wb_sel,
     output logic [OPTN_WB_ADDR_WIDTH-1:0]   o_wb_addr,
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    localparam CCU_STATE_WIDTH = 2;
-    localparam CCU_STATE_IDLE  = 2'b00;
-    localparam CCU_STATE_REQ   = 2'b01;
-    localparam CCU_STATE_WAIT  = 2'b10;
-    localparam CCU_STATE_DONE  = 2'b11;
+    logic                            biu_en;
+    logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
+    logic [`PCYN_BIU_LEN_WIDTH-1:0]  biu_len;
+    logic [OPTN_DC_LINE_SIZE-1:0]    biu_sel;
+    logic [OPTN_ADDR_WIDTH-1:0]      biu_addr;
+    logic [DC_LINE_WIDTH-1:0]        biu_data_w;
+    logic                            biu_done;
+    logic [DC_LINE_WIDTH-1:0]        biu_data_r;
 
-    logic [CCU_STATE_WIDTH-1:0] next_state;
-    logic [CCU_STATE_WIDTH-1:0] state_q;
-    logic                       ccu_en;
-    logic                       ccu_done;
-    logic                       biu_done;
-    logic                       biu_busy;
-    logic [DC_LINE_WIDTH-1:0]   biu_data_r;
-    logic [DC_LINE_WIDTH-1:0]   biu_data_w;
-    logic [OPTN_ADDR_WIDTH-1:0] biu_addr;
-    logic                       biu_we;
-    logic                       biu_en;
-
-    // Output to BIU
+    // FIXME for now just drive these signals
+    assign biu_func   = `PCYN_BIU_FUNC_READ;
+    assign biu_len    = `PCYN_BIU_LEN_32B;
+    assign biu_sel    = {(OPTN_DC_LINE_SIZE){1'b1}};
     assign biu_data_w = {{(DC_LINE_WIDTH){1'b0}}};
-    assign biu_we     = 1'b0;
-    assign biu_en     = state_q == CCU_STATE_REQ | state_q == CCU_STATE_WAIT;
-
-    // Output done signal
-    assign ccu_done   = state_q == CCU_STATE_DONE;
-
-    // Latch next state
-    always_ff @(posedge clk) begin
-        if (~n_rst) state_q <= CCU_STATE_IDLE;
-        else        state_q <= next_state;
-    end
-
-    // Update state
-    always_comb begin
-        case (state_q)
-            CCU_STATE_IDLE: next_state = (ccu_en & ~biu_busy) ? CCU_STATE_REQ : CCU_STATE_IDLE;
-            CCU_STATE_REQ:  next_state = CCU_STATE_WAIT;
-            CCU_STATE_WAIT: next_state = biu_done ? CCU_STATE_DONE : CCU_STATE_WAIT;
-            CCU_STATE_DONE: next_state = CCU_STATE_IDLE;
-        endcase
-    end
 
     procyon_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -113,36 +87,38 @@ module procyon_ccu #(
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
-        .i_ccu_done(ccu_done),
-        .i_ccu_data(biu_data_r),
-        .o_ccu_en(ccu_en),
-        .o_ccu_addr(biu_addr)
+        .i_biu_done(biu_done),
+        .i_biu_data(biu_data_r),
+        .o_biu_en(biu_en),
+        .o_biu_addr(biu_addr)
     );
 
-    procyon_biu #(
+    procyon_biu_wb #(
+        .OPTN_BIU_DATA_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
-        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
-        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) procyon_biu_inst (
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
+    ) procyon_biu_wb_inst (
+        .i_biu_en(biu_en),
+        .i_biu_func(biu_func),
+        .i_biu_len(biu_len),
+        .i_biu_sel(biu_sel),
+        .i_biu_addr(biu_addr),
+        .i_biu_data(biu_data_w),
+        .o_biu_done(biu_done),
+        .o_biu_data(biu_data_r),
         .i_wb_clk(i_wb_clk),
         .i_wb_rst(i_wb_rst),
         .i_wb_ack(i_wb_ack),
-        .i_wb_stall(i_wb_stall),
         .i_wb_data(i_wb_data),
         .o_wb_cyc(o_wb_cyc),
         .o_wb_stb(o_wb_stb),
         .o_wb_we(o_wb_we),
+        .o_wb_cti(o_wb_cti),
+        .o_wb_bte(o_wb_bte),
         .o_wb_sel(o_wb_sel),
         .o_wb_addr(o_wb_addr),
-        .o_wb_data(o_wb_data),
-        .i_biu_en(biu_en),
-        .i_biu_we(biu_we),
-        .i_biu_addr(biu_addr),
-        .i_biu_data(biu_data_w),
-        .o_biu_data(biu_data_r),
-        .o_biu_busy(biu_busy),
-        .o_biu_done(biu_done)
+        .o_wb_data(o_wb_data)
     );
 
 endmodule

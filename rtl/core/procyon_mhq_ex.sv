@@ -1,5 +1,5 @@
 // MHQ execute stage
-// Enqueue entries and handle fills from the CCU
+// Enqueue entries and handle fills from the BIU
 
 module procyon_mhq_ex #(
     parameter OPTN_DATA_WIDTH   = 32,
@@ -40,11 +40,11 @@ module procyon_mhq_ex #(
     output logic [OPTN_ADDR_WIDTH-1:0]               o_mhq_fill_addr,
     output logic [DC_LINE_WIDTH-1:0]                 o_mhq_fill_data,
 
-    // CCU interface
-    input  logic                                     i_ccu_done,
-    input  logic [DC_LINE_WIDTH-1:0]                 i_ccu_data,
-    output logic                                     o_ccu_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]               o_ccu_addr
+    // BIU interface
+    input  logic                                     i_biu_done,
+    input  logic [DC_LINE_WIDTH-1:0]                 i_biu_data,
+    output logic                                     o_biu_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]               o_biu_addr
 );
 
     logic                                     mhq_entry_valid_q        [0:OPTN_MHQ_DEPTH-1];
@@ -73,7 +73,7 @@ module procyon_mhq_ex #(
 
     // Calculate next head, tail and full signals
     assign mhq_head_addr     = mhq_head[MHQ_IDX_WIDTH-1:0];
-    assign mhq_head_next     = i_ccu_done ? mhq_head + 1'b1 : mhq_head;
+    assign mhq_head_next     = i_biu_done ? mhq_head + 1'b1 : mhq_head;
     assign mhq_tail_next     = mhq_ex_alloc ? mhq_tail + 1'b1 : mhq_tail;
 
     // These should not be registered. Send these signals back to the MHQ_LU stage
@@ -82,15 +82,15 @@ module procyon_mhq_ex #(
     assign o_mhq_entry_valid = mhq_entry_valid_q;
     assign o_mhq_entry_addr  = mhq_entry_addr_q;
 
-    // Signal to CCU to fetch data from memory
+    // Signal to BIU to fetch data from memory
     // FIXME These should be registered
-    assign o_ccu_addr        = mhq_fill_addr;
-    assign o_ccu_en          = mhq_entry_valid_q[mhq_head_addr];
+    assign o_biu_addr        = mhq_fill_addr;
+    assign o_biu_en          = mhq_entry_valid_q[mhq_head_addr];
 
     always_comb begin
-        // Generate valid bit depending on i_ccu_done and mhq_ex_en
+        // Generate valid bit depending on i_biu_done and mhq_ex_en
         for (int i = 0; i < OPTN_MHQ_DEPTH; i++) begin
-            mhq_valid_next[i] = ~(i_ccu_done & (MHQ_IDX_WIDTH'(i) == mhq_head_addr)) & (((MHQ_IDX_WIDTH'(i) == i_mhq_lu_tag) & mhq_ex_en) | mhq_entry_valid_q[i]);
+            mhq_valid_next[i] = ~(i_biu_done & (MHQ_IDX_WIDTH'(i) == mhq_head_addr)) & (((MHQ_IDX_WIDTH'(i) == i_mhq_lu_tag) & mhq_ex_en) | mhq_entry_valid_q[i]);
         end
     end
 
@@ -119,14 +119,14 @@ module procyon_mhq_ex #(
         mhq_fill_data     = {(DC_LINE_WIDTH){1'b0}};
         mhq_ex_fill_merge = (mhq_ex_en & i_mhq_lu_we & (i_mhq_lu_addr == mhq_entry_addr_q[mhq_head_addr]));
 
-        // Merge data from the CCU and updated data in the MHQ entry (based on the byte_updated field)
+        // Merge data from the BIU and updated data in the MHQ entry (based on the byte_updated field)
         // Also merge data from current enqueue request to the same entry as the fill if there is one (this one takes priority)
         for (int i = 0; i < OPTN_DC_LINE_SIZE; i++) begin
             // Generate mux select signals for the fill data
             mhq_fill_data_mux_sel[i] = {(mhq_ex_fill_merge & mhq_ex_byte_updated[i]), mhq_entry_byte_updated_q[mhq_head_addr][i]};
 
             case (mhq_fill_data_mux_sel[i])
-                2'b00: mhq_fill_data[i*8 +: 8] = i_ccu_data[i*8 +: 8];
+                2'b00: mhq_fill_data[i*8 +: 8] = i_biu_data[i*8 +: 8];
                 2'b01: mhq_fill_data[i*8 +: 8] = mhq_entry_data_q[mhq_head_addr][i*8 +: 8];
                 2'b10: mhq_fill_data[i*8 +: 8] = mhq_ex_data[i*8 +: 8];
                 2'b11: mhq_fill_data[i*8 +: 8] = mhq_ex_data[i*8 +: 8];
@@ -153,7 +153,7 @@ module procyon_mhq_ex #(
 
     // Output for fill request
     always_ff @(posedge clk) begin
-        o_mhq_fill_en    <= i_ccu_done;
+        o_mhq_fill_en    <= i_biu_done;
         o_mhq_fill_tag   <= mhq_head_addr;
         o_mhq_fill_dirty <= mhq_entry_dirty_q[mhq_head_addr];
         o_mhq_fill_addr  <= mhq_fill_addr;
