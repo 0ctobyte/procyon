@@ -19,6 +19,7 @@ module procyon_lsu_ex #(
 
     // Inputs from previous pipeline stage
     input  logic                            i_valid,
+    input  logic                            i_fill_replay,
     input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lsu_func,
     input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_select,
     input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_select,
@@ -43,10 +44,10 @@ module procyon_lsu_ex #(
     // Update LQ/SQ
     output logic                            o_update_lq_en,
     output logic [OPTN_LQ_DEPTH-1:0]        o_update_lq_select,
-    output logic                            o_update_lq_retry,
     output logic                            o_update_sq_en,
     output logic [OPTN_SQ_DEPTH-1:0]        o_update_sq_select,
-    output logic                            o_update_sq_retry,
+    output logic                            o_update_retry,
+    output logic                            o_update_replay,
 
     // Enqueue victim data
     output logic                            o_victim_en,
@@ -85,9 +86,9 @@ module procyon_lsu_ex #(
 
     always_ff @(posedge clk) begin
         o_update_lq_select   <= i_lq_select;
-        o_update_lq_retry    <= ~i_dc_hit;
         o_update_sq_select   <= i_sq_select;
-        o_update_sq_retry    <= ~i_dc_hit;
+        o_update_retry       <= ~i_dc_hit;
+        o_update_replay      <= i_fill_replay;
     end
 
     always_ff @(posedge clk) begin

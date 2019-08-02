@@ -54,7 +54,7 @@ module procyon_ieu_ex #(
             `PCYN_ALU_FUNC_SLL: result = i_src_a << i_shamt;
             `PCYN_ALU_FUNC_SRL: result = i_src_a >> i_shamt;
 /* verilator lint_off WIDTH */
-            `PCYN_ALU_FUNC_SRA: result = e_src_a >> i_shamt;
+            `PCYN_ALU_FUNC_SRA: result = OPTN_DATA_WIDTH'(e_src_a >> i_shamt);
             `PCYN_ALU_FUNC_EQ:  result = i_src_a == i_src_b;
             `PCYN_ALU_FUNC_NE:  result = i_src_a != i_src_b;
             `PCYN_ALU_FUNC_LT:  result = s_src_a < s_src_b;

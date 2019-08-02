@@ -39,6 +39,7 @@ module procyon_lsu_lq #(
     input  logic                            i_update_en,
     input  logic [OPTN_LQ_DEPTH-1:0]        i_update_select,
     input  logic                            i_update_retry,
+    input  logic                            i_update_replay,
     input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_update_mhq_tag,
     input  logic                            i_update_mhq_retry,
     input  logic                            i_update_mhq_replay,
@@ -172,9 +173,10 @@ module procyon_lsu_lq #(
         logic [2:0]                lq_update_state_sel;
 
         // Bypass fill broadcast if an update comes through on the same cycle with an mhq_tag that matches the fill tag
+        // i_update_replay is asserted if a fill address conflicted on the LSU_D0 or LSU_D1 stages. The op just needs to be replayed ASAP
         lq_fill_tag_bypass_mux = ((i_mhq_fill_en & (i_update_mhq_tag == i_mhq_fill_tag)) ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_TAG_WAIT);
         lq_fill_bypass_mux     = i_mhq_fill_en ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_FILL_WAIT;
-        lq_update_state_sel    = {i_update_retry, i_update_mhq_replay, i_update_mhq_retry};
+        lq_update_state_sel    = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
 
         case (lq_update_state_sel)
             3'b000: lq_update_state_mux = LQ_STATE_COMPLETE;

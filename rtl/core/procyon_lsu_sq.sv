@@ -39,6 +39,7 @@ module procyon_lsu_sq #(
     input  logic                            i_update_en,
     input  logic [OPTN_SQ_DEPTH-1:0]        i_update_select,
     input  logic                            i_update_retry,
+    input  logic                            i_update_replay,
     input  logic                            i_update_mhq_retry,
     input  logic                            i_update_mhq_replay,
 
@@ -125,8 +126,9 @@ module procyon_lsu_sq #(
         logic [2:0]                sq_update_state_sel;
 
         // Bypass fill broadcast if an update comes through on the same cycle as the fill
+        // i_update_replay is asserted if a fill address conflicted on the LSU_D0 or LSU_D1 stages. The op just needs to be replayed ASAP
         sq_fill_bypass_mux  = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : SQ_STATE_MHQ_FILL_WAIT;
-        sq_update_state_sel = {i_update_retry, i_update_mhq_replay, i_update_mhq_retry};
+        sq_update_state_sel = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
 
         case (sq_update_state_sel)
             3'b000: sq_update_state_mux = SQ_STATE_INVALID;

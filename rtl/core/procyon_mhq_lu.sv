@@ -93,7 +93,7 @@ module procyon_mhq_lu #(
     assign mhq_lookup_offset  = i_mhq_lookup_addr[DC_OFFSET_WIDTH-1:0];
     assign mhq_lookup_retry   = (mhq_full_next & ~mhq_lookup_match);
     assign mhq_lookup_replay  = (i_biu_done & (i_biu_addr == mhq_lookup_addr)) | (i_mhq_fill_en & (i_mhq_fill_addr == mhq_lookup_addr));
-    assign mhq_lookup_en      = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & ~mhq_lookup_is_fill & ~mhq_lookup_retry && ~mhq_lookup_replay;
+    assign mhq_lookup_en      = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & ~mhq_lookup_is_fill & ~mhq_lookup_retry & ~mhq_lookup_replay;
 
     always_comb begin
         logic [OPTN_MHQ_DEPTH-1:0] match_tag_select        = {(OPTN_MHQ_DEPTH){1'b0}};
