@@ -17,7 +17,7 @@ module dut #(
     parameter OPTN_DC_CACHE_SIZE      = 1024,
     parameter OPTN_DC_LINE_SIZE       = 32,
     parameter OPTN_DC_WAY_COUNT       = 1,
-    parameter OPTN_WB_DATA_WIDTH      = 16,
+    parameter OPTN_WB_DATA_WIDTH      = 32,
     parameter OPTN_WB_ADDR_WIDTH      = 32,
     parameter OPTN_WB_SRAM_BASE_ADDR  = 0
 )(

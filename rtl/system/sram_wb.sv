@@ -96,6 +96,7 @@ module sram_wb #(
     logic [SRAM_STATE_WIDTH-1:0]   wb_sram_state_next;
     logic                          wb_en;
     logic                          wb_we;
+    logic                          wb_cti_eob;
     logic [`SRAM_DATA_SIZE-1:0]    wb_sel;
     logic [`SRAM_ADDR_WIDTH-1:0]   wb_addr;
     logic [`SRAM_DATA_WIDTH-1:0]   wb_data;
@@ -107,6 +108,7 @@ module sram_wb #(
     // Qualify the write enable with a valid bus cycle
     assign wb_en       = i_wb_cyc && i_wb_stb;
     assign wb_we       = wb_en && i_wb_we;
+    assign wb_cti_eob  = i_wb_cti == `WB_CTI_END_OF_BURST;
     assign wb_sel      = i_wb_sel[gather_idx_r*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
     assign wb_addr     = i_wb_addr[`SRAM_ADDR_WIDTH:1];
     assign wb_data     = i_wb_data[gather_idx_r*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
@@ -145,7 +147,7 @@ module sram_wb #(
                 end
             end
             SRAM_STATE_READ_ACK: begin
-                if (i_wb_cti != `WB_CTI_END_OF_BURST) begin
+                if (~wb_cti_eob) begin
                     if (GATHER_COUNT > 1) wb_sram_state_next = SRAM_STATE_READ_GATHER;
                     else                  wb_sram_state_next = SRAM_STATE_READ_ACK;
                 end else begin
@@ -153,7 +155,7 @@ module sram_wb #(
                 end
             end
             SRAM_STATE_WRITE_ACK: begin
-                if (i_wb_cti != `WB_CTI_END_OF_BURST) begin
+                if (~wb_cti_eob) begin
                     if (GATHER_COUNT > 1) wb_sram_state_next = SRAM_STATE_WRITE_GATHER;
                     else                  wb_sram_state_next = SRAM_STATE_WRITE_ACK;
                 end else begin
@@ -183,20 +185,20 @@ module sram_wb #(
         case (wb_sram_state_r)
             SRAM_STATE_IDLE: begin
                 if (GATHER_COUNT > 1) begin
-                    gather_cnt_next = GATHER_COUNT_WIDTH'(INITIAL_GATHER_COUNT);
-                    gather_idx_next = 1;
+                    gather_cnt_next = wb_en ? GATHER_COUNT_WIDTH'(INITIAL_GATHER_COUNT-1) : GATHER_COUNT_WIDTH'(INITIAL_GATHER_COUNT);
+                    gather_idx_next = wb_en ? GATHER_COUNT_WIDTH'(1) : {(GATHER_COUNT_WIDTH){1'b0}};
                 end else begin
-                    gather_cnt_next = 1'b0;
-                    gather_idx_next = 1'b0;
+                    gather_cnt_next = {(GATHER_COUNT_WIDTH){1'b0}};
+                    gather_idx_next = {(GATHER_COUNT_WIDTH){1'b0}};
                 end
             end
             default: begin
                 if (GATHER_COUNT > 1) begin
-                    gather_cnt_next = gather_cnt_r - 1'b1;
-                    gather_idx_next = gather_idx_r + 1'b1;
+                    gather_cnt_next = wb_cti_eob ? GATHER_COUNT_WIDTH'(INITIAL_GATHER_COUNT) : gather_cnt_r - 1'b1;
+                    gather_idx_next = wb_cti_eob ? {(GATHER_COUNT_WIDTH){1'b0}} : gather_idx_r + 1'b1;
                 end else begin
-                    gather_cnt_next = 1'b0;
-                    gather_idx_next = 1'b0;
+                    gather_cnt_next = {(GATHER_COUNT_WIDTH){1'b0}};
+                    gather_idx_next = {(GATHER_COUNT_WIDTH){1'b0}};
                 end
             end
         endcase
