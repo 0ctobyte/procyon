@@ -194,8 +194,8 @@ module sram_wb #(
             end
             default: begin
                 if (GATHER_COUNT > 1) begin
-                    gather_cnt_next = wb_cti_eob ? GATHER_COUNT_WIDTH'(INITIAL_GATHER_COUNT) : gather_cnt_r - 1'b1;
-                    gather_idx_next = wb_cti_eob ? {(GATHER_COUNT_WIDTH){1'b0}} : gather_idx_r + 1'b1;
+                    gather_cnt_next = gather_cnt_r - 1'b1;
+                    gather_idx_next = gather_idx_r + 1'b1;
                 end else begin
                     gather_cnt_next = {(GATHER_COUNT_WIDTH){1'b0}};
                     gather_idx_next = {(GATHER_COUNT_WIDTH){1'b0}};
