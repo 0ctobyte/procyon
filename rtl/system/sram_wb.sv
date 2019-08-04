@@ -91,36 +91,51 @@ module sram_wb #(
     localparam SRAM_STATE_WRITE_ACK    = 3'b010;
     localparam SRAM_STATE_READ_GATHER  = 3'b011;
     localparam SRAM_STATE_WRITE_GATHER = 3'b100;
+    localparam SRAM_STATE_UNALIGNED    = 3'b101;
 
-    logic [SRAM_STATE_WIDTH-1:0]   wb_sram_state_r;
-    logic [SRAM_STATE_WIDTH-1:0]   wb_sram_state_next;
-    logic                          wb_en;
-    logic                          wb_we;
-    logic                          wb_cti_eob;
-    logic [`SRAM_DATA_SIZE-1:0]    wb_sel;
-    logic [`SRAM_ADDR_WIDTH-1:0]   wb_addr;
-    logic [`SRAM_DATA_WIDTH-1:0]   wb_data;
-    logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_r;
-    logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_next;
-    logic [GATHER_COUNT_WIDTH-1:0] gather_idx_r;
-    logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next;
+    logic [SRAM_STATE_WIDTH-1:0]                    wb_sram_state_r;
+    logic [SRAM_STATE_WIDTH-1:0]                    wb_sram_state_next;
+    logic                                           wb_en;
+    logic                                           wb_we;
+    logic                                           wb_cti_eob;
+    logic [`SRAM_DATA_SIZE-1:0]                     wb_sel;
+    logic [`SRAM_ADDR_WIDTH-1:0]                    wb_addr;
+    logic [`SRAM_DATA_WIDTH-1:0]                    wb_data_i;
+/* verilator lint_off UNUSED */
+    logic [OPTN_WB_DATA_WIDTH-1:0]                  wb_data_o;
+/* verilator lint_on  UNUSED */
+    logic                                           unaligned;
+    logic [WB_DATA_SIZE+`SRAM_DATA_SIZE-1:0]        wb_sel_ua;
+    logic [OPTN_WB_DATA_WIDTH+`SRAM_DATA_WIDTH-1:0] wb_data_ua;
+    logic [GATHER_COUNT_WIDTH-1:0]                  gather_cnt_r;
+    logic [GATHER_COUNT_WIDTH-1:0]                  gather_cnt_next;
+    logic [GATHER_COUNT_WIDTH-1:0]                  gather_idx_r;
+    logic [GATHER_COUNT_WIDTH-1:0]                  gather_idx_next;
+    logic [GATHER_COUNT_WIDTH:0]                    gather_idx_mux;
+
+    // Determine if the access is unaligned
+    // Unaligned accesses take an extra cycle to retrieve the last byte of data
+    assign unaligned      = i_wb_addr[0];
+    assign wb_sel_ua      = unaligned ? {1'b0, i_wb_sel, 1'b0} : {{(`SRAM_DATA_SIZE){1'b0}}, i_wb_sel};
+    assign wb_data_ua     = unaligned ?  {8'b0, i_wb_data, 8'b0} : {{(`SRAM_DATA_WIDTH){1'b0}}, i_wb_data};
+    assign gather_idx_mux = ((wb_sram_state_r == SRAM_STATE_UNALIGNED && ~i_wb_we) || (wb_sram_state_r == SRAM_STATE_WRITE_ACK && unaligned)) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
 
     // Qualify the write enable with a valid bus cycle
-    assign wb_en       = i_wb_cyc && i_wb_stb;
-    assign wb_we       = wb_en && i_wb_we;
-    assign wb_cti_eob  = i_wb_cti == `WB_CTI_END_OF_BURST;
-    assign wb_sel      = i_wb_sel[gather_idx_r*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
-    assign wb_addr     = i_wb_addr[`SRAM_ADDR_WIDTH:1];
-    assign wb_data     = i_wb_data[gather_idx_r*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
+    assign wb_en          = i_wb_cyc && i_wb_stb;
+    assign wb_we          = wb_en && i_wb_we;
+    assign wb_cti_eob     = i_wb_cti == `WB_CTI_END_OF_BURST;
+    assign wb_sel         = wb_sel_ua[gather_idx_mux*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
+    assign wb_addr        = i_wb_addr[`SRAM_ADDR_WIDTH:1];
+    assign wb_data_i      = wb_data_ua[gather_idx_mux*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
 
     // Assign SRAM outputs. Keep chip & output enable asserted
-    assign o_sram_ce_n = 1'b0;
-    assign o_sram_oe_n = 1'b0;
-    assign o_sram_we_n = ~wb_we;
-    assign o_sram_lb_n = ~wb_sel[0];
-    assign o_sram_ub_n = ~wb_sel[1];
-    assign o_sram_addr = wb_addr + ((wb_sram_state_r == SRAM_STATE_READ_ACK) ? `SRAM_ADDR_WIDTH'(GATHER_COUNT) : `SRAM_ADDR_WIDTH'(gather_idx_r));
-    assign io_sram_dq  = wb_we ? wb_data : {(`SRAM_DATA_WIDTH){1'bz}};
+    assign o_sram_ce_n    = 1'b0;
+    assign o_sram_oe_n    = 1'b0;
+    assign o_sram_we_n    = ~wb_we;
+    assign o_sram_lb_n    = ~wb_sel[0];
+    assign o_sram_ub_n    = ~wb_sel[1];
+    assign o_sram_addr    = wb_addr + ((wb_sram_state_r == SRAM_STATE_READ_ACK) ? `SRAM_ADDR_WIDTH'(GATHER_COUNT) : `SRAM_ADDR_WIDTH'(gather_idx_mux));
+    assign io_sram_dq     = wb_we ? wb_data_i : {(`SRAM_DATA_WIDTH){1'bz}};
 
     // Next state logic
     // GATHER_COUNT refers to how many operations it takes to read/write all the data from/to the wishbone bus to/from the SRAM
@@ -138,10 +153,11 @@ module sram_wb #(
             SRAM_STATE_IDLE: begin
                 if (wb_we) begin
                     if (GATHER_COUNT > 2) wb_sram_state_next = SRAM_STATE_WRITE_GATHER;
+                    if (GATHER_COUNT > 1) wb_sram_state_next = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
                     else                  wb_sram_state_next = SRAM_STATE_WRITE_ACK;
                 end else if (wb_en) begin
                     if (GATHER_COUNT > 1) wb_sram_state_next = SRAM_STATE_READ_GATHER;
-                    else                  wb_sram_state_next = SRAM_STATE_READ_ACK;
+                    else                  wb_sram_state_next = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
                 end else begin
                     wb_sram_state_next = SRAM_STATE_IDLE;
                 end
@@ -149,7 +165,7 @@ module sram_wb #(
             SRAM_STATE_READ_ACK: begin
                 if (~wb_cti_eob) begin
                     if (GATHER_COUNT > 1) wb_sram_state_next = SRAM_STATE_READ_GATHER;
-                    else                  wb_sram_state_next = SRAM_STATE_READ_ACK;
+                    else                  wb_sram_state_next = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
                 end else begin
                     wb_sram_state_next = SRAM_STATE_IDLE;
                 end
@@ -157,16 +173,19 @@ module sram_wb #(
             SRAM_STATE_WRITE_ACK: begin
                 if (~wb_cti_eob) begin
                     if (GATHER_COUNT > 1) wb_sram_state_next = SRAM_STATE_WRITE_GATHER;
-                    else                  wb_sram_state_next = SRAM_STATE_WRITE_ACK;
+                    else                  wb_sram_state_next = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
                 end else begin
                     wb_sram_state_next = SRAM_STATE_IDLE;
                 end
             end
             SRAM_STATE_READ_GATHER: begin
-                wb_sram_state_next = gather_cnt_r == 0 ? SRAM_STATE_READ_ACK : SRAM_STATE_READ_GATHER;
+                wb_sram_state_next = gather_cnt_r == 0 ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK) : SRAM_STATE_READ_GATHER;
             end
             SRAM_STATE_WRITE_GATHER: begin
-                wb_sram_state_next = gather_cnt_next == 0 ? SRAM_STATE_WRITE_ACK : SRAM_STATE_WRITE_GATHER;
+                wb_sram_state_next = gather_cnt_next == 0 ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK) : SRAM_STATE_WRITE_GATHER;
+            end
+            SRAM_STATE_UNALIGNED: begin
+                wb_sram_state_next = wb_we ? SRAM_STATE_WRITE_ACK : SRAM_STATE_READ_ACK;;
             end
             default: begin
                 wb_sram_state_next = SRAM_STATE_IDLE;
@@ -192,6 +211,10 @@ module sram_wb #(
                     gather_idx_next = {(GATHER_COUNT_WIDTH){1'b0}};
                 end
             end
+            SRAM_STATE_UNALIGNED: begin
+                gather_cnt_next = gather_cnt_r;
+                gather_idx_next = gather_idx_r;
+            end
             default: begin
                 if (GATHER_COUNT > 1) begin
                     gather_cnt_next = gather_cnt_r - 1'b1;
@@ -206,11 +229,11 @@ module sram_wb #(
 
     always_ff @(posedge i_wb_clk) begin
         if (i_wb_rst) begin
-            gather_cnt_r <= {(GATHER_COUNT_WIDTH){1'b0}};
-            gather_idx_r <= {(GATHER_COUNT_WIDTH){1'b0}};
+            gather_cnt_r    <= {(GATHER_COUNT_WIDTH){1'b0}};
+            gather_idx_r    <= {(GATHER_COUNT_WIDTH){1'b0}};
         end else begin
-            gather_cnt_r <= gather_cnt_next;
-            gather_idx_r <= gather_idx_next;
+            gather_cnt_r    <= gather_cnt_next;
+            gather_idx_r    <= gather_idx_next;
         end
     end
 
@@ -221,7 +244,27 @@ module sram_wb #(
     end
 
     always_ff @(posedge i_wb_clk) begin
-        o_wb_data[gather_idx_r*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH] <= io_sram_dq;
+        wb_data_o[gather_idx_r*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH] <= io_sram_dq;
     end
+
+    generate
+    if (GATHER_COUNT > 1) begin
+        always_ff @(posedge i_wb_clk) begin
+            if (wb_sram_state_r == SRAM_STATE_UNALIGNED) begin
+                o_wb_data <= {io_sram_dq[7:0], wb_data_o[OPTN_WB_DATA_WIDTH-1:8]};
+            end else begin
+                o_wb_data <= {io_sram_dq, wb_data_o[OPTN_WB_DATA_WIDTH-`SRAM_DATA_WIDTH-1:0]};
+            end
+        end
+    end else begin
+        always_ff @(posedge i_wb_clk) begin
+            if (wb_sram_state_r == SRAM_STATE_UNALIGNED) begin
+                o_wb_data <= {io_sram_dq[7:0], wb_data_o[OPTN_WB_DATA_WIDTH-1:8]};
+            end else begin
+                o_wb_data <= io_sram_dq;
+            end
+        end
+    end
+    endgenerate
 
 endmodule
