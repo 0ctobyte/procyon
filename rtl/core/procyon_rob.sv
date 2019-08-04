@@ -312,7 +312,7 @@ module procyon_rob #(
     always_ff @(posedge clk) begin
         for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
             if (~n_rst) rob_entry_rdy_q[i] <= 1'b0;
-            else        rob_entry_rdy_q[i] <= ~(redirect | rob_dispatch_en[i]) & rob_entry_rdy[i];
+            else        rob_entry_rdy_q[i] <= ~(redirect | rob_dispatch_en[i] | (rob_head_addr == ROB_IDX_WIDTH'(i) & rob_retire_en)) & rob_entry_rdy[i];
         end
     end
 
