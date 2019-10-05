@@ -1,16 +1,14 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
 
 // Reservation Station with age-matrix based out of order issue
-// The reservation station will pick the oldest instruction that has all
-// it's source operands ready for issue. New instructions allocated in the
-// reservation station will be assigned an age of 0 which will increment/decrement
-// if other instructions are dispatched/issued. The reservation station will also
-// listen in on all CDB busses and pick up source data for both sources if the CDBs
-// broadcast matching tags that the source is waiting on
+// The reservation station will pick the oldest instruction that has all it's source operands ready for issue.
+// New instructions allocated in the reservation station will be assigned an age of 0 which will increment/decrement
+// if other instructions are dispatched/issued. The reservation station will also listen in on all CDB busses and pick
+// up source data for both sources if the CDBs broadcast matching tags that the source is waiting on
 
 `include "procyon_constants.svh"
 
@@ -20,7 +18,7 @@ module procyon_rs #(
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_CDB_DEPTH     = 2,
     parameter OPTN_RS_DEPTH      = 16
-) (
+)(
     input  logic                          clk,
     input  logic                          n_rst,
 
@@ -55,208 +53,120 @@ module procyon_rs #(
 
     localparam RS_IDX_WIDTH = $clog2(OPTN_RS_DEPTH);
 
-    // Reservations station registers
-    logic [RS_IDX_WIDTH-1:0]       rs_slot_age_q      [0:OPTN_RS_DEPTH-1];
-    logic [`PCYN_OPCODE_WIDTH-1:0] rs_slot_opcode_q   [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]    rs_slot_iaddr_q    [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]    rs_slot_insn_q     [0:OPTN_RS_DEPTH-1];
-    logic                          rs_slot_src_rdy_q  [0:OPTN_RS_DEPTH-1] [0:1];
-    logic [OPTN_DATA_WIDTH-1:0]    rs_slot_src_data_q [0:OPTN_RS_DEPTH-1] [0:1];
-    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_slot_src_tag_q  [0:OPTN_RS_DEPTH-1] [0:1];
-    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_slot_dst_tag_q  [0:OPTN_RS_DEPTH-1];
-    logic                          rs_slot_empty_q    [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_RS_DEPTH-1:0] rs_entry_ready;
+    logic [OPTN_RS_DEPTH-1:0] rs_entry_empty;
+    logic [RS_IDX_WIDTH-1:0] rs_entry_age [0:OPTN_RS_DEPTH-1];
+    logic [`PCYN_OPCODE_WIDTH-1:0] rs_entry_opcode [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:0] rs_entry_iaddr [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] rs_entry_insn [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] rs_entry_src_data [0:OPTN_RS_DEPTH-1] [0:1];
+    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_tag [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_RS_DEPTH-1:0] rs_dispatch_select;
+    logic [OPTN_RS_DEPTH-1:0] rs_issue_select;
+    logic dispatching;
+    logic issuing;
+    logic [RS_IDX_WIDTH-1:0] rs_issue_entry;
 
-    logic                          rs_full;
-    logic [OPTN_RS_DEPTH-1:0]      rs_empty;
-    logic [OPTN_RS_DEPTH-1:0]      rs_issue_ready;
-    logic [OPTN_RS_DEPTH-1:0]      rs_issue_select;
-    logic [OPTN_RS_DEPTH-1:0]      rs_dispatch_select;
-    logic [OPTN_RS_DEPTH-1:0]      rs_age_matrix      [0:OPTN_RS_DEPTH-1];
-    logic [RS_IDX_WIDTH-1:0]       rs_slot_age_m      [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]    rs_slot_src_data   [0:OPTN_RS_DEPTH-1] [0:1];
-    logic                          rs_slot_src_rdy    [0:OPTN_RS_DEPTH-1] [0:1];
-    logic                          cdb_select         [0:OPTN_RS_DEPTH-1] [0:1] [0:OPTN_CDB_DEPTH-1];
-    logic                          dispatching;
-    logic                          issuing;
-    logic [RS_IDX_WIDTH-1:0]       issue_slot;
-    logic [OPTN_RS_DEPTH-1:0]      rs_slot_empty_mux;
-
-    // This will produce a one-hot vector of the slot that will be used
-    // to store the dispatched instruction
-    assign rs_dispatch_select = {(OPTN_RS_DEPTH){i_rs_en}} & (rs_empty & ~(rs_empty - 1'b1));
-    assign rs_full            = rs_empty == {(OPTN_RS_DEPTH){1'b0}};
-
-    assign dispatching        = ~rs_full & i_rs_en;
-    assign issuing            = (rs_issue_select != {(OPTN_RS_DEPTH){1'b0}});
-
-    // The reservation station is full if there are no empty slots
-    // Assert the stall signal in this situation
-    // FIXME: Should be registered
-    assign o_rs_stall         = rs_full;
-
-    // Assign functional unit output
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_fu_valid <= 1'b0;
-        else        o_fu_valid <= i_fu_stall ? o_fu_valid : ~i_flush & issuing;
+    genvar inst;
+    generate
+    for (inst = 0; inst < OPTN_RS_DEPTH; inst++) begin : GEN_RS_ENTRY_INST
+        procyon_rs_entry #(
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
+            .OPTN_CDB_DEPTH(OPTN_CDB_DEPTH),
+            .OPTN_RS_DEPTH(OPTN_RS_DEPTH)
+        ) procyon_rs_entry_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_flush(i_flush),
+            .o_ready(rs_entry_ready[inst]),
+            .o_rs_entry_empty(rs_entry_empty[inst]),
+            .o_rs_entry_age(rs_entry_age[inst]),
+            .o_rs_entry_opcode(rs_entry_opcode[inst]),
+            .o_rs_entry_iaddr(rs_entry_iaddr[inst]),
+            .o_rs_entry_insn(rs_entry_insn[inst]),
+            .o_rs_entry_src_data(rs_entry_src_data[inst]),
+            .o_rs_entry_tag(rs_entry_tag[inst]),
+            .i_cdb_en(i_cdb_en),
+            .i_cdb_data(i_cdb_data),
+            .i_cdb_tag(i_cdb_tag),
+            .i_dispatch_en(rs_dispatch_select[inst]),
+            .i_dispatch_opcode(i_rs_opcode),
+            .i_dispatch_iaddr(i_rs_iaddr),
+            .i_dispatch_insn(i_rs_insn),
+            .i_dispatch_src_tag(i_rs_src_tag),
+            .i_dispatch_src_data(i_rs_src_data),
+            .i_dispatch_src_rdy(i_rs_src_rdy),
+            .i_dispatch_dst_tag(i_rs_dst_tag),
+            .i_issue_en(rs_issue_select[inst]),
+            .i_dispatching(dispatching),
+            .i_issuing(issuing),
+            .i_rs_issue_entry_age(rs_entry_age[rs_issue_entry])
+        );
     end
+    endgenerate
 
-    always_ff @(posedge clk) begin
-        if (~i_fu_stall) begin
-            o_fu_opcode <= rs_slot_opcode_q[issue_slot];
-            o_fu_iaddr  <= rs_slot_iaddr_q[issue_slot];
-            o_fu_insn   <= rs_slot_insn_q[issue_slot];
-            o_fu_src_a  <= rs_slot_src_data_q[issue_slot][0];
-            o_fu_src_b  <= rs_slot_src_data_q[issue_slot][1];
-            o_fu_tag    <= rs_slot_dst_tag_q[issue_slot];
-        end
-    end
+    // Generate a one-hot vector of the entry that will be used to store the dispatched instruction
+    logic [OPTN_RS_DEPTH-1:0] rs_dispatch_picked;
+    procyon_priority_picker #(OPTN_RS_DEPTH) rs_dispatch_picked_priority_picker (.i_in(rs_entry_empty), .o_pick(rs_dispatch_picked));
+    assign rs_dispatch_select = {(OPTN_RS_DEPTH){i_rs_en}} & rs_dispatch_picked;
 
-    // Generate the age matrix. A reservation station slot's age must be
-    // greater than all other reservation station slots that are also ready to issue
+    logic n_fu_stall;
+    assign n_fu_stall = ~i_fu_stall;
+
+    logic [OPTN_RS_DEPTH-1:0] rs_entry_oldest;
+
     always_comb begin
+        logic [OPTN_RS_DEPTH-1:0] rs_age_matrix [0:OPTN_RS_DEPTH-1];
+        logic [OPTN_RS_DEPTH-1:0] n_rs_entry_ready;
+
+        n_rs_entry_ready = ~rs_entry_ready;
+
         for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
+            // Generate the age matrix. A reservation station entry's age must be greater than all other reservation
+            // station entries that are also ready to issue
             for (int j = 0; j < OPTN_RS_DEPTH; j++) begin
                 if (i == j) rs_age_matrix[i][j] = 1'b1;
-                else        rs_age_matrix[i][j] = rs_slot_age_q[i] > rs_slot_age_q[j];
+                else        rs_age_matrix[i][j] = rs_entry_age[i] > rs_entry_age[j];
             end
-        end
-    end
 
-    always_comb begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            rs_empty[i]        = rs_slot_empty_q[i];
-
-            // A slot is ready to issue if it is not empty and has both it's source operands
-            rs_issue_ready[i]  = ~rs_slot_empty_q[i] & rs_slot_src_rdy_q[i][0] & rs_slot_src_rdy_q[i][1];
+            // The OR with the complement of the rs_entry_ready vector is to discard age comparisons with entries that
+            // aren't ready to issue
+            rs_entry_oldest[i] = n_fu_stall & (&(rs_age_matrix[i] | n_rs_entry_ready));
         end
 
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            // Select the oldest slot that is ready to issue. The OR with the
-            // complement of the issue_ready vector is to discard age comparisons
-            // with slots that aren't ready to issue
-            rs_issue_select[i] = ~i_fu_stall & &(rs_age_matrix[i] | ~rs_issue_ready) & rs_issue_ready[i];
-        end
     end
 
-    // Priority encoder to convert one-hot issue_select vector to binary RS slot #
-    always_comb begin
-        issue_slot = {(RS_IDX_WIDTH){1'b0}};
+    // Generate a one-hot vector of the oldest entry ready to issue
+    assign rs_issue_select = rs_entry_oldest & rs_entry_ready;
 
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            if (rs_issue_select[i]) begin
-                issue_slot = RS_IDX_WIDTH'(i);
-            end
-        end
-    end
+    // Convert one-hot issue_select vector to binary RS entry #
+    procyon_onehot2binary #(OPTN_RS_DEPTH) rs_issue_entry_onehot2binary (.i_onehot(rs_issue_select), .o_binary(rs_issue_entry));
 
-    always_comb begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            logic [1:0] rs_slot_empty_sel;
+    logic rs_full;
+    assign rs_full = (rs_entry_empty == 0);
 
-            rs_slot_empty_sel = {rs_issue_select[i], rs_dispatch_select[i]};
-            case (rs_slot_empty_sel)
-                2'b00: rs_slot_empty_mux[i] = rs_slot_empty_q[i];
-                2'b01: rs_slot_empty_mux[i] = 1'b0;
-                2'b10: rs_slot_empty_mux[i] = 1'b1;
-                2'b11: rs_slot_empty_mux[i] = 1'b1;
-            endcase
-        end
-    end
+    assign dispatching = ~rs_full & i_rs_en;
+    assign issuing = (rs_issue_select != 0);
 
-    // The empty bit is only cleared if the slot will be used to hold the next
-    // dispatched instruction. Set it if the slot is issuing or on a pipeline flush
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            if (~n_rst) rs_slot_empty_q[i] <= 1'b1;
-            else        rs_slot_empty_q[i] <= i_flush | rs_slot_empty_mux[i];
-        end
-    end
+    // The reservation station is full if there are no empty entries. Assert the stall signal in this situation
+    assign o_rs_stall = rs_full;
 
-    // A slot's age needs to be adjusted each time an instruction is issued or dispatched. If a new instruction is dispatched only, it
-    // starts off with an age of 0 and all other slots' age are incremented. If an instruction is only issued then only the slots that have an age
-    // greater than the issuing slot's age will be decremented. If an instruction is being dispatched and another instruction is being
-    // issued in the same cycle, then we only increment those slots that have an age less than the issuing slot's age.
-    always_comb begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            case ({dispatching, issuing})
-                2'b00: rs_slot_age_m[i] = rs_slot_age_q[i];
-                2'b01: rs_slot_age_m[i] = rs_slot_age_q[i] - RS_IDX_WIDTH'(rs_slot_age_q[i] > rs_slot_age_q[issue_slot]);
-                2'b10: rs_slot_age_m[i] = {(RS_IDX_WIDTH){~rs_dispatch_select[i]}} & (rs_slot_age_q[i] + 1'b1);
-                2'b11: rs_slot_age_m[i] = {(RS_IDX_WIDTH){~rs_dispatch_select[i]}} & (rs_slot_age_q[i] + RS_IDX_WIDTH'(rs_slot_age_q[i] < rs_slot_age_q[issue_slot]));
-            endcase
-        end
-    end
+    // Assign functional unit output
+    logic fu_valid_r;
+    logic fu_valid;
 
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            rs_slot_age_q[i] <= rs_slot_age_m[i];
-        end
-    end
+    assign fu_valid = i_fu_stall ? fu_valid_r : (~i_flush & issuing);
+    procyon_srff #(1) fu_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fu_valid), .i_reset(1'b0), .o_q(fu_valid_r));
 
-    // Update slot for newly dispatched instruction
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_RS_DEPTH; i++) begin
-            if (rs_dispatch_select[i]) begin
-                rs_slot_opcode_q[i]  <= i_rs_opcode;
-                rs_slot_iaddr_q[i]   <= i_rs_iaddr;
-                rs_slot_insn_q[i]    <= i_rs_insn;
-                rs_slot_src_tag_q[i] <= '{i_rs_src_tag[0], i_rs_src_tag[1]};
-                rs_slot_dst_tag_q[i] <= i_rs_dst_tag;
-            end
-        end
-    end
+    assign o_fu_valid = fu_valid_r;
 
-    // Check both source tags for each RS slot to see if a CDB is broadcasting a matching tag
-    always_comb begin
-        for (int rs_idx = 0; rs_idx < OPTN_RS_DEPTH; rs_idx++) begin
-            for (int src_idx = 0; src_idx < 2; src_idx++) begin
-                for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
-                    cdb_select[rs_idx][src_idx][cdb_idx] = i_cdb_en[cdb_idx] & (i_cdb_tag[cdb_idx] == rs_slot_src_tag_q[rs_idx][src_idx]);
-                end
-            end
-        end
-    end
-
-    // Grab data from the CDB for the source operands and set the ready bits to true
-    // Don't mess with the src data if it's already "ready", regardless of what is being broadcast on the CDB!
-    // This really only applies to ops that use X0 register since the src tag for the X0 register is always 0
-    // which could possibly be a valid tag
-    always_comb begin
-        for (int rs_idx = 0; rs_idx < OPTN_RS_DEPTH; rs_idx++) begin
-            for (int src_idx = 0; src_idx < 2; src_idx++) begin
-                // Priority mux to select input from the CDB busses, where the higher "numbered" CDB bus gets priority
-                // Of course, this shouldn't matter since the CDBs should never broadcast the same tag on the same cycle
-                rs_slot_src_data[rs_idx][src_idx] = rs_slot_src_data_q[rs_idx][src_idx];
-
-                for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
-                    if (~rs_slot_src_rdy_q[rs_idx][src_idx] & cdb_select[rs_idx][src_idx][cdb_idx]) begin
-                        rs_slot_src_data[rs_idx][src_idx] = i_cdb_data[cdb_idx];
-                    end
-                end
-            end
-         end
-    end
-
-    // A slot's sources are ready if it's been previously marked ready or if any of the CDB busses broadcast a matching tag that the source is waiting on.
-    always_comb begin
-        for (int rs_idx = 0; rs_idx < OPTN_RS_DEPTH; rs_idx++) begin
-            for (int src_idx = 0; src_idx < 2; src_idx++) begin
-                rs_slot_src_rdy[rs_idx][src_idx] = rs_slot_src_rdy_q[rs_idx][src_idx];
-
-                for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
-                    rs_slot_src_rdy[rs_idx][src_idx] = cdb_select[rs_idx][src_idx][cdb_idx] | rs_slot_src_rdy[rs_idx][src_idx];
-                end
-            end
-        end
-    end
-
-    always_ff @(posedge clk) begin
-        for (int rs_idx = 0; rs_idx < OPTN_RS_DEPTH; rs_idx++) begin
-            for (int src_idx = 0; src_idx < 2; src_idx++) begin
-                rs_slot_src_rdy_q[rs_idx][src_idx]  <= rs_dispatch_select[rs_idx] ? i_rs_src_rdy[src_idx]  : rs_slot_src_rdy[rs_idx][src_idx];
-                rs_slot_src_data_q[rs_idx][src_idx] <= rs_dispatch_select[rs_idx] ? i_rs_src_data[src_idx] : rs_slot_src_data[rs_idx][src_idx];
-            end
-        end
-    end
+    procyon_ff #(`PCYN_OPCODE_WIDTH) o_fu_opcode_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_opcode[rs_issue_entry]), .o_q(o_fu_opcode));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_fu_iaddr_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_iaddr[rs_issue_entry]), .o_q(o_fu_iaddr));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_insn_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_insn[rs_issue_entry]), .o_q(o_fu_insn));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_a_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][0]), .o_q(o_fu_src_a));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_b_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][1]), .o_q(o_fu_src_b));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_fu_tag_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_tag[rs_issue_entry]), .o_q(o_fu_tag));
 
 endmodule

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -11,7 +11,7 @@ module procyon_ram_sdpb #(
     parameter OPTN_RAM_DEPTH  = 8,
 
     parameter RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH)
-) (
+)(
     input  logic                       clk,
 
     // RAM interface
@@ -26,13 +26,11 @@ module procyon_ram_sdpb #(
     logic [OPTN_DATA_WIDTH-1:0] ram [0:OPTN_RAM_DEPTH-1];
 
     // Synchronous write
-    always_ff @(posedge clk) begin
-        if (i_ram_we) ram[i_ram_addr_w] <= i_ram_data;
-    end
+    always_ff @(posedge clk) if (i_ram_we) ram[i_ram_addr_w] <= i_ram_data;
 
-    // Synchronous read
-    always_ff @(posedge clk) begin
-        if (i_ram_re) o_ram_data <= (i_ram_addr_r == i_ram_addr_w) & i_ram_we ? i_ram_data : ram[i_ram_addr_r];
-    end
+    // Synchronous read; bypass write data on same cycle to the same address
+    logic ram_rd_bypass_sel;
+    assign ram_rd_bypass_sel = (i_ram_addr_r == i_ram_addr_w) && i_ram_we;
+    always_ff @(posedge clk) if (i_ram_re) o_ram_data <= ram_rd_bypass_sel ? i_ram_data : ram[i_ram_addr_r];
 
 endmodule

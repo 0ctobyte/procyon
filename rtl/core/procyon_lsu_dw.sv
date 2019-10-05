@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
 
-// LSU dcache stage 1
+// LSU dcache hit check & write data stage
 
 `include "procyon_constants.svh"
 
-module procyon_lsu_d1 #(
+module procyon_lsu_dw #(
     parameter OPTN_DATA_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_LQ_DEPTH        = 8,
@@ -53,32 +53,34 @@ module procyon_lsu_d1 #(
     output logic                                          o_retire
 );
 
-    logic fill_replay;
+    logic n_flush;
+    assign n_flush = ~i_flush;
 
-    // Assert fill_replay if a fill request was asserted on the same cycle as a conflicting load/store in the D0 or D1 stages
+    logic valid;
+    assign valid = n_flush & i_valid;
+    procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
+
+    // Assert fill_replay if a fill request was asserted on the same cycle as a conflicting load/store in the DT or DW stages
     // These ops should not enqueue in the MHQ and should immediately replay
+    logic fill_replay;
     assign fill_replay = i_fill_replay | (i_mhq_fill_en & (i_mhq_fill_addr == i_addr[OPTN_ADDR_WIDTH-1:OPTN_DC_OFFSET_WIDTH]));
+    procyon_ff #(1) o_fill_replay_ff (.clk(clk), .i_en(1'b1), .i_d(fill_replay), .o_q(o_fill_replay));
 
-    always_ff @(posedge clk) begin
-        o_fill_replay <= fill_replay;
-        o_lsu_func    <= i_lsu_func;
-        o_lq_select   <= i_replay ? i_lq_select : i_alloc_lq_select;
-        o_sq_select   <= i_sq_select;
-        o_tag         <= i_tag;
-        o_addr        <= i_addr;
-        o_retire_data <= i_retire_data;
-        o_retire      <= i_retire;
-    end
+    // If the load is being replayed, don't register i_alloc_lq_select for the next stage
+    logic [OPTN_LQ_DEPTH-1:0] lq_select;
+    assign lq_select = i_replay ? i_lq_select : i_alloc_lq_select;
+    procyon_ff #(OPTN_LQ_DEPTH) o_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(lq_select), .o_q(o_lq_select));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= ~i_flush & i_valid;
-    end
+    procyon_ff #(OPTN_SQ_DEPTH) o_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_select), .o_q(o_sq_select));
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(i_lsu_func), .o_q(o_lsu_func));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_addr), .o_q(o_addr));
+    procyon_ff #(OPTN_DATA_WIDTH) o_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_retire_data), .o_q(o_retire_data));
+    procyon_ff #(1) o_retire_ff (.clk(clk), .i_en(1'b1), .i_d(i_retire), .o_q(o_retire));
 
     // The MHQ should not lookup and enqueue/allocate if the op is marked as needing to replay due to a conflicting fill
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_mhq_lookup_valid <= 1'b0;
-        else        o_mhq_lookup_valid <= ~i_flush & i_valid & ~fill_replay;
-    end
+    logic mhq_lookup_valid;
+    assign mhq_lookup_valid = n_flush & i_valid & ~fill_replay;
+    procyon_srff #(1) o_mhq_lookup_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(mhq_lookup_valid), .i_reset(1'b0), .o_q(o_mhq_lookup_valid));
 
 endmodule

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -18,18 +18,16 @@ module boot_rom #(
 
     localparam HEX_IDX_WIDTH = $clog2(OPTN_HEX_SIZE);
 
-    logic [7:0]               memory [0:OPTN_HEX_SIZE-1];
+    logic [7:0] memory [0:OPTN_HEX_SIZE-1];
     logic [HEX_IDX_WIDTH-1:0] addr;
 
-    assign addr             = i_ic_pc[HEX_IDX_WIDTH-1:0];
-    assign o_ic_valid       = i_ic_en;
-    assign o_ic_insn[7:0]   = memory[addr];
-    assign o_ic_insn[15:8]  = memory[addr + 1];
+    assign addr = i_ic_pc[HEX_IDX_WIDTH-1:0];
+    assign o_ic_valid = i_ic_en;
+    assign o_ic_insn[7:0] = memory[addr];
+    assign o_ic_insn[15:8] = memory[addr + 1];
     assign o_ic_insn[23:16] = memory[addr + 2];
     assign o_ic_insn[31:24] = memory[addr + 3];
 
-    initial begin
-        $readmemh(OPTN_HEX_FILE, memory);
-    end
+    initial $readmemh(OPTN_HEX_FILE, memory);
 
 endmodule

@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
 
 // Core Communications Unit
-// This module is responsible for arbitrating between the MHQ, fetch and
-// victim requests within the CPU and controlling the BIU
+// This module is responsible for arbitrating between the MHQ, fetch and victim requests within the CPU and controlling the BIU
 
 `include "procyon_constants.svh"
 
@@ -58,20 +57,20 @@ module procyon_ccu #(
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    logic                            biu_en;
+    logic biu_en;
     logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
-    logic [`PCYN_BIU_LEN_WIDTH-1:0]  biu_len;
-    logic [OPTN_DC_LINE_SIZE-1:0]    biu_sel;
-    logic [OPTN_ADDR_WIDTH-1:0]      biu_addr;
-    logic [DC_LINE_WIDTH-1:0]        biu_data_w;
-    logic                            biu_done;
-    logic [DC_LINE_WIDTH-1:0]        biu_data_r;
+    logic [`PCYN_BIU_LEN_WIDTH-1:0] biu_len;
+    logic [OPTN_DC_LINE_SIZE-1:0] biu_sel;
+    logic [OPTN_ADDR_WIDTH-1:0] biu_addr;
+    logic [DC_LINE_WIDTH-1:0] biu_data_w;
+    logic biu_done;
+    logic [DC_LINE_WIDTH-1:0] biu_data_r;
 
     // FIXME for now just drive these signals
-    assign biu_func   = `PCYN_BIU_FUNC_READ;
-    assign biu_len    = `PCYN_BIU_LEN_32B;
-    assign biu_sel    = {(OPTN_DC_LINE_SIZE){1'b1}};
-    assign biu_data_w = {{(DC_LINE_WIDTH){1'b0}}};
+    assign biu_func = `PCYN_BIU_FUNC_READ;
+    assign biu_len = `PCYN_BIU_LEN_32B;
+    assign biu_sel = '1;
+    assign biu_data_w = '0;
 
     procyon_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),

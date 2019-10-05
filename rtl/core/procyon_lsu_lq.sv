@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -14,9 +14,9 @@
 `include "procyon_constants.svh"
 
 module procyon_lsu_lq #(
+    parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
-    parameter OPTN_SQ_DEPTH      = 8,
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_MHQ_IDX_WIDTH = 2
 )(
@@ -38,8 +38,8 @@ module procyon_lsu_lq #(
     output logic                            o_replay_en,
     output logic [OPTN_LQ_DEPTH-1:0]        o_replay_select,
     output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_replay_lsu_func,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
 
     // Signals from LSU_EX and MHQ_LU to update a load when it needs to be retried later or replayed ASAP
     input  logic                            i_update_en,
@@ -66,224 +66,120 @@ module procyon_lsu_lq #(
     output logic                            o_rob_retire_misspeculated
 );
 
-    // Each entry in the LQ can be in one of the following states
-    // INVALID: Slot is empty
-    // VALID:   Slot is occupied with a load op and is currently going through the LSU pipeline
-    // MHQ_TAG_WAIT: Slot contains a load op that missed in the cache but allocated in the MHQ and must wait for the MHQ to fill the cacheline being replayed
-    // MHQ_FILL_WAIT: Slot contains a load op that missed in the cache and could not allocate in the MHQ and must wait for the MHQ fill any cacheline before being replayed
-    // REPLAYABLE:    Slot contains a load op that is woken up due to a MHQ fill broadcast and can be replayed
-    // LAUNCHED:      Slot contains a load op that has been replayed and is currently going through the LSU pipeline and must wait for the LSU update
-    // COMPLETE:      Slot contains a load op that has successfully been executed and is waiting for ROB retire signal before it can be dequeued
-    localparam LQ_IDX_WIDTH           = $clog2(OPTN_LQ_DEPTH);
-    localparam LQ_STATE_WIDTH         = 3;
-    localparam LQ_STATE_INVALID       = 3'b000;
-    localparam LQ_STATE_VALID         = 3'b001;
-    localparam LQ_STATE_MHQ_TAG_WAIT  = 3'b010;
-    localparam LQ_STATE_MHQ_FILL_WAIT = 3'b011;
-    localparam LQ_STATE_REPLAYABLE    = 3'b100;
-    localparam LQ_STATE_LAUNCHED      = 3'b101;
-    localparam LQ_STATE_COMPLETE      = 3'b110;
+    localparam LQ_IDX_WIDTH = $clog2(OPTN_LQ_DEPTH);
 
-    // Each entry in the LQ contains the following
-    // addr:              The load address
-    // tag:               ROB tag used to determine age of the load op
-    // lsu_func:          LSU op i.e. LB, LH, LW, LBU, LHU
-    // mhq_tag:           MHQ tag it is waiting on for replay when the load misses in the cache
-    // misspeculated:     Indicates whether the load has been potentially incorrectly speculately executed (when a retiring store hits in the address range of the load)
-    // state:             Current state of the entry
-    logic [OPTN_ADDR_WIDTH-1:0]      lq_entry_addr_q          [0:OPTN_LQ_DEPTH-1];
-    logic [OPTN_ROB_IDX_WIDTH-1:0]   lq_entry_tag_q           [0:OPTN_LQ_DEPTH-1];
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_entry_lsu_func_q      [0:OPTN_LQ_DEPTH-1];
-    logic [OPTN_MHQ_IDX_WIDTH-1:0]   lq_entry_mhq_tag_q       [0:OPTN_LQ_DEPTH-1];
-    logic                            lq_entry_misspeculated_q [0:OPTN_LQ_DEPTH-1];
-    logic [LQ_STATE_WIDTH-1:0]       lq_entry_state_q         [0:OPTN_LQ_DEPTH-1];
+    // Calculate ending address for the retiring store
+    logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;
 
-    logic [LQ_STATE_WIDTH-1:0]       lq_entry_state_next      [0:OPTN_LQ_DEPTH-1];
-    logic                            lq_full;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_empty;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_replayable;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_allocate_select;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_update_select;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_replay_select;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_mhq_tag_select;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_retire_select;
-    logic [OPTN_LQ_DEPTH-1:0]        lq_misspeculated_select;
-    logic                            lq_replay_en;
-    logic [LQ_IDX_WIDTH-1:0]         lq_retire_entry;
-    logic [LQ_IDX_WIDTH-1:0]         lq_replay_entry;
-    logic                            lq_retire_ack;
-
-    assign lq_allocate_select = {(OPTN_LQ_DEPTH){i_alloc_en}} & (lq_empty & ~(lq_empty - 1'b1));
-    assign lq_update_select   = {(OPTN_LQ_DEPTH){i_update_en}} & i_update_select;
-    assign lq_replay_select   = {(OPTN_LQ_DEPTH){~i_replay_stall}} & (lq_replayable & ~(lq_replayable - 1'b1));
-
-    assign lq_replay_en       = (lq_replay_select != {(OPTN_LQ_DEPTH){1'b0}});
-    assign lq_retire_ack      = i_rob_retire_en & (lq_entry_state_q[lq_retire_entry] == LQ_STATE_COMPLETE);
-
-    // Ouput full-on-next-cycle signal (i.e. The last entry will be allocated on this cycle means it will be full on the next cycle)
-    // FIXME: Can this be registered
-    assign lq_full            = ((lq_empty & ~lq_allocate_select) == {(OPTN_LQ_DEPTH){1'b0}});
-    assign o_full             = lq_full;
-
-    // Calculate misspeculated bit based off of overlapping load and retiring store addresses
     always_comb begin
-        logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;
-
         case (i_sq_retire_lsu_func)
             `PCYN_LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
             `PCYN_LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
             `PCYN_LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
             default:           sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
         endcase
-
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            logic [OPTN_ADDR_WIDTH-1:0] lq_addr_end;
-            logic                       lq_overlap_sq;
-            logic                       sq_overlap_lq;
-
-            case (lq_entry_lsu_func_q[i])
-                `PCYN_LSU_FUNC_LB:  lq_addr_end = lq_entry_addr_q[i] + OPTN_ADDR_WIDTH'(1);
-                `PCYN_LSU_FUNC_LH:  lq_addr_end = lq_entry_addr_q[i] + OPTN_ADDR_WIDTH'(2);
-                `PCYN_LSU_FUNC_LBU: lq_addr_end = lq_entry_addr_q[i] + OPTN_ADDR_WIDTH'(1);
-                `PCYN_LSU_FUNC_LHU: lq_addr_end = lq_entry_addr_q[i] + OPTN_ADDR_WIDTH'(2);
-                default:            lq_addr_end = lq_entry_addr_q[i] + OPTN_ADDR_WIDTH'(4);
-            endcase
-
-            // Compare retired store address with all valid load addresses to detect mis-speculated loads
-            lq_overlap_sq              = (lq_entry_addr_q[i] >= i_sq_retire_addr) & (lq_entry_addr_q[i] < sq_retire_addr_end);
-            sq_overlap_lq              = (i_sq_retire_addr >= lq_entry_addr_q[i]) & (i_sq_retire_addr < lq_addr_end);
-            lq_misspeculated_select[i] = i_sq_retire_en & (lq_overlap_sq | sq_overlap_lq);
-        end
     end
 
-    always_comb begin
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            lq_replayable[i]           = (lq_entry_state_q[i] == LQ_STATE_REPLAYABLE);
+    logic [OPTN_LQ_DEPTH-1:0] lq_entry_empty;
+    logic [OPTN_LQ_DEPTH-1:0] lq_entry_replayable;
+    logic [OPTN_LQ_DEPTH-1:0] lq_allocate_select;
+    logic [OPTN_LQ_DEPTH-1:0] lq_replay_select;
+    logic [OPTN_LQ_DEPTH-1:0] lq_update_select;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_replay_lsu_func [0:OPTN_LQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:0] lq_replay_addr [0:OPTN_LQ_DEPTH-1];
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lq_replay_tag [0:OPTN_LQ_DEPTH-1];
+    logic [OPTN_LQ_DEPTH-1:0] lq_rob_retire_ack;
+    logic [OPTN_LQ_DEPTH-1:0] lq_rob_retire_misspeculated;
 
-            // Compare MHQ tags with the MHQ fill broadcast tag to determine which loads can be replayed
-            lq_mhq_tag_select[i]       = i_mhq_fill_en & (lq_entry_mhq_tag_q[i] == i_mhq_fill_tag);
-
-            // Use the ROB tag to determine which entry will be retired by generating a retire_select one-hot bit vector
-            // Only one valid entry should have the matching tag
-            lq_retire_select[i]        = i_rob_retire_en & (lq_entry_tag_q[i] == i_rob_retire_tag) && (lq_entry_state_q[i] != LQ_STATE_INVALID);
-
-            // A entry is considered empty if it is invalid
-            lq_empty[i]                = (lq_entry_state_q[i] == LQ_STATE_INVALID);
-        end
+    genvar inst;
+    generate
+    for (inst = 0; inst < OPTN_LQ_DEPTH; inst++) begin : GEN_LSU_LQ_ENTRY_INST
+        procyon_lsu_lq_entry #(
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
+            .OPTN_MHQ_IDX_WIDTH(OPTN_MHQ_IDX_WIDTH)
+        ) procyon_lsu_lq_entry_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_flush(i_flush),
+            .o_empty(lq_entry_empty[inst]),
+            .o_replayable(lq_entry_replayable[inst]),
+            .i_alloc_en(lq_allocate_select[inst]),
+            .i_alloc_lsu_func(i_alloc_lsu_func),
+            .i_alloc_tag(i_alloc_tag),
+            .i_alloc_addr(i_alloc_addr),
+            .i_replay_en(lq_replay_select[inst]),
+            .o_replay_lsu_func(lq_replay_lsu_func[inst]),
+            .o_replay_tag(lq_replay_tag[inst]),
+            .o_replay_addr(lq_replay_addr[inst]),
+            .i_update_en(lq_update_select[inst]),
+            .i_update_retry(i_update_retry),
+            .i_update_replay(i_update_replay),
+            .i_update_mhq_tag(i_update_mhq_tag),
+            .i_update_mhq_retry(i_update_mhq_retry),
+            .i_update_mhq_replay(i_update_mhq_replay),
+            .i_mhq_fill_en(i_mhq_fill_en),
+            .i_mhq_fill_tag(i_mhq_fill_tag),
+            .i_sq_retire_en(i_sq_retire_en),
+            .i_sq_retire_addr(i_sq_retire_addr),
+            .i_sq_retire_addr_end(sq_retire_addr_end),
+            .i_rob_retire_en(i_rob_retire_en),
+            .i_rob_retire_tag(i_rob_retire_tag),
+            .o_rob_retire_ack(lq_rob_retire_ack[inst]),
+            .o_rob_retire_misspeculated(lq_rob_retire_misspeculated[inst])
+        );
     end
+    endgenerate
 
-    always_comb begin
-        logic [LQ_STATE_WIDTH-1:0] lq_update_state_mux;
-        logic [LQ_STATE_WIDTH-1:0] lq_fill_tag_bypass_mux;
-        logic [LQ_STATE_WIDTH-1:0] lq_fill_bypass_mux;
-        logic [2:0]                lq_update_state_sel;
+    // One hot vector indicating which LQ entry needs to be updated
+    assign lq_update_select = {(OPTN_LQ_DEPTH){i_update_en}} & i_update_select;
 
-        // Bypass fill broadcast if an update comes through on the same cycle with an mhq_tag that matches the fill tag
-        // i_update_replay is asserted if a fill address conflicted on the LSU_D0 or LSU_D1 stages. The op just needs to be replayed ASAP
-        lq_fill_tag_bypass_mux = ((i_mhq_fill_en & (i_update_mhq_tag == i_mhq_fill_tag)) ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_TAG_WAIT);
-        lq_fill_bypass_mux     = i_mhq_fill_en ? LQ_STATE_REPLAYABLE : LQ_STATE_MHQ_FILL_WAIT;
-        lq_update_state_sel    = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
-
-        case (lq_update_state_sel)
-            3'b000: lq_update_state_mux = LQ_STATE_COMPLETE;
-            3'b001: lq_update_state_mux = LQ_STATE_COMPLETE;
-            3'b010: lq_update_state_mux = LQ_STATE_COMPLETE;
-            3'b011: lq_update_state_mux = LQ_STATE_COMPLETE;
-            3'b100: lq_update_state_mux = lq_fill_tag_bypass_mux;
-            3'b101: lq_update_state_mux = lq_fill_bypass_mux;
-            3'b110: lq_update_state_mux = LQ_STATE_REPLAYABLE;
-            3'b111: lq_update_state_mux = LQ_STATE_REPLAYABLE;
-        endcase
-
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            lq_entry_state_next[i] = lq_entry_state_q[i];
-            case (lq_entry_state_next[i])
-                LQ_STATE_INVALID:       lq_entry_state_next[i] = lq_allocate_select[i] ? LQ_STATE_VALID : lq_entry_state_next[i];
-                LQ_STATE_VALID:         lq_entry_state_next[i] = lq_update_select[i] ? lq_update_state_mux : lq_entry_state_next[i];
-                LQ_STATE_MHQ_TAG_WAIT:  lq_entry_state_next[i] = lq_mhq_tag_select[i] ? LQ_STATE_REPLAYABLE : lq_entry_state_next[i];
-                LQ_STATE_MHQ_FILL_WAIT: lq_entry_state_next[i] = i_mhq_fill_en ? LQ_STATE_REPLAYABLE : lq_entry_state_next[i];
-                LQ_STATE_REPLAYABLE:    lq_entry_state_next[i] = lq_replay_select[i] ? LQ_STATE_LAUNCHED : lq_entry_state_next[i];
-                LQ_STATE_LAUNCHED:      lq_entry_state_next[i] = lq_update_select[i] ? lq_update_state_mux : lq_entry_state_next[i];
-                LQ_STATE_COMPLETE:      lq_entry_state_next[i] = lq_retire_select[i] ? LQ_STATE_INVALID : lq_entry_state_next[i];
-                default:                lq_entry_state_next[i] = LQ_STATE_INVALID;
-            endcase
-        end
-    end
-
-    // Convert one-hot retire_select vector into binary LQ entry #
-    always_comb begin
-        lq_retire_entry = {(LQ_IDX_WIDTH){1'b0}};
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            if (lq_retire_select[i]) begin
-                lq_retire_entry = LQ_IDX_WIDTH'(i);
-            end
-        end
-    end
-
-    // Convert one-hot replay_select vector into binary LQ entry #
-    always_comb begin
-        lq_replay_entry = {(LQ_IDX_WIDTH){1'b0}};
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            if (lq_replay_select[i]) begin
-                lq_replay_entry = LQ_IDX_WIDTH'(i);
-            end
-        end
-    end
-
-    // Let ROB know that retired load was mis-speculated
-    always_ff @(posedge clk) begin
-        o_rob_retire_misspeculated <= lq_entry_misspeculated_q[lq_retire_entry];
-    end
-
-    // Send ack back to ROB with mis-speculated signal when ROB indicates load to be retired
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_rob_retire_ack <= 1'b0;
-        else        o_rob_retire_ack <= lq_retire_ack;
-    end
-
-    // Output replaying load
-    always_ff @(posedge clk) begin
-        if (~n_rst || i_flush)    o_replay_en <= 1'b0;
-        else if (~i_replay_stall) o_replay_en <= lq_replay_en;
-    end
-
-    always_ff @(posedge clk) begin
-        if (~i_replay_stall) begin
-            o_replay_select   <= lq_replay_select;
-            o_replay_lsu_func <= lq_entry_lsu_func_q[lq_replay_entry];
-            o_replay_addr     <= lq_entry_addr_q[lq_replay_entry];
-            o_replay_tag      <= lq_entry_tag_q[lq_replay_entry];
-        end
-    end
+    // Find an empty LQ entry that can be used to allocate a new load
+    logic [OPTN_LQ_DEPTH-1:0] lq_allocate_picked;
+    procyon_priority_picker #(OPTN_LQ_DEPTH) lq_allocate_picked_priority_picker (.i_in(lq_entry_empty), .o_pick(lq_allocate_picked));
+    assign lq_allocate_select = {(OPTN_LQ_DEPTH){i_alloc_en}} & lq_allocate_picked;
 
     // Output LQ select vector on allocate request
-    always_ff @(posedge clk) begin
-        o_alloc_lq_select <= lq_allocate_select;
-    end
+    procyon_ff #(OPTN_LQ_DEPTH) o_alloc_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(lq_allocate_select), .o_q(o_alloc_lq_select));
 
-    // Update entry for newly allocated load op
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            if (~n_rst || i_flush) lq_entry_state_q[i] <= LQ_STATE_INVALID;
-            else                   lq_entry_state_q[i] <= lq_entry_state_next[i];
-        end
-    end
+    // Ouput full-on-next-cycle signal (i.e. The last entry will be allocated on this cycle means it will be full on the next cycle)
+    assign o_full = ((lq_entry_empty & ~lq_allocate_select) == 0);
 
-    // Update misspeculated bit depending on state; it is cleared if we enter LQ_STATE_MHQ_TAG_WAIT, LQ_STATE_MHQ_FILL_WAIT or LQ_STATE_REPLAYABLE or if the entry is being allocated
-    // since we know the load hasn't forwarded the incorrect data over the CDB. It is set when the retiring store matches the loads address range
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_LQ_DEPTH; i++) begin
-            lq_entry_mhq_tag_q[i]       <= lq_update_select[i] ? i_update_mhq_tag : lq_entry_mhq_tag_q[i];
-            lq_entry_misspeculated_q[i] <= ~(lq_allocate_select[i] | (lq_entry_state_q[i] == LQ_STATE_MHQ_TAG_WAIT) |
-                                            (lq_entry_state_q[i] == LQ_STATE_MHQ_FILL_WAIT) |
-                                            (lq_entry_state_q[i] == LQ_STATE_REPLAYABLE)) &
-                                            (lq_misspeculated_select[i] | lq_entry_misspeculated_q[i]);
-            if (lq_allocate_select[i] & (lq_entry_state_q[i] == LQ_STATE_INVALID)) begin
-                lq_entry_addr_q[i]     <= i_alloc_addr;
-                lq_entry_tag_q[i]      <= i_alloc_tag;
-                lq_entry_lsu_func_q[i] <= i_alloc_lsu_func;
-            end
-        end
-    end
+    logic n_replay_stall;
+    assign n_replay_stall = ~i_replay_stall;
+
+    // Find a load in the LQ that can be replayed
+    logic [OPTN_LQ_DEPTH-1:0] lq_replay_picked;
+    procyon_priority_picker #(OPTN_LQ_DEPTH) lq_replay_picked_priority_picker (.i_in(lq_entry_replayable), .o_pick(lq_replay_picked));
+    assign lq_replay_select = {(OPTN_LQ_DEPTH){n_replay_stall}} & lq_replay_picked;
+
+    // Output replaying load to LSU
+    logic lq_replay_en_srff;
+    assign lq_replay_en_srff = n_replay_stall | i_flush;
+
+    logic lq_replay_en;
+    assign lq_replay_en = ~i_flush & (lq_replay_select != 0);
+    procyon_srff #(1) o_replay_en_srff (.clk(clk), .n_rst(n_rst), .i_en(lq_replay_en_srff), .i_set(lq_replay_en), .i_reset(1'b0), .o_q(o_replay_en));
+
+    // Convert one-hot replay_select vector into binary LQ entry #
+    logic [LQ_IDX_WIDTH-1:0] lq_replay_entry;
+    procyon_onehot2binary #(OPTN_LQ_DEPTH) lq_replay_entry_onehot2binary (.i_onehot(lq_replay_select), .o_binary(lq_replay_entry));
+
+    procyon_ff #(OPTN_LQ_DEPTH) o_replay_select_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_select), .o_q(o_replay_select));
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_replay_lsu_func_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_lsu_func[lq_replay_entry]), .o_q(o_replay_lsu_func));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_replay_tag_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_tag[lq_replay_entry]), .o_q(o_replay_tag));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_replay_addr_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_addr[lq_replay_entry]), .o_q(o_replay_addr));
+
+    // Let ROB know that retired load was mis-speculated
+    // Send ack back to ROB with mis-speculated signal when ROB indicates load to be retired
+    logic rob_retire_ack;
+    assign rob_retire_ack = (lq_rob_retire_ack != 0);
+    procyon_srff #(1) o_rob_retire_ack_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_retire_ack), .i_reset(1'b0), .o_q(o_rob_retire_ack));
+
+    // Convert one-hot retire_ack vector into binary LQ entry #
+    logic [LQ_IDX_WIDTH-1:0] lq_retire_entry;
+    procyon_onehot2binary #(OPTN_LQ_DEPTH) lq_retire_entry_onehot2binary (.i_onehot(lq_rob_retire_ack), .o_binary(lq_retire_entry));
+    procyon_ff #(1) o_rob_retire_misspeculated_ff (.clk(clk), .i_en(1'b1), .i_d(lq_rob_retire_misspeculated[lq_retire_entry]), .o_q(o_rob_retire_misspeculated));
 
 endmodule

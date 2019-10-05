@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -61,60 +61,62 @@ module procyon_lsu_ex #(
     output logic [DC_LINE_WIDTH-1:0]        o_victim_data
 );
 
-    logic                       is_fill;
-    logic                       is_store;
-    logic                       is_load;
-    logic [OPTN_DATA_WIDTH-1:0] load_data;
+    logic is_fill;
+    logic is_not_fill;
+    logic is_store;
 
-    assign is_fill  = i_lsu_func == `PCYN_LSU_FUNC_FILL;
+    assign is_fill = i_lsu_func == `PCYN_LSU_FUNC_FILL;
+    assign is_not_fill = ~is_fill;
     assign is_store = (i_lsu_func == `PCYN_LSU_FUNC_SB) | (i_lsu_func == `PCYN_LSU_FUNC_SH) | (i_lsu_func == `PCYN_LSU_FUNC_SW);
-    assign is_load  = ~is_fill & ~is_store;
+
+    logic n_flush;
+    assign n_flush = ~i_flush;
+
+    // Stores always complete successfully and the "result" is broadcast over the CDB (except when it's a retiring store)
+    // Loads only complete successfully if it hit in the cache (ditto for replaying loads)
+    logic valid;
+    assign valid = n_flush & i_valid & is_not_fill & ~i_retire & (i_dc_hit | is_store);
+    procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
+
+    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_addr), .o_q(o_addr));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
 
     // LB and LH need to sign extend to DATA_WIDTH
+    logic [OPTN_DATA_WIDTH-1:0] load_data;
+
     always_comb begin
         case (i_lsu_func)
-            `PCYN_LSU_FUNC_LB:  load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            `PCYN_LSU_FUNC_LH:  load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
-            default:            load_data = i_dc_data;
+            `PCYN_LSU_FUNC_LB: load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
+            `PCYN_LSU_FUNC_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
+            default:           load_data = i_dc_data;
         endcase
     end
 
-    always_ff @(posedge clk) begin
-        o_data <= load_data;
-        o_addr <= i_addr;
-        o_tag  <= i_tag;
-    end
+    procyon_ff #(OPTN_DATA_WIDTH) o_data_ff (.clk(clk), .i_en(1'b1), .i_d(load_data), .o_q(o_data));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= ~i_flush & i_valid & ~is_fill & ~i_retire & (i_dc_hit | is_store);
-    end
+    // LQ/SQ update signals. Let the LQ or SQ know the load/store missed in the cache and must be retried
+    logic update_lq_en;
+    assign update_lq_en = n_flush & i_valid & (is_not_fill & ~is_store);
+    procyon_srff #(1) o_update_lq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(update_lq_en), .i_reset(1'b0), .o_q(o_update_lq_en));
 
-    always_ff @(posedge clk) begin
-        o_update_lq_select   <= i_lq_select;
-        o_update_sq_select   <= i_sq_select;
-        o_update_retry       <= ~i_dc_hit;
-        o_update_replay      <= i_fill_replay;
-    end
+    logic update_sq_en;
+    assign update_sq_en = n_flush & i_valid & i_retire;
+    procyon_srff #(1) o_update_sq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(update_sq_en), .i_reset(1'b0), .o_q(o_update_sq_en));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_update_lq_en <= 1'b0;
-        else        o_update_lq_en <= ~i_flush & i_valid & is_load;
-    end
+    logic n_dc_hit;
+    assign n_dc_hit = ~i_dc_hit;
+    procyon_ff #(1) o_update_retry_ff (.clk(clk), .i_en(1'b1), .i_d(n_dc_hit), .o_q(o_update_retry));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_update_sq_en <= 1'b0;
-        else        o_update_sq_en <= ~i_flush & i_valid & i_retire;
-    end
+    procyon_ff #(OPTN_LQ_DEPTH) o_update_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_lq_select), .o_q(o_update_lq_select));
+    procyon_ff #(OPTN_SQ_DEPTH) o_update_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_select), .o_q(o_update_sq_select));
+    procyon_ff #(1) o_update_replay_ff (.clk(clk), .i_en(1'b1), .i_d(i_fill_replay), .o_q(o_update_replay));
 
-    always_ff @(posedge clk) begin
-        o_victim_addr <= i_dc_victim_addr;
-        o_victim_data <= i_dc_victim_data;
-    end
+    // Send victim data to the Victim Buffer
+    logic victim_en;
+    assign victim_en = i_valid & is_fill & i_dc_victim_valid & i_dc_victim_dirty;
+    procyon_srff #(1) o_victim_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(victim_en), .i_reset(1'b0), .o_q(o_victim_en));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_victim_en <= 1'b0;
-        else        o_victim_en <= i_valid & is_fill & i_dc_victim_valid & i_dc_victim_dirty;
-    end
+    procyon_ff #(OPTN_ADDR_WIDTH) o_victim_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_dc_victim_addr), .o_q(o_victim_addr));
+    procyon_ff #(DC_LINE_WIDTH) o_victim_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_dc_victim_data), .o_q(o_victim_data));
 
 endmodule

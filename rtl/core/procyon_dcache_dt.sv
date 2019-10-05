@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -8,7 +8,7 @@
 
 `include "procyon_constants.svh"
 
-module procyon_dcache_d0 #(
+module procyon_dcache_dt #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,
@@ -47,6 +47,16 @@ module procyon_dcache_d0 #(
     output logic [DC_LINE_WIDTH-1:0]        o_fill_data
 );
 
+    procyon_srff #(1) o_wr_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(i_wr_en), .i_reset(1'b0), .o_q(o_wr_en));
+    procyon_ff #(DC_TAG_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
+    procyon_ff #(DC_INDEX_WIDTH) o_index_ff (.clk(clk), .i_en(1'b1), .i_d(i_index), .o_q(o_index));
+    procyon_ff #(DC_OFFSET_WIDTH) o_offset_ff (.clk(clk), .i_en(1'b1), .i_d(i_offset), .o_q(o_offset));
+    procyon_ff #(OPTN_DATA_WIDTH) o_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_data), .o_q(o_data));
+    procyon_ff #(1) o_valid_ff (.clk(clk), .i_en(1'b1), .i_d(i_valid), .o_q(o_valid));
+    procyon_ff #(1) o_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(i_dirty), .o_q(o_dirty));
+    procyon_ff #(1) o_fill_ff (.clk(clk), .i_en(1'b1), .i_d(i_fill), .o_q(o_fill));
+    procyon_ff #(DC_LINE_WIDTH) o_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_fill_data), .o_q(o_fill_data));
+
     logic [DATA_SIZE-1:0] byte_sel;
 
     // Derive byte select signals from the LSU op type
@@ -58,25 +68,10 @@ module procyon_dcache_d0 #(
             `PCYN_LSU_FUNC_LHU: byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
             `PCYN_LSU_FUNC_SB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
             `PCYN_LSU_FUNC_SH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
-            default:            byte_sel = {(DATA_SIZE){1'b1}};
+            default:            byte_sel = '1;
         endcase
     end
 
-    always_ff @(posedge clk) begin
-        o_tag       <= i_tag;
-        o_index     <= i_index;
-        o_offset    <= i_offset;
-        o_byte_sel  <= byte_sel;
-        o_data      <= i_data;
-        o_valid     <= i_valid;
-        o_dirty     <= i_dirty;
-        o_fill      <= i_fill;
-        o_fill_data <= i_fill_data;
-    end
-
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_wr_en <= 1'b0;
-        else        o_wr_en <= i_wr_en;
-    end
+    procyon_ff #(DATA_SIZE) o_byte_sel_ff (.clk(clk), .i_en(1'b1), .i_d(byte_sel), .o_q(o_byte_sel));
 
 endmodule

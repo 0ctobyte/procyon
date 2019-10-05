@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -36,21 +36,27 @@ module procyon_ieu_ex #(
     output logic                             o_valid
 );
 
-    logic [OPTN_DATA_WIDTH-1:0]        result;
+    logic valid;
+    assign valid = ~i_flush & i_valid;
+    procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
 
-    // Extended src_a for arithmetic right shifts
-    logic [OPTN_DATA_WIDTH*2-1:0]      e_src_a;
-
-    // Signed src inputs
-    logic signed [OPTN_DATA_WIDTH-1:0] s_src_a;
-    logic signed [OPTN_DATA_WIDTH-1:0] s_src_b;
-
-    assign e_src_a = {{(OPTN_DATA_WIDTH){i_src_a[OPTN_DATA_WIDTH-1]}}, i_src_a};
-    assign s_src_a = i_src_a;
-    assign s_src_b = i_src_b;
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
 
     // ALU
+    logic [OPTN_DATA_WIDTH-1:0] result;
+
     always_comb begin
+        logic [OPTN_DATA_WIDTH*2-1:0] e_src_a;
+        logic signed [OPTN_DATA_WIDTH-1:0] s_src_a;
+        logic signed [OPTN_DATA_WIDTH-1:0] s_src_b;
+
+        // Extended src_a for arithmetic right shifts
+        e_src_a = {{(OPTN_DATA_WIDTH){i_src_a[OPTN_DATA_WIDTH-1]}}, i_src_a};
+
+        // Signed src inputs
+        s_src_a = i_src_a;
+        s_src_b = i_src_b;
+
         case (i_alu_func)
             `PCYN_ALU_FUNC_ADD: result = i_src_a + i_src_b;
             `PCYN_ALU_FUNC_SUB: result = i_src_a - i_src_b;
@@ -68,20 +74,20 @@ module procyon_ieu_ex #(
             `PCYN_ALU_FUNC_GE:  result = s_src_a >= s_src_b;
             `PCYN_ALU_FUNC_GEU: result = i_src_a >= i_src_b;
 /* verilator lint_on  WIDTH */
-            default:            result = {(OPTN_DATA_WIDTH){1'b0}};
+            default:            result = '0;
         endcase
     end
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= ~i_flush & i_valid;
-    end
+    logic [OPTN_DATA_WIDTH-1:0] data;
+    assign data = i_jmp ? i_iaddr + 4 : result;
+    procyon_ff #(OPTN_DATA_WIDTH) o_data_ff (.clk(clk), .i_en(1'b1), .i_d(data), .o_q(o_data));
 
-    always_ff @(posedge clk) begin
-        o_data     <= i_jmp ? i_iaddr + 4 : result;
-        o_addr     <= i_jmp ? result : i_iaddr + i_imm_b;
-        o_redirect <= i_jmp | (i_br & result[0]);
-        o_tag      <= i_tag;
-    end
+    logic [OPTN_ADDR_WIDTH-1:0] addr;
+    assign addr = i_jmp ? result : i_iaddr + i_imm_b;
+    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(addr), .o_q(o_addr));
+
+    logic redirect;
+    assign redirect = i_jmp | (i_br & result[0]);
+    procyon_ff #(1) o_redirect_ff (.clk(clk), .i_en(1'b1), .i_d(redirect), .o_q(o_redirect));
 
 endmodule

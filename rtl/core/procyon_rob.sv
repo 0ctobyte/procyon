@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -54,8 +54,8 @@ module procyon_rob #(
     output logic                              o_rs_src_rdy          [0:1],
 
     // Interface to register map to update tag information of the destination register of the newly enqueued instruction
-    output logic [ROB_IDX_WIDTH-1:0]          o_regmap_rename_tag,
     input  logic                              i_regmap_rename_en,
+    output logic [ROB_IDX_WIDTH-1:0]          o_regmap_rename_tag,
 
     // Interface to register map to update destination register for retired instruction
     output logic [OPTN_DATA_WIDTH-1:0]        o_regmap_retire_data,
@@ -72,190 +72,167 @@ module procyon_rob #(
     output logic [ROB_IDX_WIDTH-1:0]          o_lsu_retire_tag
 );
 
-    localparam ROB_ENTRY_STATE_WIDTH       = 2;
-    localparam ROB_ENTRY_STATE_INVALID     = 2'b00;
-    localparam ROB_ENTRY_STATE_PENDING     = 2'b01;
-    localparam ROB_ENTRY_STATE_LSU_PENDING = 2'b10;
-    localparam ROB_ENTRY_STATE_RETIRABLE   = 2'b11;
+    localparam ROB_COUNTER_WIDTH = $clog2(OPTN_ROB_DEPTH+1);
 
-    // ROB entry consists of the following:
-    // redirect:    Asserted by branches or instructions that cause exceptions
-    // lsu_op:      Indicates if the op is a load/store op
-    // op:          What operation is the instruction doing?
-    // pc:          Address of the instruction (to rollback on exception
-    // rdest:       The destination register
-    // addr:        Destination address for branch
-    // data:        The data for the destination register
-    // state:       State of the ROB entry
-    logic                              rob_entry_redirect_r [0:OPTN_ROB_DEPTH-1];
-    logic                              rob_entry_lsu_op_r   [0:OPTN_ROB_DEPTH-1];
-    logic [`PCYN_ROB_OP_WIDTH-1:0]     rob_entry_op_r       [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]        rob_entry_pc_r       [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_REGMAP_IDX_WIDTH-1:0]  rob_entry_rdest_r    [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]        rob_entry_addr_r     [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]        rob_entry_data_r     [0:OPTN_ROB_DEPTH-1];
-    logic [ROB_ENTRY_STATE_WIDTH-1:0]  rob_entry_state_r    [0:OPTN_ROB_DEPTH-1];
+    logic [ROB_IDX_WIDTH-1:0] rob_head_r;
+    logic [ROB_IDX_WIDTH-1:0] rob_tail_r;
+    logic rob_full_r;
 
-    // It's convenient to add an extra bit for the head and tail pointers so that they may wrap around and allow for easier queue full/empty detection
-    logic [ROB_IDX_WIDTH:0]            rob_head_r;
-    logic [ROB_IDX_WIDTH:0]            rob_tail_r;
-    logic [ROB_IDX_WIDTH:0]            rob_tail_next;
-    logic [ROB_IDX_WIDTH:0]            rob_head_next;
-    logic [ROB_IDX_WIDTH-1:0]          rob_head_addr;
-    logic [ROB_IDX_WIDTH-1:0]          rob_tail_addr;
-    logic                              rob_full_r;
-    logic                              rob_rename_en;
-    logic                              rob_retire_en;
-    logic [OPTN_ROB_DEPTH-1:0]         rob_dispatch_en;
-    logic [OPTN_ROB_DEPTH-1:0]         rob_dispatch_select_r;
-    logic                              redirect_r;
-    logic                              redirect;
-    logic [OPTN_ADDR_WIDTH-1:0]        redirect_addr_mux;
-    logic                              rob_lsu_pending;
-    logic                              rob_head_is_ld;
-    logic                              rob_head_is_st;
-    logic [ROB_ENTRY_STATE_WIDTH-1:0]  rob_entry_state_next   [0:OPTN_ROB_DEPTH-1];
-    logic                              rob_lsu_retired_ack    [0:OPTN_ROB_DEPTH-1];
-    logic                              rob_entry_redirect_mux [0:OPTN_ROB_DEPTH-1];
-    logic                              rob_entry_lsu_op_mux   [0:OPTN_ROB_DEPTH-1];
-    logic [`PCYN_ROB_OP_WIDTH-1:0]     rob_entry_op_mux       [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]        rob_entry_pc_mux       [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_REGMAP_IDX_WIDTH-1:0]  rob_entry_rdest_mux    [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]        rob_entry_addr_mux     [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]        rob_entry_data_mux     [0:OPTN_ROB_DEPTH-1];
-    logic                              rob_entry_retirable    [0:OPTN_ROB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]        rs_src_data_mux        [0:1];
-    logic                              rs_src_rdy             [0:1];
-    logic                              lsu_retire_lq_en;
-    logic                              lsu_retire_sq_en;
+    logic [OPTN_ROB_DEPTH-1:0] rob_entry_retirable;
+    logic [OPTN_ROB_DEPTH-1:0] rob_entry_lsu_pending;
+    logic [OPTN_ROB_DEPTH-1:0] rob_entry_redirect;
+    logic [OPTN_ADDR_WIDTH-1:0] rob_entry_addr [OPTN_ROB_DEPTH-1:0];
+    logic [OPTN_DATA_WIDTH-1:0] rob_entry_data [OPTN_ROB_DEPTH-1:0];
+    logic [OPTN_REGMAP_IDX_WIDTH-1:0] rob_entry_rdest [OPTN_ROB_DEPTH-1:0];
+    logic [`PCYN_ROB_OP_WIDTH-1:0] rob_entry_op [OPTN_ROB_DEPTH-1:0];
+    logic [OPTN_ADDR_WIDTH-1:0] rob_entry_pc [OPTN_ROB_DEPTH-1:0];
+    logic [OPTN_ROB_DEPTH-1:0] rob_dispatch_select;
+    logic [OPTN_ROB_DEPTH-1:0] rob_retire_select;
+    logic [OPTN_ROB_DEPTH-1:0] lsu_retire_lq_ack_select;
+    logic [OPTN_ROB_DEPTH-1:0] lsu_retire_sq_ack_select;
 
-    assign rob_rename_en       = i_regmap_rename_en && !rob_full_r;
-    assign rob_retire_en       = rob_entry_state_r[rob_head_addr] == ROB_ENTRY_STATE_RETIRABLE;
-    assign rob_dispatch_en     = {(OPTN_ROB_DEPTH){i_rob_enq_en}} & rob_dispatch_select_r;
-    assign rob_lsu_pending     = rob_entry_state_r[rob_head_addr] == ROB_ENTRY_STATE_LSU_PENDING;
-    assign rob_head_is_ld      = rob_entry_op_r[rob_head_addr] == `PCYN_ROB_OP_LD;
-    assign rob_head_is_st      = rob_entry_op_r[rob_head_addr] == `PCYN_ROB_OP_ST;
+    // Clear the entries in the same cycle the redirect is detected. The redirect is sent to the rest of the chip
+    // in the next cycle through the redirect_r register.
+    logic redirect;
+    assign redirect = rob_entry_retirable[rob_head_r] & rob_entry_redirect[rob_head_r];
 
-    assign rob_tail_addr       = rob_tail_r[ROB_IDX_WIDTH-1:0];
-    assign rob_head_addr       = rob_head_r[ROB_IDX_WIDTH-1:0];
-    assign rob_tail_next       = redirect_r ? {(ROB_IDX_WIDTH+1){1'b0}} : rob_tail_r + (ROB_IDX_WIDTH+1)'(rob_rename_en);
-    assign rob_head_next       = redirect_r ? {(ROB_IDX_WIDTH+1){1'b0}} : rob_head_r + (ROB_IDX_WIDTH+1)'(rob_retire_en);
+    genvar inst;
+    generate
+    for (inst = 0; inst < OPTN_ROB_DEPTH; inst++) begin : GEN_ROB_ENTRY_INST
+        procyon_rob_entry #(
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_CDB_DEPTH(OPTN_CDB_DEPTH),
+            .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
+            .OPTN_REGMAP_IDX_WIDTH(OPTN_REGMAP_IDX_WIDTH)
+        ) procyon_rob_entry_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_redirect(redirect),
+            .i_rob_tag((ROB_IDX_WIDTH)'(inst)),
+            .o_retirable(rob_entry_retirable[inst]),
+            .o_lsu_pending(rob_entry_lsu_pending[inst]),
+            .o_rob_entry_redirect(rob_entry_redirect[inst]),
+            .o_rob_entry_addr(rob_entry_addr[inst]),
+            .o_rob_entry_data(rob_entry_data[inst]),
+            .o_rob_entry_rdest(rob_entry_rdest[inst]),
+            .o_rob_entry_op(rob_entry_op[inst]),
+            .o_rob_entry_pc(rob_entry_pc[inst]),
+            .i_cdb_en(i_cdb_en),
+            .i_cdb_redirect(i_cdb_redirect),
+            .i_cdb_data(i_cdb_data),
+            .i_cdb_addr(i_cdb_addr),
+            .i_cdb_tag(i_cdb_tag),
+            .i_dispatch_en(rob_dispatch_select[inst]),
+            .i_dispatch_op(i_rob_enq_op),
+            .i_dispatch_pc(i_rob_enq_pc),
+            .i_dispatch_rdest(i_rob_enq_rdest),
+            .i_retire_en(rob_retire_select[inst]),
+            .i_lsu_retire_lq_ack(lsu_retire_lq_ack_select[inst]),
+            .i_lsu_retire_sq_ack(lsu_retire_sq_ack_select[inst]),
+            .i_lsu_retire_misspeculated(i_lsu_retire_misspeculated)
+        );
+    end
+    endgenerate
 
-    // Outputs
-    assign o_rob_stall         = rob_full_r;
-    assign o_regmap_rename_tag = rob_tail_addr;
-    assign o_redirect          = redirect_r;
+    // Check if a rename and retire event are occurring in this cycle. rob_head_r, rob_tail_r and the rob_entry_counter_r
+    // all depend on these signals.
+    logic rob_rename_en;
+    logic rob_retire_en;
+
+    assign rob_rename_en = i_regmap_rename_en;
+    assign rob_retire_en = rob_entry_retirable[rob_head_r];
+
+    // Generate a one-hot vector reserving an ROB entry for the next cycle when the dispatcher will enqueue into the entry
+    logic [OPTN_ROB_DEPTH-1:0] rob_rename_select;
+
+    always_comb begin
+        rob_rename_select = '0;
+        rob_rename_select[rob_tail_r] = rob_rename_en;
+    end
+
+    logic [OPTN_ROB_DEPTH-1:0] rob_rename_select_r;
+    procyon_ff #(OPTN_ROB_DEPTH) rob_rename_select_r_ff (.clk(clk), .i_en(1'b1), .i_d(rob_rename_select), .o_q(rob_rename_select_r));
+
+    // If previous (rename) cycle reserved an ROB entry, use it here to enqueue if the dispatch signals to enqueue
+    assign rob_dispatch_select = {(OPTN_ROB_DEPTH){i_rob_enq_en}} & rob_rename_select_r;
+
+    // Only allow the head ROB entry to retire. This is basically a "is_head" signal passed to each entry.
+    always_comb begin
+        rob_retire_select = '0;
+        rob_retire_select[rob_head_r] = 1'b1;
+
+        lsu_retire_lq_ack_select = '0;
+        lsu_retire_lq_ack_select[rob_head_r] = i_lsu_retire_lq_ack;
+
+        lsu_retire_sq_ack_select = '0;
+        lsu_retire_sq_ack_select[rob_head_r] = i_lsu_retire_sq_ack;
+    end
+
+    // If the instruction to be retired generated a branch/mispredict then assert the redirect signal and address
+    logic redirect_r;
+    procyon_srff #(1) redirect_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(redirect), .i_reset(1'b0), .o_q(redirect_r));
+
+    assign o_redirect = redirect_r;
+
+    logic [OPTN_ADDR_WIDTH-1:0] redirect_addr_mux;
+    assign redirect_addr_mux = (rob_entry_op[rob_head_r] == `PCYN_ROB_OP_BR) ? rob_entry_addr[rob_head_r] : rob_entry_pc[rob_head_r];
+    procyon_ff #(OPTN_ADDR_WIDTH) o_redirect_addr_ff (.clk(clk), .i_en(1'b1), .i_d(redirect_addr_mux), .o_q(o_redirect_addr));
 
     // Increment the tail pointer to reserve an entry when the Dispatcher is in the renaming cycle
     // and the ROB is not full. On the next cycle the entry will be filled. Reset if redirect asserted.
     // Increment the head pointer if the instruction is retirable  and the ROB is not
     // empty (of course this should never be the case). Reset if redirect asserted
-    always_ff @(posedge clk) begin
-        if (!n_rst) begin
-            rob_tail_r <= {(ROB_IDX_WIDTH+1){1'b0}};
-            rob_head_r <= {(ROB_IDX_WIDTH+1){1'b0}};
-        end else begin
-            rob_tail_r <= rob_tail_next;
-            rob_head_r <= rob_head_next;
-        end
-    end
+    logic [ROB_IDX_WIDTH-1:0] rob_tail_next;
+    logic [ROB_IDX_WIDTH-1:0] rob_head_next;
 
-    always_ff @(posedge clk) begin
-        if (!n_rst) rob_full_r <= 1'b0;
-        else        rob_full_r <= redirect_r ? 1'b0 : {~rob_tail_next[ROB_IDX_WIDTH], rob_tail_next[ROB_IDX_WIDTH-1:0]} == rob_head_next;
-    end
-
-    // If the instruction to be retired generated a branch/mispredict then assert the redirect signal and address
     always_comb begin
-        redirect_addr_mux = (rob_entry_op_r[rob_head_addr] == `PCYN_ROB_OP_BR) ? rob_entry_addr_r[rob_head_addr] : rob_entry_pc_r[rob_head_addr];
-        redirect          = rob_retire_en && rob_entry_redirect_r[rob_head_addr];
+        rob_tail_next = redirect_r ? '0 : rob_tail_r + (ROB_IDX_WIDTH)'(rob_rename_en);
+        rob_head_next = redirect_r ? '0 : rob_head_r + (ROB_IDX_WIDTH)'(rob_retire_en);
+
+        // Handle wrap around case
+        rob_tail_next = (rob_tail_next == (ROB_IDX_WIDTH)'(OPTN_ROB_DEPTH)) ? '0 : rob_tail_next;
+        rob_head_next = (rob_head_next == (ROB_IDX_WIDTH)'(OPTN_ROB_DEPTH)) ? '0 : rob_head_next;
     end
 
-    always_ff @(posedge clk) begin
-        o_redirect_addr <= redirect_addr_mux;
-    end
+    procyon_srff #(ROB_IDX_WIDTH) rob_tail_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_tail_next), .i_reset('0), .o_q(rob_tail_r));
+    procyon_srff #(ROB_IDX_WIDTH) rob_head_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_head_next), .i_reset('0), .o_q(rob_head_r));
 
-    always_ff @(posedge clk) begin
-        if (!n_rst) redirect_r <= 1'b0;
-        else        redirect_r <= redirect;
-    end
+    // Send the next free ROB entry number to the regmap so it can use it to rename the destination register for a new instruction
+    assign o_regmap_rename_tag = rob_tail_r;
 
-    // Generate a one-hot vector selecting which ROB entry dispatcher enqueues a new instruction into
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
-            rob_dispatch_select_r[i] <= rob_rename_en && (ROB_IDX_WIDTH'(i) == rob_tail_addr);
-        end
-    end
+    // Entry counter mux depends on if an entry is being allocated or retired. This is used for ROB full detection
+    logic [ROB_COUNTER_WIDTH-1:0] rob_entry_counter_r;
+    logic [ROB_COUNTER_WIDTH-1:0] rob_entry_counter_next;
 
-    // Check CDB inputs for matching tags and determine which entry can be marked as retirable
-    // Also mux in address, data and redirect information from CDB
-    // Mux lsu_op, op, pc, & rdest values from dispatcher when enqueuing in an ROB entry
     always_comb begin
-        for (int rob_idx = 0; rob_idx < OPTN_ROB_DEPTH; rob_idx++) begin
-            rob_lsu_retired_ack[rob_idx]    = (ROB_IDX_WIDTH'(rob_idx) == rob_head_addr) && rob_lsu_pending && ((rob_head_is_ld && i_lsu_retire_lq_ack) || (rob_head_is_st && i_lsu_retire_sq_ack));
-            rob_entry_redirect_mux[rob_idx] = rob_lsu_retired_ack[rob_idx] ? i_lsu_retire_misspeculated : rob_entry_redirect_r[rob_idx];
-            rob_entry_lsu_op_mux[rob_idx]   = rob_dispatch_en[rob_idx] ? (i_rob_enq_op == `PCYN_ROB_OP_LD || i_rob_enq_op == `PCYN_ROB_OP_ST) : rob_entry_lsu_op_r[rob_idx];
-            rob_entry_op_mux[rob_idx]       = rob_dispatch_en[rob_idx] ? i_rob_enq_op : rob_entry_op_r[rob_idx];
-            rob_entry_pc_mux[rob_idx]       = rob_dispatch_en[rob_idx] ? i_rob_enq_pc : rob_entry_pc_r[rob_idx];
-            rob_entry_rdest_mux[rob_idx]    = rob_dispatch_en[rob_idx] ? i_rob_enq_rdest : rob_entry_rdest_r[rob_idx];
-            rob_entry_addr_mux[rob_idx]     = rob_entry_addr_r[rob_idx];
-            rob_entry_data_mux[rob_idx]     = rob_entry_data_r[rob_idx];
-            rob_entry_retirable[rob_idx]    = 1'b0;
+        logic [1:0] rob_entry_counter_sel;
+        rob_entry_counter_sel = {rob_retire_en, rob_rename_en};
 
-            for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
-                logic cdb_tag_match;
-                cdb_tag_match                   = i_cdb_en[cdb_idx] && (ROB_IDX_WIDTH'(rob_idx) == i_cdb_tag[cdb_idx]);
-                rob_entry_addr_mux[rob_idx]     = cdb_tag_match ? i_cdb_addr[cdb_idx] : rob_entry_addr_mux[rob_idx];
-                rob_entry_data_mux[rob_idx]     = cdb_tag_match ? i_cdb_data[cdb_idx] : rob_entry_data_mux[rob_idx];
-                rob_entry_redirect_mux[rob_idx] = cdb_tag_match ? i_cdb_redirect[cdb_idx] : rob_entry_redirect_mux[rob_idx];
-                rob_entry_retirable[rob_idx]    = cdb_tag_match || rob_entry_retirable[rob_idx];
-            end
+        rob_entry_counter_next = rob_entry_counter_r;
 
-            // Clear the redirect bit if an instruction is being enqueued at the entry
-            rob_entry_redirect_mux[rob_idx] = !rob_dispatch_en[rob_idx] && rob_entry_redirect_mux[rob_idx];
-        end
+        case (rob_entry_counter_sel)
+            2'b00: rob_entry_counter_next = rob_entry_counter_next;
+            2'b01: rob_entry_counter_next = rob_entry_counter_next - 1'b1;
+            2'b10: rob_entry_counter_next = rob_entry_counter_next + 1'b1;
+            2'b11: rob_entry_counter_next = rob_entry_counter_next;
+        endcase
+
+        rob_entry_counter_next = redirect_r ? (ROB_COUNTER_WIDTH)'(OPTN_ROB_DEPTH) : rob_entry_counter_next;
     end
 
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
-            rob_entry_redirect_r[i] <= rob_entry_redirect_mux[i];
-            rob_entry_lsu_op_r[i]   <= rob_entry_lsu_op_mux[i];
-            rob_entry_op_r[i]       <= rob_entry_op_mux[i];
-            rob_entry_pc_r[i]       <= rob_entry_pc_mux[i];
-            rob_entry_rdest_r[i]    <= rob_entry_rdest_mux[i];
-            rob_entry_addr_r[i]     <= rob_entry_addr_mux[i];
-            rob_entry_data_r[i]     <= rob_entry_data_mux[i];
-        end
-    end
+    procyon_srff #(ROB_COUNTER_WIDTH) rob_entry_counter_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_entry_counter_next), .i_reset((ROB_COUNTER_WIDTH)'(OPTN_ROB_DEPTH)), .o_q(rob_entry_counter_r));
 
-    // ROB entry next state logic
-    // Each ROB entry progresses through up to 4 states (at least 3 of them, LSU ops go through an extra state)
-    // ROB_ENTRY_STATE_PENDING: From INVALID to PENDING when a ROB entry is enqueued
-    // ROB_ENTRY_STATE_LSU_PENDING: LSU ops are put in the LSU_PENDING state waiting for an ack from the LQ or SQ
-    // This is needed to allow the LQ to signal back whether the load has been misspeculated and for the SQ to acknowledge that store has been written out to memeory
-    // In both cases the LQ and SQ dequeue the op
-    // ROB_ENTRY_STATE_RETIRABLE: This indicates that the op has completed execution and can be retired when it reaches the head of the ROB
-    always_comb begin
-        for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
-            logic [ROB_ENTRY_STATE_WIDTH-1:0] rob_entry_state_lsu_pending_mux;
-            rob_entry_state_lsu_pending_mux = rob_entry_lsu_op_r[i] ? ROB_ENTRY_STATE_LSU_PENDING : ROB_ENTRY_STATE_RETIRABLE;
+    logic n_redirect;
+    assign n_redirect = ~redirect_r;
 
-            case (rob_entry_state_r[i])
-                ROB_ENTRY_STATE_INVALID:     rob_entry_state_next[i] = rob_dispatch_en[i] ? ROB_ENTRY_STATE_PENDING : ROB_ENTRY_STATE_INVALID;
-                ROB_ENTRY_STATE_PENDING:     rob_entry_state_next[i] = rob_entry_retirable[i] ? rob_entry_state_lsu_pending_mux : ROB_ENTRY_STATE_PENDING;
-                ROB_ENTRY_STATE_LSU_PENDING: rob_entry_state_next[i] = rob_lsu_retired_ack[i] ? ROB_ENTRY_STATE_RETIRABLE : ROB_ENTRY_STATE_LSU_PENDING;
-                ROB_ENTRY_STATE_RETIRABLE:   rob_entry_state_next[i] = (rob_head_addr == ROB_IDX_WIDTH'(i) && rob_retire_en) ? ROB_ENTRY_STATE_INVALID : ROB_ENTRY_STATE_RETIRABLE;
-                default:                     rob_entry_state_next[i] = ROB_ENTRY_STATE_INVALID;
-            endcase
-        end
-    end
+    // ROB full signal
+    logic rob_full;
+    assign rob_full = n_redirect & (rob_entry_counter_next == 0);
+    procyon_srff #(1) rob_full_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_full), .i_reset(1'b0), .o_q(rob_full_r));
 
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_ROB_DEPTH; i++) begin
-            if (!n_rst) rob_entry_state_r[i] <= ROB_ENTRY_STATE_INVALID;
-            else        rob_entry_state_r[i] <= redirect ? ROB_ENTRY_STATE_INVALID : rob_entry_state_next[i];
-        end
-    end
+    // Output stall if the ROB is full
+    assign o_rob_stall = rob_full_r;
 
     // Getting the right source register tags/data is tricky. If the register map has ready data then that must be used
     // Otherwise the ROB entry corresponding to the tag in the register map for the source register is looked up and the data,
@@ -263,60 +240,57 @@ module procyon_rob #(
     // on the CDB. Now if there is something available on the CDB in the same cycle and it matches the tag from the register map,
     // then that value must be used over the ROB data.
     // An instructions source ready bits can be overrided to 1 if that instruction has no use for that source which allows it to skip waiting for that source in RS
+    logic [OPTN_DATA_WIDTH-1:0] rs_src_data_mux [0:1];
+    logic rs_src_rdy [0:1];
+
     always_comb begin
         for (int src_idx = 0; src_idx < 2; src_idx++) begin
             logic [ROB_IDX_WIDTH-1:0] rob_tag;
-            logic                     rob_lookup_rdy [0:1];
-            rob_tag                  = i_rob_lookup_tag[src_idx];
-            rob_lookup_rdy[src_idx]  = i_rob_lookup_rdy[src_idx] || i_rob_lookup_rdy_ovrd[src_idx];
+            logic rob_lookup_rdy [0:1];
 
-            rs_src_data_mux[src_idx] = rob_entry_data_r[rob_tag];
-            rs_src_rdy[src_idx]      = rob_lookup_rdy[src_idx] || (rob_entry_state_r[rob_tag] == ROB_ENTRY_STATE_RETIRABLE) || (rob_entry_state_r[rob_tag] == ROB_ENTRY_STATE_LSU_PENDING);
+            rob_tag = i_rob_lookup_tag[src_idx];
+            rob_lookup_rdy[src_idx]  = i_rob_lookup_rdy[src_idx] | i_rob_lookup_rdy_ovrd[src_idx];
+
+            rs_src_data_mux[src_idx] = rob_entry_data[rob_tag];
+            rs_src_rdy[src_idx] = rob_lookup_rdy[src_idx] | rob_entry_retirable[rob_tag] | rob_entry_lsu_pending[rob_tag];
 
             for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
                 logic cdb_lookup_bypass;
-                cdb_lookup_bypass        = i_cdb_en[cdb_idx] && (i_cdb_tag[cdb_idx] == rob_tag);
+                cdb_lookup_bypass = i_cdb_en[cdb_idx] & (i_cdb_tag[cdb_idx] == rob_tag);
+
                 rs_src_data_mux[src_idx] = cdb_lookup_bypass ? i_cdb_data[cdb_idx] : rs_src_data_mux[src_idx];
-                rs_src_rdy[src_idx]      = cdb_lookup_bypass || rs_src_rdy[src_idx];
+                rs_src_rdy[src_idx] = cdb_lookup_bypass | rs_src_rdy[src_idx];
             end
 
             rs_src_data_mux[src_idx] = rob_lookup_rdy[src_idx] ? i_rob_lookup_data[src_idx] : rs_src_data_mux[src_idx];
         end
     end
 
-    always_ff @(posedge clk) begin
-        if (!i_rs_stall) begin
-            o_rs_src_data <= rs_src_data_mux;
-            o_rs_src_tag  <= i_rob_lookup_tag;
-            o_rs_src_rdy  <= rs_src_rdy;
-        end
-    end
+    logic n_rs_stall;
+    assign n_rs_stall = ~i_rs_stall;
 
-    // Let the Regmap know that this instruction is retiring in order to update the destination register mapping
-    always_ff @(posedge clk) begin
-        o_regmap_retire_data  <= rob_entry_data_r[rob_head_addr];
-        o_regmap_retire_rdest <= rob_entry_rdest_r[rob_head_addr];
-        o_regmap_retire_tag   <= rob_head_addr;
-    end
-
-    always_ff @(posedge clk) begin
-        if (!n_rst) o_regmap_retire_en <= 1'b0;
-        else        o_regmap_retire_en <= rob_retire_en;
-    end
+    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_data_mux[0]), .o_q(o_rs_src_data[0]));
+    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_data_mux[1]), .o_q(o_rs_src_data[1]));
+    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_rob_lookup_tag[0]), .o_q(o_rs_src_tag[0]));
+    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_rob_lookup_tag[1]), .o_q(o_rs_src_tag[1]));
+    procyon_ff #(1) o_rs_src_rdy_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_rdy[0]), .o_q(o_rs_src_rdy[0]));
+    procyon_ff #(1) o_rs_src_rdy_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_rdy[1]), .o_q(o_rs_src_rdy[1]));
 
     // Let the LSU know that the instruction at the head of the ROB is ready to be retired and is waiting for an ack from the LSU
-    always_comb begin
-        lsu_retire_lq_en = rob_lsu_pending && rob_head_is_ld && ~i_lsu_retire_lq_ack;
-        lsu_retire_sq_en = rob_lsu_pending && rob_head_is_st && ~i_lsu_retire_sq_ack;
-    end
+    procyon_ff #(ROB_IDX_WIDTH) o_lsu_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_head_r), .o_q(o_lsu_retire_tag));
 
-    always_ff @(posedge clk) begin
-        o_lsu_retire_tag <= rob_head_addr;
-    end
+    logic lsu_retire_lq_en;
+    assign lsu_retire_lq_en = n_redirect & rob_entry_lsu_pending[rob_head_r] & (rob_entry_op[rob_head_r] == `PCYN_ROB_OP_LD) & ~i_lsu_retire_lq_ack;
+    procyon_ff #(1) o_lsu_retire_lq_en_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_retire_lq_en), .o_q(o_lsu_retire_lq_en));
 
-    always_ff @(posedge clk) begin
-        o_lsu_retire_lq_en <= redirect_r ? 1'b0 : lsu_retire_lq_en;
-        o_lsu_retire_sq_en <= redirect_r ? 1'b0 : lsu_retire_sq_en;
-    end
+    logic lsu_retire_sq_en;
+    assign lsu_retire_sq_en = n_redirect & rob_entry_lsu_pending[rob_head_r] & (rob_entry_op[rob_head_r] == `PCYN_ROB_OP_ST) & ~i_lsu_retire_sq_ack;
+    procyon_ff #(1) o_lsu_retire_sq_en_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_retire_sq_en), .o_q(o_lsu_retire_sq_en));
+
+    // Let the Regmap know that this instruction is retiring in order to update the destination register mapping
+    procyon_srff #(1) o_regmap_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_retire_en), .i_reset(1'b0), .o_q(o_regmap_retire_en));
+    procyon_ff #(OPTN_DATA_WIDTH) o_regmap_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_data[rob_head_r]), .o_q(o_regmap_retire_data));
+    procyon_ff #(OPTN_REGMAP_IDX_WIDTH) o_regmap_retire_rdest_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_rdest[rob_head_r]), .o_q(o_regmap_retire_rdest));
+    procyon_ff #(ROB_IDX_WIDTH) o_regmap_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_head_r), .o_q(o_regmap_retire_tag));
 
 endmodule

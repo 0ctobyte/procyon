@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -58,158 +58,93 @@ module procyon_lsu_sq #(
     output logic                            o_rob_retire_ack
 );
 
-    // Each SQ entry is in one of the following states:
-    // INVALID:        Slot is empty
-    // VALID:          Slot contains a valid but not retired store operation
-    // MHQ_FILL_WAIT:  Slot contains a store op that is waiting for an MHQ fill broadcast
-    // NONSPECULATIVE: Slot contains a store that is at the head of the ROB and thus is ready to be retired
-    // LAUNCHED:       Slot contains a retired store that has been launched into the LSU pipeline
-    //                 It must wait in this state until the LSU indicates if it was retired successfully or if it needs to be relaunched
-    localparam SQ_IDX_WIDTH            = $clog2(OPTN_SQ_DEPTH);
-    localparam SQ_STATE_WIDTH          = 3;
-    localparam SQ_STATE_INVALID        = 3'b000;
-    localparam SQ_STATE_VALID          = 3'b001;
-    localparam SQ_STATE_MHQ_FILL_WAIT  = 3'b010;
-    localparam SQ_STATE_NONSPECULATIVE = 3'b011;
-    localparam SQ_STATE_LAUNCHED       = 3'b100;
+    localparam SQ_IDX_WIDTH = $clog2(OPTN_SQ_DEPTH);
 
-    // Each SQ entry contains:
-    // lsu_func:        Indicates type of store op (SB, SH, SW)
-    // addr:            Store address updated in ID stage
-    // data:            Store data updated in ID stage
-    // tag:             Destination tag in ROB (used for age comparison for store-to-load forwarding)
-    // state:           Current state of the entry
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] sq_entry_lsu_func_q [0:OPTN_SQ_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0]      sq_entry_addr_q     [0:OPTN_SQ_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0]      sq_entry_data_q     [0:OPTN_SQ_DEPTH-1];
-    logic [OPTN_ROB_IDX_WIDTH-1:0]   sq_entry_tag_q      [0:OPTN_SQ_DEPTH-1];
-    logic [SQ_STATE_WIDTH-1:0]       sq_entry_state_q    [0:OPTN_SQ_DEPTH-1];
+    logic [OPTN_SQ_DEPTH-1:0] sq_entry_empty;
+    logic [OPTN_SQ_DEPTH-1:0] sq_entry_retirable;
+    logic [OPTN_SQ_DEPTH-1:0] sq_allocate_select;
+    logic [OPTN_SQ_DEPTH-1:0] sq_update_select;
+    logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] sq_retire_lsu_func [0:OPTN_SQ_DEPTH-1];
+    logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag [0:OPTN_SQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr [0:OPTN_SQ_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] sq_retire_data [0:OPTN_SQ_DEPTH-1];
+    logic [OPTN_SQ_DEPTH-1:0] sq_rob_retire_ack;
 
-    logic [SQ_STATE_WIDTH-1:0]       sq_entry_state_next [0:OPTN_SQ_DEPTH-1];
-    logic                            sq_full;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_empty;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_retirable;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_rob_tag_match;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_allocate_select;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_rob_select;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_update_select;
-    logic [OPTN_SQ_DEPTH-1:0]        sq_retire_select;
-    logic [SQ_IDX_WIDTH-1:0]         sq_retire_entry;
-    logic                            sq_retire_en;
-    logic                            sq_retire_ack;
+    genvar inst;
+    generate
+    for (inst = 0; inst < OPTN_SQ_DEPTH; inst++) begin : GEN_LSU_SQ_ENTRY_INST
+        procyon_lsu_sq_entry #(
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
+        ) procyon_lsu_sq_entry_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_flush(i_flush),
+            .o_empty(sq_entry_empty[inst]),
+            .o_retirable(sq_entry_retirable[inst]),
+            .i_alloc_en(sq_allocate_select[inst]),
+            .i_alloc_lsu_func(i_alloc_lsu_func),
+            .i_alloc_tag(i_alloc_tag),
+            .i_alloc_addr(i_alloc_addr),
+            .i_alloc_data(i_alloc_data),
+            .i_retire_en(sq_retire_select[inst]),
+            .o_retire_lsu_func(sq_retire_lsu_func[inst]),
+            .o_retire_tag(sq_retire_tag[inst]),
+            .o_retire_addr(sq_retire_addr[inst]),
+            .o_retire_data(sq_retire_data[inst]),
+            .i_update_en(sq_update_select[inst]),
+            .i_update_retry(i_update_retry),
+            .i_update_replay(i_update_replay),
+            .i_update_mhq_retry(i_update_mhq_retry),
+            .i_update_mhq_replay(i_update_mhq_replay),
+            .i_mhq_fill_en(i_mhq_fill_en),
+            .i_rob_retire_en(i_rob_retire_en),
+            .i_rob_retire_tag(i_rob_retire_tag),
+            .o_rob_retire_ack(sq_rob_retire_ack[inst])
+        );
+    end
+    endgenerate
 
-    assign sq_allocate_select = {(OPTN_SQ_DEPTH){i_alloc_en}} & (sq_empty & ~(sq_empty - 1'b1));
-    assign sq_rob_select      = {(OPTN_SQ_DEPTH){i_rob_retire_en}} & sq_rob_tag_match;
-    assign sq_retire_select   = {(OPTN_SQ_DEPTH){~i_sq_retire_stall}} & (sq_retirable & ~(sq_retirable - 1'b1));
-    assign sq_update_select   = {(OPTN_SQ_DEPTH){i_update_en}} & i_update_select;
+    // One hot vector indicating which SQ entry needs to be updated
+    assign sq_update_select = {(OPTN_SQ_DEPTH){i_update_en}} & i_update_select;
 
-    assign sq_retire_en       = sq_retire_select != {(OPTN_SQ_DEPTH){1'b0}};
-    assign sq_retire_ack      = i_rob_retire_en & sq_retire_en & (sq_entry_tag_q[sq_retire_entry] == i_rob_retire_tag);
+    // Find an empty SQ entry that can be used to allocate a new store
+    logic [OPTN_SQ_DEPTH-1:0] sq_allocate_picked;
+    procyon_priority_picker #(OPTN_SQ_DEPTH) sq_allocate_picked_priority_picker (.i_in(sq_entry_empty), .o_pick(sq_allocate_picked));
+    assign sq_allocate_select = {(OPTN_SQ_DEPTH){i_alloc_en}} & sq_allocate_picked;
 
     // Output full signal
-    // FIXME: Can this be registered?
-    assign sq_full                          = ((sq_empty & ~sq_allocate_select) == {(OPTN_SQ_DEPTH){1'b0}});
-    assign o_full                           = sq_full;
+    assign o_full = ((sq_entry_empty & ~sq_allocate_select) == 0);
 
-    always_comb begin
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            // A entry is ready to be retired if it is non-speculative
-            sq_retirable[i]     = (sq_entry_state_q[i] == SQ_STATE_NONSPECULATIVE);
+    logic n_sq_retire_stall;
+    assign n_sq_retire_stall = ~i_sq_retire_stall;
 
-            // Match the ROB retire tag with an entry to determine which entry should be marked nonspeculative (i.e. retirable)
-            // Only one valid entry should have the matching tag
-            sq_rob_tag_match[i] = (sq_entry_tag_q[i] == i_rob_retire_tag);
-
-            // A entry is considered empty if it is invalid
-            sq_empty[i]         = (sq_entry_state_q[i] == SQ_STATE_INVALID);
-        end
-    end
-
-    // Update state for each SQ entry
-    always_comb begin
-        logic [SQ_STATE_WIDTH-1:0] sq_fill_bypass_mux;
-        logic [SQ_STATE_WIDTH-1:0] sq_update_state_mux;
-        logic [2:0]                sq_update_state_sel;
-
-        // Bypass fill broadcast if an update comes through on the same cycle as the fill
-        // i_update_replay is asserted if a fill address conflicted on the LSU_D0 or LSU_D1 stages. The op just needs to be replayed ASAP
-        sq_fill_bypass_mux  = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : SQ_STATE_MHQ_FILL_WAIT;
-        sq_update_state_sel = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
-
-        case (sq_update_state_sel)
-            3'b000: sq_update_state_mux = SQ_STATE_INVALID;
-            3'b001: sq_update_state_mux = SQ_STATE_INVALID;
-            3'b010: sq_update_state_mux = SQ_STATE_INVALID;
-            3'b011: sq_update_state_mux = SQ_STATE_INVALID;
-            3'b100: sq_update_state_mux = SQ_STATE_INVALID;
-            3'b101: sq_update_state_mux = sq_fill_bypass_mux;
-            3'b110: sq_update_state_mux = SQ_STATE_NONSPECULATIVE;
-            3'b111: sq_update_state_mux = SQ_STATE_NONSPECULATIVE;
-        endcase
-
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            sq_entry_state_next[i] = sq_entry_state_q[i];
-            case (sq_entry_state_next[i])
-                SQ_STATE_INVALID:        sq_entry_state_next[i] = sq_allocate_select[i] ? SQ_STATE_VALID : sq_entry_state_next[i];
-                SQ_STATE_VALID:          sq_entry_state_next[i] = i_flush ? SQ_STATE_INVALID : (sq_rob_select[i] ? SQ_STATE_NONSPECULATIVE : sq_entry_state_next[i]);
-                SQ_STATE_MHQ_FILL_WAIT:  sq_entry_state_next[i] = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : sq_entry_state_next[i];
-                SQ_STATE_NONSPECULATIVE: sq_entry_state_next[i] = sq_retire_select[i] ? SQ_STATE_LAUNCHED : sq_entry_state_next[i];
-                SQ_STATE_LAUNCHED:       sq_entry_state_next[i] = sq_update_select[i] ? sq_update_state_mux : sq_entry_state_next[i];
-                default:                 sq_entry_state_next[i] = SQ_STATE_INVALID;
-            endcase
-        end
-    end
+    // Find a retirable store to launch into the LSU
+    logic [OPTN_SQ_DEPTH-1:0] sq_retire_picked;
+    procyon_priority_picker #(OPTN_SQ_DEPTH) sq_retire_picked_priority_picker (.i_in(sq_entry_retirable), .o_pick(sq_retire_picked));
+    assign sq_retire_select = {(OPTN_SQ_DEPTH){n_sq_retire_stall}} & sq_retire_picked;
 
     // Convert one-hot retire_select vector into binary SQ entry #
-    always_comb begin
-        sq_retire_entry = {($clog2(OPTN_SQ_DEPTH)){1'b0}};
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            if (sq_retire_select[i]) begin
-                sq_retire_entry = SQ_IDX_WIDTH'(i);
-            end
-        end
-    end
-
-    // Send ack back to ROB when launching the retired store
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_rob_retire_ack <= 1'b0;
-        else        o_rob_retire_ack <= sq_retire_ack;
-    end
+    logic [SQ_IDX_WIDTH-1:0] sq_retire_entry;
+    procyon_onehot2binary #(OPTN_SQ_DEPTH) sq_retire_entry_onehot2binary (.i_onehot(sq_retire_select), .o_binary(sq_retire_entry));
 
     // Retire stores to D$ or to the MHQ if it misses in the cache
     // The retiring store address and type and sq_retire_en signals is also sent to the LQ for possible load bypass violation detection
-    always_ff @(posedge clk) begin
-        if (~n_rst || i_flush)       o_sq_retire_en <= 1'b0;
-        else if (~i_sq_retire_stall) o_sq_retire_en <= sq_retire_en;
-    end
+    logic sq_retire_en;
+    assign sq_retire_en = ~i_flush & (sq_retire_select != 0);
+    procyon_srff #(1) o_sq_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(n_sq_retire_stall), .i_set(sq_retire_en), .i_reset(1'b0), .o_q(o_sq_retire_en));
 
-    always_ff @(posedge clk) begin
-        if (~i_sq_retire_stall) begin
-            o_sq_retire_data     <= sq_entry_data_q[sq_retire_entry];
-            o_sq_retire_addr     <= sq_entry_addr_q[sq_retire_entry];
-            o_sq_retire_tag      <= sq_entry_tag_q[sq_retire_entry];
-            o_sq_retire_lsu_func <= sq_entry_lsu_func_q[sq_retire_entry];
-            o_sq_retire_select   <= sq_retire_select;
-        end
-    end
+    procyon_ff #(OPTN_SQ_DEPTH) o_sq_retire_select_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_select), .o_q(o_sq_retire_select));
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_sq_retire_lsu_func_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_lsu_func[sq_retire_entry]), .o_q(o_sq_retire_lsu_func));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_sq_retire_tag_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_tag[sq_retire_entry]), .o_q(o_sq_retire_tag));
+    procyon_ff #(OPTN_DATA_WIDTH) o_sq_retire_data_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_data[sq_retire_entry]), .o_q(o_sq_retire_data));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_sq_retire_addr_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_addr[sq_retire_entry]), .o_q(o_sq_retire_addr));
 
-    // Update entry for newly allocated store op
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            if (~n_rst) sq_entry_state_q[i] <= SQ_STATE_INVALID;
-            else        sq_entry_state_q[i] <= sq_entry_state_next[i];
-        end
-    end
-
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < OPTN_SQ_DEPTH; i++) begin
-            if (sq_allocate_select[i] & (sq_entry_state_q[i] == SQ_STATE_INVALID)) begin
-                sq_entry_data_q[i]       <= i_alloc_data;
-                sq_entry_addr_q[i]       <= i_alloc_addr;
-                sq_entry_lsu_func_q[i]   <= i_alloc_lsu_func;
-                sq_entry_tag_q[i]        <= i_alloc_tag;
-            end
-        end
-    end
+    // Send ack back to ROB when launching the retired store
+    logic rob_retire_ack;
+    assign rob_retire_ack = (sq_rob_retire_ack != 0);
+    procyon_srff #(1) o_rob_retire_ack_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_retire_ack), .i_reset(1'b0), .o_q(o_rob_retire_ack));
 
 endmodule

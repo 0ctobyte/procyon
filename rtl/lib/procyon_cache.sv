@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -16,7 +16,7 @@ module procyon_cache #(
     parameter CACHE_INDEX_WIDTH    = $clog2(CACHE_INDEX_COUNT),
     parameter CACHE_TAG_WIDTH      = OPTN_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
     parameter CACHE_LINE_WIDTH     = OPTN_CACHE_LINE_SIZE * 8
-) (
+)(
     input  logic                                clk,
     input  logic                                n_rst,
 
@@ -45,42 +45,32 @@ module procyon_cache #(
     output logic [CACHE_LINE_WIDTH-1:0]  o_cache_rd_data
 );
 
+    logic cache_state_valid_r [0:CACHE_INDEX_COUNT-1];
+    logic cache_state_dirty_r [0:CACHE_INDEX_COUNT-1];
 
-    logic cache_state_valid_q [0:CACHE_INDEX_COUNT-1];
-    logic cache_state_dirty_q [0:CACHE_INDEX_COUNT-1];
+    // Bypass dirty and valid signals on same cycle writes to the same index
+    logic cache_rd_valid;
+    logic cache_rd_dirty;
 
-    // Assign outputs
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_cache_rd_valid <= 1'b0;
-        else        o_cache_rd_valid <= (i_cache_rd_index == i_cache_wr_index) & i_cache_wr_en ? i_cache_wr_valid : cache_state_valid_q[i_cache_rd_index];
+    assign cache_rd_valid = (i_cache_rd_index == i_cache_wr_index) && i_cache_wr_en ? i_cache_wr_valid : cache_state_valid_r[i_cache_rd_index];
+    procyon_srff #(1) o_cache_rd_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cache_rd_valid), .i_reset(1'b0), .o_q(o_cache_rd_valid));
+
+    assign cache_rd_dirty = (i_cache_rd_index == i_cache_wr_index) && i_cache_wr_en ? i_cache_wr_dirty : cache_state_dirty_r[i_cache_rd_index];
+    procyon_srff #(1) o_cache_rd_dirty_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cache_rd_dirty), .i_reset(1'b0), .o_q(o_cache_rd_dirty));
+
+    genvar cache_state_idx;
+    generate
+    for (cache_state_idx = 0; cache_state_idx < CACHE_INDEX_COUNT; cache_state_idx++) begin : GEN_DIRTY_VALID_CACHE_STATE_FF
+        logic cache_state_wr_en;
+        assign cache_state_wr_en = i_cache_wr_en && (i_cache_wr_index == cache_state_idx);
+
+        // Update the valid bit on a fill
+        procyon_srff #(1) cache_state_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(cache_state_wr_en), .i_set(i_cache_wr_valid), .i_reset(1'b0), .o_q(cache_state_valid_r[cache_state_idx]));
+
+        // Update the dirty bit on a write and on a fill
+        procyon_srff #(1) cache_state_dirty_r_srff (.clk(clk), .n_rst(n_rst), .i_en(cache_state_wr_en), .i_set(i_cache_wr_dirty), .i_reset(1'b0), .o_q(cache_state_dirty_r[cache_state_idx]));
     end
-
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_cache_rd_dirty <= 1'b0;
-        else        o_cache_rd_dirty <= (i_cache_rd_index == i_cache_wr_index) & i_cache_wr_en ? i_cache_wr_dirty : cache_state_dirty_q[i_cache_rd_index];
-    end
-
-    // Update the valid bit on a fill
-    always_ff @(posedge clk) begin
-        if (~n_rst) begin
-            for (int i = 0; i < CACHE_INDEX_COUNT; i++) begin
-                cache_state_valid_q[i] <= 1'b0;
-            end
-        end else if (i_cache_wr_en) begin
-            cache_state_valid_q[i_cache_wr_index] <= i_cache_wr_valid;
-        end
-    end
-
-    // Update the dirty bit on a write and on a fill
-    always_ff @(posedge clk) begin
-        if (~n_rst) begin
-            for (int i = 0; i < CACHE_INDEX_COUNT; i++) begin
-                cache_state_dirty_q[i] <= 1'b0;
-            end
-        end else if (i_cache_wr_en) begin
-            cache_state_dirty_q[i_cache_wr_index] <= i_cache_wr_dirty;
-        end
-    end
+    endgenerate
 
     // Instantiate the DATA and TAG RAMs
     procyon_ram_sdpb #(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -13,10 +13,7 @@ module procyon_rom #(
     parameter OPTN_ROM_FILE   = "",
 
     parameter ROM_IDX_WIDTH   = $clog2(OPTN_ROM_DEPTH)
-) (
-    input  logic                       clk,
-    input  logic                       n_rst,
-
+)(
     // ROM interface
     input  logic [ROM_IDX_WIDTH-1:0]   i_rom_rd_addr,
     output logic [OPTN_DATA_WIDTH-1:0] o_rom_data_out
@@ -27,14 +24,11 @@ module procyon_rom #(
 
     // Used to check if addresses are within range
     logic cs;
-
-    assign cs         = (n_rst && (i_rom_rd_addr >= OPTN_BASE_ADDR) && (i_rom_rd_addr < (OPTN_BASE_ADDR + OPTN_ROM_DEPTH)));
+    assign cs = (i_rom_rd_addr >= OPTN_BASE_ADDR) && (i_rom_rd_addr < (OPTN_BASE_ADDR + OPTN_ROM_DEPTH));
 
     // Asynchronous read; perform read combinationally
-    assign o_rom_data_out = (cs) ? rom[i_rom_rd_addr] : 'b0;
+    assign o_rom_data_out = cs ? rom[i_rom_rd_addr] : '0;
 
-    initial begin
-        $readmemh(OPTN_ROM_FILE, rom);
-    end
+    initial $readmemh(OPTN_ROM_FILE, rom);
 
 endmodule

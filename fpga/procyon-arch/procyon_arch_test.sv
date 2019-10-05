@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -14,6 +14,7 @@ module procyon_arch_test #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_REGMAP_DEPTH       = 32,
+    parameter OPTN_INSN_FIFO_DEPTH    = 8,
     parameter OPTN_ROB_DEPTH          = 32,
     parameter OPTN_RS_IEU_DEPTH       = 16,
     parameter OPTN_RS_LSU_DEPTH       = 16,
@@ -28,7 +29,7 @@ module procyon_arch_test #(
     parameter OPTN_WB_SRAM_BASE_ADDR  = 0,
     parameter OPTN_HEX_FILE           = "",
     parameter OPTN_HEX_SIZE           = 0
-) (
+)(
     input  logic                        CLOCK_50,
     input  logic [17:17]                SW,
 
@@ -61,60 +62,60 @@ module procyon_arch_test #(
     localparam TEST_STATE_RUN   = 1'b0;
     localparam TEST_STATE_HALT  = 1'b1;
 
-    logic [TEST_STATE_WIDTH-1:0]   state;
+    logic [TEST_STATE_WIDTH-1:0] state;
 
-    logic                          clk;
-    logic                          n_rst;
+    logic clk;
+    logic n_rst;
 
     // FIXME: To test if simulations pass/fail
-    logic [OPTN_DATA_WIDTH-1:0]    sim_tp;
+    logic [OPTN_DATA_WIDTH-1:0] sim_tp;
 
     // FIXME: FPGA debugging output
-    logic                          rob_redirect;
-    logic [OPTN_ADDR_WIDTH-1:0]    rob_redirect_addr;
-    logic                          regmap_retire_en;
-    logic [REGMAP_IDX_WIDTH-1:0]   regmap_retire_rdest;
-    logic [OPTN_DATA_WIDTH-1:0]    regmap_retire_data;
+    logic rob_redirect;
+    logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr;
+    logic regmap_retire_en;
+    logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
+    logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
 
     // FIXME: Temporary instruction cache interface
-    logic [OPTN_DATA_WIDTH-1:0]    ic_insn;
-    logic                          ic_valid;
-    logic [OPTN_ADDR_WIDTH-1:0]    ic_pc;
-    logic                          ic_en;
+    logic [OPTN_DATA_WIDTH-1:0] ic_insn;
+    logic ic_valid;
+    logic [OPTN_ADDR_WIDTH-1:0] ic_pc;
+    logic ic_en;
 
     // Wishbone interface
-    logic                          wb_rst;
-    logic                          wb_ack;
+    logic wb_rst;
+    logic wb_ack;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_i;
-    logic                          wb_cyc;
-    logic                          wb_stb;
-    logic                          wb_we;
-    logic [`WB_CTI_WIDTH-1:0]      wb_cti;
-    logic [`WB_BTE_WIDTH-1:0]      wb_bte;
-    logic [WB_DATA_SIZE-1:0]       wb_sel;
+    logic wb_cyc;
+    logic wb_stb;
+    logic wb_we;
+    logic [`WB_CTI_WIDTH-1:0] wb_cti;
+    logic [`WB_BTE_WIDTH-1:0] wb_bte;
+    logic [WB_DATA_SIZE-1:0] wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
 
-    logic                          key0;
-    logic                          key_pulse;
-    logic [6:0]                    o_hex [0:7];
+    logic key0;
+    logic key_pulse;
+    logic [6:0] o_hex [0:7];
 
-    assign n_rst      = SW[17];
-    assign wb_rst     = n_rst;
+    assign n_rst = SW[17];
+    assign wb_rst = n_rst;
 
-    assign key0       = ~KEY[0];
-    assign LEDR[17]   = SW[17];
-    assign LEDR[16]   = rob_redirect;
+    assign key0 = ~KEY[0];
+    assign LEDR[17] = SW[17];
+    assign LEDR[16] = rob_redirect;
     assign LEDR[15:0] = rob_redirect_addr[15:0];
-    assign LEDG       = regmap_retire_rdest;
-    assign HEX0       = o_hex[0];
-    assign HEX1       = o_hex[1];
-    assign HEX2       = o_hex[2];
-    assign HEX3       = o_hex[3];
-    assign HEX4       = o_hex[4];
-    assign HEX5       = o_hex[5];
-    assign HEX6       = o_hex[6];
-    assign HEX7       = o_hex[7];
+    assign LEDG = regmap_retire_rdest;
+    assign HEX0 = o_hex[0];
+    assign HEX1 = o_hex[1];
+    assign HEX2 = o_hex[2];
+    assign HEX3 = o_hex[3];
+    assign HEX4 = o_hex[4];
+    assign HEX5 = o_hex[5];
+    assign HEX6 = o_hex[6];
+    assign HEX7 = o_hex[7];
 
     always_comb begin
         case (state)
@@ -134,13 +135,13 @@ module procyon_arch_test #(
         end
     end
 
-    genvar i;
+    genvar inst;
     generate
-        for (i = 0; i < 8; i++) begin : SEG7_DECODER_INSTANCES
+        for (inst = 0; inst < 8; inst++) begin : GEN_SEG7_DECODER_INSTANCES
             procyon_seg7_decoder procyon_seg7_decoder_inst (
                 .n_rst(n_rst),
-                .i_hex(regmap_retire_data[i*4+3:i*4]),
-                .o_hex(o_hex[i])
+                .i_hex(regmap_retire_data[inst*4+3:inst*4]),
+                .o_hex(o_hex[inst])
             );
         end
     endgenerate
@@ -168,6 +169,7 @@ module procyon_arch_test #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
         .OPTN_RS_IEU_DEPTH(OPTN_RS_IEU_DEPTH),
         .OPTN_RS_LSU_DEPTH(OPTN_RS_LSU_DEPTH),
@@ -179,7 +181,7 @@ module procyon_arch_test #(
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
-    ) procyon (
+    ) procyon_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_sim_tp(sim_tp),
@@ -231,4 +233,5 @@ module procyon_arch_test #(
         .o_sram_addr(SRAM_ADDR),
         .io_sram_dq(SRAM_DQ)
     );
+
 endmodule

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -17,158 +17,136 @@ module procyon_mhq_lu #(
 
     parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE),
-    parameter DATA_SIZE         = OPTN_DATA_WIDTH / 8
+    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE)
 )(
     input  logic                                     clk,
     input  logic                                     n_rst,
 
-    // MHQ head and tail pointers (adusted for next cycle value) and MHQ entries
-    input  logic [MHQ_IDX_WIDTH:0]                   i_mhq_tail_next,
-    input  logic [MHQ_IDX_WIDTH:0]                   i_mhq_head_next,
+    input  logic                                     i_mhq_full,
 
-    // Feedback from ex stage of MHQ entry array valid and address bits
-    input  logic                                     i_mhq_entry_valid        [0:OPTN_MHQ_DEPTH-1],
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_entry_addr         [0:OPTN_MHQ_DEPTH-1],
+    // Forward address and tag information from currently updating MHQ entry
+    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_update_bypass_select,
+    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_update_bypass_addr,
 
-    // Bypass lookup address from the mhq_ex stage
-    input  logic                                     i_mhq_ex_bypass_en,
-    input  logic                                     i_mhq_ex_bypass_we,
-    input  logic                                     i_mhq_ex_bypass_match,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_ex_bypass_addr,
-    input  logic [MHQ_IDX_WIDTH-1:0]                 i_mhq_ex_bypass_tag,
-
-    // Lookup lsu func
+    // Lookup interface from LSU
     input  logic                                     i_mhq_lookup_valid,
+    input  logic                                     i_mhq_lookup_we,
     input  logic                                     i_mhq_lookup_dc_hit,
     input  logic [OPTN_ADDR_WIDTH-1:0]               i_mhq_lookup_addr,
     input  logic [`PCYN_LSU_FUNC_WIDTH-1:0]          i_mhq_lookup_lsu_func,
     input  logic [OPTN_DATA_WIDTH-1:0]               i_mhq_lookup_data,
-    input  logic                                     i_mhq_lookup_we,
+    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_hit_select,
+    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_alloc_select,
+    output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_lookup_tag,
+    output logic                                     o_mhq_lookup_retry,
+    output logic                                     o_mhq_lookup_replay,
+    output logic                                     o_mhq_lookup_allocating,
 
-    // Outputs to next stage
-    output logic                                     o_mhq_lu_en,
-    output logic                                     o_mhq_lu_we,
-    output logic [DC_OFFSET_WIDTH-1:0]               o_mhq_lu_offset,
-    output logic [OPTN_DATA_WIDTH-1:0]               o_mhq_lu_wr_data,
-    output logic [DATA_SIZE-1:0]                     o_mhq_lu_byte_select,
-    output logic                                     o_mhq_lu_match,
-    output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_lu_tag,
-    output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_lu_addr,
-    output logic                                     o_mhq_lu_retry,
-    output logic                                     o_mhq_lu_replay,
+    // Outputs to next stage where an entry will get updated
+    output logic [OPTN_MHQ_DEPTH-1:0]                o_mhq_update_select,
+    output logic                                     o_mhq_update_we,
+    output logic [DC_LINE_WIDTH-1:0]                 o_mhq_update_wr_data,
+    output logic [OPTN_DC_LINE_SIZE-1:0]             o_mhq_update_byte_select,
+    output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_update_addr,
 
     // MHQ interface to check for fill conflicts
-    input  logic                                     i_mhq_fill_en,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_fill_addr,
-
-    // BIU interface to check for fill conflicts
     input  logic                                     i_biu_done,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_biu_addr
+    input  logic                                     i_mhq_fill_en,
+    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_fill_addr
 );
 
-    logic [MHQ_IDX_WIDTH-1:0]                 mhq_tail_addr;
-    logic                                     mhq_full_next;
-    logic                                     mhq_lookup_en;
-    logic                                     mhq_lookup_is_fill;
-    logic                                     mhq_lookup_retry;
-    logic                                     mhq_lookup_replay;
+    localparam DATA_SIZE = OPTN_DATA_WIDTH / 8;
+
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lookup_addr;
-    logic [DC_OFFSET_WIDTH-1:0]               mhq_lookup_offset;
-    logic [DATA_SIZE-1:0]                     mhq_lookup_byte_select;
-    logic                                     mhq_lookup_match;
-    logic [MHQ_IDX_WIDTH-1:0]                 mhq_lookup_tag;
-    logic [OPTN_MHQ_DEPTH-1:0]                mhq_lookup_tag_select;
-    logic                                     mhq_ex_bypass_en;
-    logic                                     bypass_en;
+    assign mhq_lookup_addr = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
 
-    // Calculate if the MHQ will be full on the next cycle
-    assign mhq_tail_addr      = i_mhq_tail_next[MHQ_IDX_WIDTH-1:0];
-    assign mhq_full_next      = ({~i_mhq_tail_next[MHQ_IDX_WIDTH], i_mhq_tail_next[MHQ_IDX_WIDTH-1:0]} == i_mhq_head_next);
+    logic mhq_lookup_entry_hit;
+    logic mhq_update_bypass_hit;
 
-    // Determine if MHQ request in EX stage is going to enqueue and bypass if the lookup address matches the address in the next stage
-    assign mhq_ex_bypass_en   = i_mhq_ex_bypass_en | (i_mhq_ex_bypass_we & i_mhq_ex_bypass_match);
-    assign bypass_en          = (mhq_ex_bypass_en & (i_mhq_ex_bypass_addr == mhq_lookup_addr));
+    assign mhq_lookup_entry_hit = (i_mhq_lookup_entry_hit_select != 0);
+    assign mhq_update_bypass_hit = (i_mhq_update_bypass_select != 0) & (i_mhq_update_bypass_addr == mhq_lookup_addr);
 
-    // mhq_lookup_retry is asserted if the MHQ is full and there was no match
-    // mhq_lookup_replay is asserted if the BIU signals a fill on the same cycle with the same address as the lookup OR if the MHQ signals a fill on the same cycle
-    // with the same address as the lookup (fill data is propagated through two cycles, the first coming from the BIU and the second to the LSU)
-    // The same cycle fill case causes a fill conflict where the lookup will return an MHQ tag and enqueue on that entry when it will be invalidated by the current fill
-    assign mhq_lookup_is_fill = (i_mhq_lookup_lsu_func == `PCYN_LSU_FUNC_FILL);
-    assign mhq_lookup_addr    = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
-    assign mhq_lookup_offset  = i_mhq_lookup_addr[DC_OFFSET_WIDTH-1:0];
-    assign mhq_lookup_retry   = (mhq_full_next & ~mhq_lookup_match);
-    assign mhq_lookup_replay  = (i_biu_done & (i_biu_addr == mhq_lookup_addr)) | (i_mhq_fill_en & (i_mhq_fill_addr == mhq_lookup_addr));
-    assign mhq_lookup_en      = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & ~mhq_lookup_is_fill & ~mhq_lookup_retry & ~mhq_lookup_replay;
+    // Find an MHQ entry (i.e. mhq_lookup_tag) with a matching address to the i_mhq_lookup_tag from the LSU
+    // Check the bypassed address as well for the currently updating entry. If none can be found, then use the tail
+    // entry of the MHQ to allocate a new entry
+    logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_select_mux;
 
     always_comb begin
-        logic [OPTN_MHQ_DEPTH-1:0] match_tag_select        = {(OPTN_MHQ_DEPTH){1'b0}};
-        logic [OPTN_MHQ_DEPTH-1:0] tail_tag_select         = {(OPTN_MHQ_DEPTH){1'b0}};
-        logic [OPTN_MHQ_DEPTH-1:0] bypass_tag_select       = {(OPTN_MHQ_DEPTH){1'b0}};
-        logic                      lookup_match            = 1'b0;
+        logic [1:0] mhq_lookup_select_mux_sel;
+        mhq_lookup_select_mux_sel = {mhq_update_bypass_hit, mhq_lookup_entry_hit};
 
-        // Convert bypass tag into tag select
-        for (int i = 0; i < OPTN_MHQ_DEPTH; i++) begin
-            bypass_tag_select[i] = (MHQ_IDX_WIDTH'(i) == i_mhq_ex_bypass_tag);
-        end
-
-        // Convert tag pointer into tag select
-        for (int i = 0; i < OPTN_MHQ_DEPTH; i++) begin
-            tail_tag_select[i] = (MHQ_IDX_WIDTH'(i) == mhq_tail_addr);
-        end
-
-        // Check each valid entry for a matching lookup address
-        for (int i = 0; i < OPTN_MHQ_DEPTH; i++) begin
-            match_tag_select[i] = i_mhq_entry_valid[i] & (i_mhq_entry_addr[i] == mhq_lookup_addr);
-        end
-
-        // If match_tag_select is non-zero than we have found a match
-        lookup_match            = (match_tag_select != {(OPTN_MHQ_DEPTH){1'b0}});
-
-        // Bypass lookup address from mhq_ex stage if possible
-        // If there was no match then the tag is at the tail pointer (i.e. new entry)
-        mhq_lookup_tag_select   = bypass_en ? bypass_tag_select : (lookup_match ? match_tag_select : tail_tag_select);
-
-        // If either lookup_match or bypass_en is true then we have found a match (either in the MHQ or from the bypass)
-        mhq_lookup_match        = i_mhq_lookup_valid & (lookup_match | bypass_en);
-    end
-
-    // Convert one-hot mhq_lookup_tag_select vector into binary tag #
-    always_comb begin
-        mhq_lookup_tag = {(MHQ_IDX_WIDTH){1'b0}};
-        for (int i = 0; i < OPTN_MHQ_DEPTH; i++) begin
-            if (mhq_lookup_tag_select[i]) begin
-                mhq_lookup_tag = MHQ_IDX_WIDTH'(i);
-            end
-        end
-    end
-
-    // Generate byte select signals based on store type
-    always_comb begin
-        case (i_mhq_lookup_lsu_func)
-            `PCYN_LSU_FUNC_SB: mhq_lookup_byte_select = DATA_SIZE'(1);
-            `PCYN_LSU_FUNC_SH: mhq_lookup_byte_select = DATA_SIZE'(3);
-            `PCYN_LSU_FUNC_SW: mhq_lookup_byte_select = DATA_SIZE'(15);
-            default:           mhq_lookup_byte_select = DATA_SIZE'(0);
+        case (mhq_lookup_select_mux_sel)
+            2'b00: mhq_lookup_select_mux = i_mhq_lookup_entry_alloc_select;
+            2'b01: mhq_lookup_select_mux = i_mhq_lookup_entry_hit_select;
+            2'b10: mhq_lookup_select_mux = i_mhq_update_bypass_select;
+            2'b11: mhq_lookup_select_mux = i_mhq_update_bypass_select;
         endcase
     end
 
-    // Register outputs to next stage
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_mhq_lu_en <= 1'b0;
-        else        o_mhq_lu_en <= mhq_lookup_en;
+    // Convert one-hot mhq_lookup_select vector into binary MHQ entry #
+    logic [MHQ_IDX_WIDTH-1:0] mhq_lookup_entry;
+    procyon_onehot2binary #(OPTN_MHQ_DEPTH) mhq_lookup_entry_onehot2binary (.i_onehot(mhq_lookup_select_mux), .o_binary(mhq_lookup_entry));
+    procyon_ff #(MHQ_IDX_WIDTH) o_mhq_lookup_tag_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_entry), .o_q(o_mhq_lookup_tag));
+
+    // Did we get a hit on an address in any of the MHQ entries (including bypass from current entry update)?
+    logic mhq_lookup_hit;
+    logic n_mhq_lookup_hit;
+
+    assign mhq_lookup_hit = i_mhq_lookup_valid & (mhq_lookup_entry_hit | mhq_update_bypass_hit);
+    assign n_mhq_lookup_hit = ~mhq_lookup_hit;
+
+    // mhq_lookup_retry is asserted if the MHQ is full and there was no lookup hit
+    logic mhq_lookup_retry;
+    assign mhq_lookup_retry = i_mhq_full & n_mhq_lookup_hit;
+    procyon_ff #(1) o_mhq_lookup_retry_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_retry), .o_q(o_mhq_lookup_retry));
+
+    // mhq_lookup_replay is asserted if the BIU signals it is done on the same cycle with the same address as the
+    // lookup OR if the MHQ signals that it is about to launch a fill to the LSU on the same cycle with the same
+    // address as the lookup (fill data is propagated through two cycles, the first coming from the BIU and the second
+    // from the MHQ head entry and then to the LSU on the 3rd cycle). The same cycle fill case causes a fill
+    // conflict where the lookup will return an MHQ tag and enqueue on that entry when it should be invalidated by the
+    // current fill
+    logic mhq_lookup_replay;
+    assign mhq_lookup_replay = (i_biu_done | i_mhq_fill_en) & (i_mhq_fill_addr == mhq_lookup_addr);
+    procyon_ff #(1) o_mhq_lookup_replay_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_replay), .o_q(o_mhq_lookup_replay));
+
+    // Determine if an entry needs to be updated/allocated
+    logic mhq_update_en;
+    assign mhq_update_en = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & (i_mhq_lookup_lsu_func != `PCYN_LSU_FUNC_FILL) & ~mhq_lookup_retry & ~mhq_lookup_replay;
+    assign o_mhq_lookup_allocating = mhq_update_en & n_mhq_lookup_hit;
+
+    // Update enable bits for each entry. Only 1 bit should be set or 0 if no update is to take place
+    logic [OPTN_MHQ_DEPTH-1:0] mhq_update_select;
+    assign mhq_update_select = mhq_update_en ? mhq_lookup_select_mux : '0;
+    procyon_srff #(OPTN_MHQ_DEPTH) o_mhq_update_select_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(mhq_update_select), .i_reset('0), .o_q(o_mhq_update_select));
+
+    procyon_ff #(1) o_mhq_update_we_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_lookup_we), .o_q(o_mhq_update_we));
+
+    // Get the offset in bytes into the cacheline where the store will write data too
+    logic [DC_OFFSET_WIDTH-1:0] mhq_lookup_offset;
+    assign mhq_lookup_offset = i_mhq_lookup_addr[DC_OFFSET_WIDTH-1:0];
+
+    // Generate byte select signals based on store type
+    logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
+
+    always_comb begin
+        case (i_mhq_lookup_lsu_func)
+            `PCYN_LSU_FUNC_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
+            `PCYN_LSU_FUNC_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
+            `PCYN_LSU_FUNC_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
+            default:           mhq_update_byte_select = '0;
+        endcase
+
+        mhq_update_byte_select = mhq_update_byte_select << mhq_lookup_offset;
     end
 
-    always_ff @(posedge clk) begin
-        o_mhq_lu_we           <= i_mhq_lookup_we;
-        o_mhq_lu_offset       <= mhq_lookup_offset;
-        o_mhq_lu_wr_data      <= i_mhq_lookup_data;
-        o_mhq_lu_byte_select  <= mhq_lookup_byte_select;
-        o_mhq_lu_match        <= mhq_lookup_match;
-        o_mhq_lu_tag          <= mhq_lookup_tag;
-        o_mhq_lu_addr         <= mhq_lookup_addr;
-        o_mhq_lu_retry        <= mhq_lookup_retry;
-        o_mhq_lu_replay       <= mhq_lookup_replay;
-    end
+    procyon_ff #(OPTN_DC_LINE_SIZE) o_mhq_update_byte_select_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_byte_select), .o_q(o_mhq_update_byte_select));
+
+    // Align store data to it's position in a full cacheline
+    logic [DC_LINE_WIDTH-1:0] mhq_update_wr_data;
+    assign mhq_update_wr_data = DC_LINE_WIDTH'(i_mhq_lookup_data) << mhq_lookup_offset;
+    procyon_ff #(DC_LINE_WIDTH) o_mhq_update_wr_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_wr_data), .o_q(o_mhq_update_wr_data));
+
+    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) o_mhq_update_addr_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_addr), .o_q(o_mhq_update_addr));
 
 endmodule

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -79,114 +79,64 @@ module procyon_biu_wb #(
     localparam BIU_STATE_DONE       = 3'b101;
     localparam BIU_STATE_ERR        = 3'b111;
 
-    logic [BIU_STATE_WIDTH-1:0]    biu_state_r;
-    logic [BIU_STATE_WIDTH-1:0]    biu_state_next;
-
-    logic [BIU_COUNTER_WIDTH-1:0]  req_cnt_r;
-    logic [BIU_COUNTER_WIDTH-1:0]  req_cnt_next;
-    logic [BIU_COUNTER_WIDTH-1:0]  initial_count;
-    logic [BIU_IDX_WIDTH-1:0]      req_idx_r;
-    logic [BIU_IDX_WIDTH-1:0]      req_idx_next;
-    logic [OPTN_WB_DATA_WIDTH-1:0] rmw_data;
-    logic                          wb_cyc_r;
-    logic                          wb_stb_r;
-    logic                          wb_we_r;
-    logic [`WB_CTI_WIDTH-1:0]      wb_cti_r;
-    logic [`WB_BTE_WIDTH-1:0]      wb_bte_r;
-    logic [WB_DATA_SIZE-1:0]       wb_sel_r;
-    logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr_r;
-    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_r;
-    logic                          biu_done_r;
-    logic [BIU_DATA_WIDTH-1:0]     biu_data_r;
-
-    // Output to wishbone bus
-    assign o_wb_cyc   = wb_cyc_r;
-    assign o_wb_stb   = wb_stb_r;
-    assign o_wb_we    = wb_we_r;
-    assign o_wb_cti   = wb_cti_r;
-    assign o_wb_bte   = wb_bte_r;
-    assign o_wb_sel   = wb_sel_r;
-    assign o_wb_addr  = wb_addr_r;
-    assign o_wb_data  = wb_data_r;
-
-    // Output to BIU interface
-    assign o_biu_done = biu_done_r;
-    assign o_biu_data = biu_data_r;
+    logic n_wb_rst;
+    assign n_wb_rst = ~i_wb_rst;
 
     // Calculate initial counts when in IDLE state
+    logic [BIU_COUNTER_WIDTH-1:0] initial_count;
     always_comb begin
         case (i_biu_len)
-            `PCYN_BIU_LEN_1B:   initial_count = BIU_COUNTER_WIDTH'(1   / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_2B:   initial_count = BIU_COUNTER_WIDTH'(2   / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_4B:   initial_count = BIU_COUNTER_WIDTH'(4   / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_8B:   initial_count = BIU_COUNTER_WIDTH'(8   / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_16B:  initial_count = BIU_COUNTER_WIDTH'(16  / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_32B:  initial_count = BIU_COUNTER_WIDTH'(32  / WB_DATA_SIZE);
-            `PCYN_BIU_LEN_64B:  initial_count = BIU_COUNTER_WIDTH'(64  / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_1B:   initial_count = BIU_COUNTER_WIDTH'(1 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_2B:   initial_count = BIU_COUNTER_WIDTH'(2 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_4B:   initial_count = BIU_COUNTER_WIDTH'(4 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_8B:   initial_count = BIU_COUNTER_WIDTH'(8 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_16B:  initial_count = BIU_COUNTER_WIDTH'(16 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_32B:  initial_count = BIU_COUNTER_WIDTH'(32 / WB_DATA_SIZE);
+            `PCYN_BIU_LEN_64B:  initial_count = BIU_COUNTER_WIDTH'(64 / WB_DATA_SIZE);
             `PCYN_BIU_LEN_128B: initial_count = BIU_COUNTER_WIDTH'(128 / WB_DATA_SIZE);
-            default:            initial_count = {(BIU_COUNTER_WIDTH){1'b0}};
+            default:            initial_count = '0;
         endcase
 
         // Adjust intial_count if it is 0 (i.e. the transfer size is smaller then the WB port size)
         if (initial_count == 0) initial_count = BIU_COUNTER_WIDTH'(1);
     end
 
-    // Next state logic
-    always_comb begin
-        case (biu_state_r)
-            BIU_STATE_IDLE:       biu_state_next = i_biu_en ? (i_biu_func == `PCYN_BIU_FUNC_RMW ? BIU_STATE_RMW_READ : BIU_STATE_SEND_REQ) : BIU_STATE_IDLE;
-            BIU_STATE_SEND_REQ:   biu_state_next = req_cnt_next == 0 ? BIU_STATE_DONE : BIU_STATE_SEND_REQ;
-            BIU_STATE_RMW_READ:   biu_state_next = i_wb_ack ? BIU_STATE_RMW_MODIFY : BIU_STATE_RMW_READ;
-            BIU_STATE_RMW_MODIFY: biu_state_next = BIU_STATE_RMW_WRITE;
-            BIU_STATE_RMW_WRITE:  biu_state_next = i_wb_ack ? (req_cnt_next == 0 ? BIU_STATE_DONE : BIU_STATE_RMW_READ) : BIU_STATE_RMW_WRITE;
-            BIU_STATE_DONE:       biu_state_next = BIU_STATE_IDLE;
-            default:              biu_state_next = biu_state_r;
-        endcase
-    end
-
-    always_ff @(posedge i_wb_clk) begin
-        if (i_wb_rst) biu_state_r <= BIU_STATE_IDLE;
-        else          biu_state_r <= biu_state_next;
-    end
-
-    // BIU counter and index FSM
-    always_comb begin
-        case (biu_state_r)
-            BIU_STATE_IDLE: begin
-                req_cnt_next = initial_count;
-                req_idx_next = {(BIU_IDX_WIDTH){1'b0}};
-            end
-            BIU_STATE_SEND_REQ: begin
-                req_cnt_next = i_wb_ack ? req_cnt_r - 1'b1 : req_cnt_r;
-                req_idx_next = i_wb_ack ? req_idx_r + 1'b1 : req_idx_r;
-            end
-            BIU_STATE_RMW_WRITE: begin
-                req_cnt_next = i_wb_ack ? req_cnt_r - 1'b1 : req_cnt_r;
-                req_idx_next = i_wb_ack ? req_idx_r + 1'b1 : req_idx_r;
-            end
-            BIU_STATE_DONE: begin
-                req_cnt_next = req_cnt_r;
-                req_idx_next = {(BIU_IDX_WIDTH){1'b0}};
-            end
-            default: begin
-                req_cnt_next = req_cnt_r;
-                req_idx_next = req_idx_r;
-            end
-        endcase
-    end
-
-    always_ff @(posedge i_wb_clk) begin
-        req_cnt_r <= req_cnt_next;
-        req_idx_r <= req_idx_next;
-    end
+    logic [BIU_STATE_WIDTH-1:0] biu_state_r;
+    logic [BIU_STATE_WIDTH-1:0] biu_state_next;
+    logic [BIU_COUNTER_WIDTH-1:0] req_cnt_r;
+    logic [BIU_COUNTER_WIDTH-1:0] req_cnt_next;
+    logic [BIU_IDX_WIDTH-1:0] req_idx_r;
+    logic [BIU_IDX_WIDTH-1:0] req_idx_next;
+    logic biu_done_r;
+    logic biu_done_next;
+    logic [BIU_DATA_WIDTH-1:0] biu_data_r;
+    logic [BIU_DATA_WIDTH-1:0] biu_data_next;
+    logic wb_cyc_r;
+    logic wb_cyc_next;
+    logic wb_stb_r;
+    logic wb_stb_next;
+    logic wb_we_r;
+    logic wb_we_next;
+    logic [`WB_CTI_WIDTH-1:0] wb_cti_r;
+    logic [`WB_CTI_WIDTH-1:0] wb_cti_next;
+    logic [`WB_BTE_WIDTH-1:0] wb_bte_r;
+    logic [`WB_BTE_WIDTH-1:0] wb_bte_next;
+    logic [WB_DATA_SIZE-1:0] wb_sel_r;
+    logic [WB_DATA_SIZE-1:0] wb_sel_next;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr_r;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr_next;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_r;
+    logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_next;
 
     // RMW data mux
+    logic [OPTN_WB_DATA_WIDTH-1:0] rmw_data;
+
     always_comb begin
-        logic [WB_DATA_SIZE-1:0]       rmw_sel;
+        logic [WB_DATA_SIZE-1:0] rmw_sel;
         logic [OPTN_WB_DATA_WIDTH-1:0] biu_data_rd;
         logic [OPTN_WB_DATA_WIDTH-1:0] biu_data_wr;
 
-        rmw_sel     = i_biu_sel[req_idx_r*WB_DATA_SIZE +: WB_DATA_SIZE];
+        rmw_sel = i_biu_sel[req_idx_r*WB_DATA_SIZE +: WB_DATA_SIZE];
         biu_data_wr = i_biu_data[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
         biu_data_rd = biu_data_r[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
 
@@ -195,114 +145,152 @@ module procyon_biu_wb #(
         end
     end
 
-    // BIU wishbone FSM
-    always_ff @(posedge i_wb_clk) begin
+    // BIU FSM
+    always_comb begin
+        biu_data_next = biu_data_r;
+
         case (biu_state_r)
             BIU_STATE_IDLE: begin
-                wb_cyc_r  <= i_biu_en;
-                wb_stb_r  <= i_biu_en;
-                wb_we_r   <= i_biu_func == `PCYN_BIU_FUNC_WRITE;
-                wb_cti_r  <= (i_biu_func == `PCYN_BIU_FUNC_RMW) ? `WB_CTI_CLASSIC : (req_cnt_next == BIU_COUNTER_WIDTH'(1) ? `WB_CTI_END_OF_BURST : `WB_CTI_INCREMENTING);
-                wb_bte_r  <= `WB_BTE_LINEAR;
-                wb_sel_r  <= (i_biu_func == `PCYN_BIU_FUNC_RMW) ? {(WB_DATA_SIZE){1'b1}} : i_biu_sel[req_idx_next*WB_DATA_SIZE +: WB_DATA_SIZE];
-                wb_addr_r <= i_biu_addr[OPTN_WB_ADDR_WIDTH-1:0];
-                wb_data_r <= i_biu_data[req_idx_next*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
+                req_cnt_next = initial_count;
+                req_idx_next = '0;
+                biu_data_next = '0;
+                biu_done_next = '0;
+                wb_cyc_next = i_biu_en;
+                wb_stb_next = i_biu_en;
+                wb_we_next = i_biu_func == `PCYN_BIU_FUNC_WRITE;
+                wb_cti_next = (i_biu_func == `PCYN_BIU_FUNC_RMW) ? `WB_CTI_CLASSIC : (req_cnt_next == BIU_COUNTER_WIDTH'(1) ? `WB_CTI_END_OF_BURST : `WB_CTI_INCREMENTING);
+                wb_bte_next = `WB_BTE_LINEAR;
+                wb_sel_next = (i_biu_func == `PCYN_BIU_FUNC_RMW) ? (WB_DATA_SIZE)'(1) : i_biu_sel[req_idx_next*WB_DATA_SIZE +: WB_DATA_SIZE];
+                wb_addr_next = i_biu_addr[OPTN_WB_ADDR_WIDTH-1:0];
+                wb_data_next = i_biu_data[req_idx_next*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
+
+                biu_state_next = i_biu_en ? (i_biu_func == `PCYN_BIU_FUNC_RMW ? BIU_STATE_RMW_READ : BIU_STATE_SEND_REQ) : BIU_STATE_IDLE;
             end
             BIU_STATE_SEND_REQ: begin
-                wb_cyc_r  <= req_cnt_next != 0;
-                wb_stb_r  <= req_cnt_next != 0;
-                wb_we_r   <= i_biu_func == `PCYN_BIU_FUNC_WRITE;
-                wb_cti_r  <= req_cnt_next == BIU_COUNTER_WIDTH'(1) ? `WB_CTI_END_OF_BURST : wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= i_biu_sel[req_idx_next*WB_DATA_SIZE +: WB_DATA_SIZE];
-                wb_addr_r <= i_wb_ack ? wb_addr_r + OPTN_WB_ADDR_WIDTH'(WB_DATA_SIZE) : wb_addr_r;
-                wb_data_r <= i_biu_data[req_idx_next*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
+                req_cnt_next = i_wb_ack ? req_cnt_r - 1'b1 : req_cnt_r;
+                req_idx_next = i_wb_ack ? req_idx_r + 1'b1 : req_idx_r;
+                biu_data_next[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH] = i_wb_data;
+                biu_done_next = (req_cnt_next == 0);
+                wb_cyc_next = (req_cnt_next != 0);
+                wb_stb_next = (req_cnt_next != 0);
+                wb_we_next = (i_biu_func == `PCYN_BIU_FUNC_WRITE);
+                wb_cti_next = (req_cnt_next == BIU_COUNTER_WIDTH'(1)) ? `WB_CTI_END_OF_BURST : wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = i_biu_sel[req_idx_next*WB_DATA_SIZE +: WB_DATA_SIZE];
+                wb_addr_next = i_wb_ack ? wb_addr_r + OPTN_WB_ADDR_WIDTH'(WB_DATA_SIZE) : wb_addr_r;
+                wb_data_next = i_biu_data[req_idx_next*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH];
+
+                biu_state_next = (req_cnt_next == 0) ? BIU_STATE_DONE : BIU_STATE_SEND_REQ;
             end
             BIU_STATE_RMW_READ: begin
-                wb_cyc_r  <= 1'b1;
-                wb_stb_r  <= ~i_wb_ack;
-                wb_we_r   <= 1'b0;
-                wb_cti_r  <= wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= wb_sel_r;
-                wb_addr_r <= wb_addr_r;
-                wb_data_r <= wb_data_r;
+                req_cnt_next = req_cnt_r;
+                req_idx_next = req_idx_r;
+                biu_data_next[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH] = i_wb_data;
+                biu_done_next = 1'b0;
+                wb_cyc_next = 1'b1;
+                wb_stb_next = ~i_wb_ack;
+                wb_we_next = 1'b0;
+                wb_cti_next = wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = wb_sel_r;
+                wb_addr_next = wb_addr_r;
+                wb_data_next = wb_data_r;
+
+                biu_state_next = i_wb_ack ? BIU_STATE_RMW_MODIFY : BIU_STATE_RMW_READ;
             end
             BIU_STATE_RMW_MODIFY: begin
-                wb_cyc_r  <= 1'b1;
-                wb_stb_r  <= 1'b1;
-                wb_we_r   <= 1'b1;
-                wb_cti_r  <= wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= wb_sel_r;
-                wb_addr_r <= wb_addr_r;
-                wb_data_r <= rmw_data;
+                req_cnt_next = req_cnt_r;
+                req_idx_next = req_idx_r;
+                biu_data_next = biu_data_r;
+                biu_done_next = 1'b0;
+                wb_cyc_next = 1'b1;
+                wb_stb_next = 1'b1;
+                wb_we_next = 1'b1;
+                wb_cti_next = wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = wb_sel_r;
+                wb_addr_next = wb_addr_r;
+                wb_data_next = rmw_data;
+
+                biu_state_next = BIU_STATE_RMW_WRITE;
             end
             BIU_STATE_RMW_WRITE: begin
-                wb_cyc_r  <= req_cnt_next != 0;
-                wb_stb_r  <= req_cnt_next != 0;
-                wb_we_r   <= ~i_wb_ack;
-                wb_cti_r  <= wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= wb_sel_r;
-                wb_addr_r <= i_wb_ack ? wb_addr_r + OPTN_WB_ADDR_WIDTH'(WB_DATA_SIZE) : wb_addr_r;
-                wb_data_r <= wb_data_r;
+                req_cnt_next = i_wb_ack ? req_cnt_r - 1'b1 : req_cnt_r;
+                req_idx_next = i_wb_ack ? req_idx_r + 1'b1 : req_idx_r;
+                biu_data_next = biu_data_r;
+                biu_done_next = (req_cnt_next == 0);
+                wb_cyc_next = (req_cnt_next != 0);
+                wb_stb_next = (req_cnt_next != 0);
+                wb_we_next = ~i_wb_ack;
+                wb_cti_next = wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = wb_sel_r;
+                wb_addr_next = i_wb_ack ? wb_addr_r + OPTN_WB_ADDR_WIDTH'(WB_DATA_SIZE) : wb_addr_r;
+                wb_data_next = wb_data_r;
+
+                biu_state_next = i_wb_ack ? (req_cnt_next == 0 ? BIU_STATE_DONE : BIU_STATE_RMW_READ) : BIU_STATE_RMW_WRITE;
             end
             BIU_STATE_DONE: begin
-                wb_cyc_r  <= 1'b0;
-                wb_stb_r  <= 1'b0;
-                wb_we_r   <= 1'b0;
-                wb_cti_r  <= wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= wb_sel_r;
-                wb_addr_r <= wb_addr_r;
-                wb_data_r <= wb_data_r;
+                req_cnt_next = req_cnt_r;
+                req_idx_next = '0;
+                biu_data_next = biu_data_r;
+                biu_done_next = 1'b0;
+                wb_cyc_next = 1'b0;
+                wb_stb_next = 1'b0;
+                wb_we_next = 1'b0;
+                wb_cti_next = wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = wb_sel_r;
+                wb_addr_next = wb_addr_r;
+                wb_data_next = wb_data_r;
+
+                biu_state_next = BIU_STATE_IDLE;
             end
             default: begin
-                wb_cyc_r  <= 1'b0;
-                wb_stb_r  <= 1'b0;
-                wb_we_r   <= 1'b0;
-                wb_cti_r  <= wb_cti_r;
-                wb_bte_r  <= wb_bte_r;
-                wb_sel_r  <= wb_sel_r;
-                wb_addr_r <= wb_addr_r;
-                wb_data_r <= wb_data_r;
+                req_cnt_next = req_cnt_r;
+                req_idx_next = '0;
+                biu_data_next = biu_data_r;
+                biu_done_next = 1'b0;
+                wb_cyc_next = 1'b0;
+                wb_stb_next = 1'b0;
+                wb_we_next = 1'b0;
+                wb_cti_next = wb_cti_r;
+                wb_bte_next = wb_bte_r;
+                wb_sel_next = wb_sel_r;
+                wb_addr_next = wb_addr_r;
+                wb_data_next = wb_data_r;
+
+                biu_state_next = biu_state_r;
             end
         endcase
     end
 
-    // BIU interface FSM
-    always_ff @(posedge i_wb_clk) begin
-        case (biu_state_r)
-            BIU_STATE_IDLE: begin
-                biu_done_r <= 1'b0;
-                biu_data_r <= {(BIU_DATA_WIDTH){1'b0}};
-            end
-            BIU_STATE_SEND_REQ: begin
-                biu_done_r <= req_cnt_next == 0;
-                biu_data_r[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH] <= i_wb_data;
-            end
-            BIU_STATE_RMW_READ: begin
-                biu_done_r <= 1'b0;
-                biu_data_r[req_idx_r*OPTN_WB_DATA_WIDTH +: OPTN_WB_DATA_WIDTH] <= i_wb_data;
-            end
-            BIU_STATE_RMW_MODIFY: begin
-                biu_done_r <= 1'b0;
-                biu_data_r <= biu_data_r;
-            end
-            BIU_STATE_RMW_WRITE: begin
-                biu_done_r <= req_cnt_next == 0;
-                biu_data_r <= biu_data_r;
-            end
-            BIU_STATE_DONE: begin
-                biu_done_r <= 1'b0;
-                biu_data_r <= biu_data_r;
-            end
-            default: begin
-                biu_done_r <= 1'b0;
-                biu_data_r <= biu_data_r;
-            end
-        endcase
-    end
+    procyon_ff #(BIU_COUNTER_WIDTH) req_cnt_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(req_cnt_next), .o_q(req_cnt_r));
+    procyon_ff #(BIU_IDX_WIDTH) req_idx_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(req_idx_next), .o_q(req_idx_r));
+    procyon_srff #(BIU_STATE_WIDTH) biu_state_r_srff (.clk(i_wb_clk), .n_rst(n_wb_rst), .i_en(1'b1), .i_set(biu_state_next), .i_reset(BIU_STATE_IDLE), .o_q(biu_state_r));
+    procyon_ff #(1) biu_done_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(biu_done_next), .o_q(biu_done_r));
+    procyon_ff #(BIU_DATA_WIDTH) biu_data_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(biu_data_next), .o_q(biu_data_r));
+    procyon_ff #(1) wb_cyc_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_cyc_next), .o_q(wb_cyc_r));
+    procyon_ff #(1) wb_stb_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_stb_next), .o_q(wb_stb_r));
+    procyon_ff #(1) wb_we_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_we_next), .o_q(wb_we_r));
+    procyon_ff #(`WB_CTI_WIDTH) wb_cti_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_cti_next), .o_q(wb_cti_r));
+    procyon_ff #(`WB_BTE_WIDTH) wb_bte_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_bte_next), .o_q(wb_bte_r));
+    procyon_ff #(WB_DATA_SIZE) wb_sel_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_sel_next), .o_q(wb_sel_r));
+    procyon_ff #(OPTN_WB_ADDR_WIDTH) wb_addr_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_addr_next), .o_q(wb_addr_r));
+    procyon_ff #(OPTN_WB_DATA_WIDTH) wb_data_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(wb_data_next), .o_q(wb_data_r));
+
+    // Output to wishbone bus
+    assign o_wb_cyc = wb_cyc_r;
+    assign o_wb_stb = wb_stb_r;
+    assign o_wb_we = wb_we_r;
+    assign o_wb_cti = wb_cti_r;
+    assign o_wb_bte = wb_bte_r;
+    assign o_wb_sel = wb_sel_r;
+    assign o_wb_addr = wb_addr_r;
+    assign o_wb_data = wb_data_r;
+
+    // Output to BIU interface
+    assign o_biu_done = biu_done_r;
+    assign o_biu_data = biu_data_r;
 
 endmodule

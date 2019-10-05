@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -39,16 +39,16 @@ module procyon_ieu #(
 );
 
     // ID -> EX pipeline registers
-    logic [`PCYN_ALU_FUNC_WIDTH-1:0]  alu_func;
-    logic [OPTN_DATA_WIDTH-1:0]       src_a;
-    logic [OPTN_DATA_WIDTH-1:0]       src_b;
-    logic [OPTN_ADDR_WIDTH-1:0]       iaddr;
-    logic [OPTN_DATA_WIDTH-1:0]       imm_b;
+    logic [`PCYN_ALU_FUNC_WIDTH-1:0] alu_func;
+    logic [OPTN_DATA_WIDTH-1:0] src_a;
+    logic [OPTN_DATA_WIDTH-1:0] src_b;
+    logic [OPTN_ADDR_WIDTH-1:0] iaddr;
+    logic [OPTN_DATA_WIDTH-1:0] imm_b;
     logic [`PCYN_ALU_SHAMT_WIDTH-1:0] shamt;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]    tag;
-    logic                             jmp;
-    logic                             br;
-    logic                             valid;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] tag;
+    logic jmp;
+    logic br;
+    logic valid;
 
     assign o_fu_stall = 1'b0;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -91,72 +91,38 @@ module procyon_lsu_ad #(
     output logic                            o_alloc_lq_en
 );
 
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_func;
-    logic [OPTN_DATA_WIDTH-1:0]      imm_i;
-    logic [OPTN_DATA_WIDTH-1:0]      imm_s;
-    logic [OPTN_ADDR_WIDTH-1:0]      addr;
-    logic                            load_or_store;
-    logic                            rs_stall;
-    logic [1:0]                      lsu_ad_mux_sel;
-    logic [OPTN_ADDR_WIDTH-1:0]      lsu_ad_mux_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_ad_mux_lsu_func;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]   lsu_ad_mux_tag;
-
-    // Generate immediates
-    assign imm_i               = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[24:20]};
-    assign imm_s               = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[11:7]};
-
-    // Determine if op is load or store
-    assign load_or_store       = i_opcode == `PCYN_OPCODE_STORE;
-
-    // Calculate address
-    assign addr                = i_src_a + (load_or_store ? imm_s : imm_i);
-
     // Stall the LSU RS if either of these conditions apply:
     // 1. There is a cache fill in progress
     // 2. Load queue is full
     // 3. Store queue is full
     // 4. A store needs to be retired
     // 5. A load needs to be replayed
-    // FIXME: This should be registered
-    assign rs_stall            = i_lq_full | i_sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
-    assign o_stall             = rs_stall;
+    logic rs_stall;
+    assign rs_stall = i_lq_full | i_sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
+    assign o_stall = rs_stall;
 
-    // FIXME: Can this be registered?
-    assign o_sq_retire_stall   = i_flush | i_mhq_fill_en;
-    assign o_lq_replay_stall   = i_sq_retire_en | i_mhq_fill_en;
+    logic n_rs_stall;
+    assign n_rs_stall = ~rs_stall;
 
-    // Mux AD outputs to next stage depending on replay_en/retire_en
-    always_comb begin
-        logic [OPTN_ADDR_WIDTH-1:0] addr_mux;
+    // Determine if op is load or store
+    logic load_or_store;
+    assign load_or_store = i_opcode == `PCYN_OPCODE_STORE;
 
-        lsu_ad_mux_sel = {i_lq_replay_en, i_sq_retire_en};
+    logic n_flush;
+    assign n_flush = ~i_flush;
 
-        case (lsu_ad_mux_sel)
-            2'b00: lsu_ad_mux_tag = i_tag;
-            2'b01: lsu_ad_mux_tag = i_sq_retire_tag;
-            2'b10: lsu_ad_mux_tag = i_lq_replay_tag;
-            2'b11: lsu_ad_mux_tag = i_sq_retire_tag;
-        endcase
+    // Allocate op in load queue or store queue
+    logic alloc_sq_en;
+    assign alloc_sq_en = n_flush & load_or_store & i_valid & n_rs_stall;
+    procyon_srff #(1) o_alloc_sq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_sq_en), .i_reset(1'b0), .o_q(o_alloc_sq_en));
 
-        case (lsu_ad_mux_sel)
-            2'b00: lsu_ad_mux_lsu_func = lsu_func;
-            2'b01: lsu_ad_mux_lsu_func = i_sq_retire_lsu_func;
-            2'b10: lsu_ad_mux_lsu_func = i_lq_replay_lsu_func;
-            2'b11: lsu_ad_mux_lsu_func = i_sq_retire_lsu_func;
-        endcase
-
-        case (lsu_ad_mux_sel)
-            2'b00: addr_mux = addr;
-            2'b01: addr_mux = i_sq_retire_addr;
-            2'b10: addr_mux = i_lq_replay_addr;
-            2'b11: addr_mux = i_sq_retire_addr;
-        endcase
-
-        lsu_ad_mux_addr = i_mhq_fill_en ? i_mhq_fill_addr : addr_mux;
-    end
+    logic alloc_lq_en;
+    assign alloc_lq_en = n_flush & ~load_or_store & i_valid & n_rs_stall;
+    procyon_srff #(1) o_alloc_lq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_lq_en), .i_reset(1'b0), .o_q(o_alloc_lq_en));
 
     // Decode load/store type based on funct3 field
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_func;
+
     always_comb begin
         case (i_insn[14:12])
             3'b000:  lsu_func = load_or_store ? `PCYN_LSU_FUNC_SB : `PCYN_LSU_FUNC_LB;
@@ -168,56 +134,110 @@ module procyon_lsu_ad #(
         endcase
     end
 
-    // Allocate op in load queue or store queue
-    always_ff @(posedge clk) begin
-        o_alloc_lsu_func <= lsu_func;
-        o_alloc_tag      <= i_tag;
-        o_alloc_data     <= i_src_b;
-        o_alloc_addr     <= addr;
-    end
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_alloc_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_func), .o_q(o_alloc_lsu_func));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_alloc_sq_en <= 1'b0;
-        else        o_alloc_sq_en <= ~i_flush & load_or_store & i_valid & ~rs_stall;
-    end
+    // Generate immediates
+    logic [OPTN_DATA_WIDTH-1:0] imm_i;
+    logic [OPTN_DATA_WIDTH-1:0] imm_s;
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_alloc_lq_en <= 1'b0;
-        else        o_alloc_lq_en <= ~i_flush & ~load_or_store & i_valid &  ~rs_stall;
-    end
+    assign imm_i = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[24:20]};
+    assign imm_s = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[11:7]};
 
-    // Assign outputs to dcache interface
-    always_ff @(posedge clk) begin
-        o_dc_addr      <= lsu_ad_mux_addr;
-        o_dc_data      <= i_sq_retire_data;
-        o_dc_lsu_func  <= lsu_ad_mux_lsu_func;
-        o_dc_valid     <= 1'b1;
-        o_dc_dirty     <= i_mhq_fill_en ? i_mhq_fill_dirty : i_sq_retire_en;
-        o_dc_fill      <= i_mhq_fill_en;
-        o_dc_fill_data <= i_mhq_fill_data;
-    end
+    // Calculate address
+    logic [OPTN_ADDR_WIDTH-1:0] addr;
+    assign addr = i_src_a + (load_or_store ? imm_s : imm_i);
+    procyon_ff #(OPTN_ADDR_WIDTH) o_alloc_addr_ff (.clk(clk), .i_en(1'b1), .i_d(addr), .o_q(o_alloc_addr));
 
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_dc_wr_en <= 1'b0;
-        else        o_dc_wr_en <= ~i_flush & (i_sq_retire_en | i_mhq_fill_en);
-    end
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_alloc_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_alloc_tag));
+    procyon_ff #(OPTN_DATA_WIDTH) o_alloc_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_src_b), .o_q(o_alloc_data));
 
     // Assign outputs to next stage in the pipeline
-    always_ff @(posedge clk) begin
-        o_lsu_func       <= i_mhq_fill_en ? `PCYN_LSU_FUNC_FILL : lsu_ad_mux_lsu_func;
-        o_lq_select      <= i_lq_replay_select;
-        o_sq_select      <= i_sq_retire_select;
-        o_tag            <= i_mhq_fill_en ? {{OPTN_ROB_IDX_WIDTH}{1'b0}} : lsu_ad_mux_tag;
-        o_addr           <= lsu_ad_mux_addr;
-        o_retire_data    <= i_sq_retire_data;
-        o_retire         <= ~i_mhq_fill_en & i_sq_retire_en;
-        o_replay         <= ~i_mhq_fill_en & ~i_sq_retire_en & i_lq_replay_en;
+    // Fill requests get priority over pipeline flushes
+    logic valid;
+    assign valid = i_mhq_fill_en | (n_flush & ((i_valid & ~i_lq_full & ~i_sq_full) | i_lq_replay_en | i_sq_retire_en));
+    procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
+
+    logic n_mhq_fill_en;
+    assign n_mhq_fill_en = ~i_mhq_fill_en;
+
+    logic retire;
+    assign retire = n_mhq_fill_en & i_sq_retire_en;
+    procyon_ff #(1) o_retire_ff (.clk(clk), .i_en(1'b1), .i_d(retire), .o_q(o_retire));
+
+    logic replay;
+    assign replay = n_mhq_fill_en & ~i_sq_retire_en & i_lq_replay_en;
+    procyon_ff #(1) o_replay_ff (.clk(clk), .i_en(1'b1), .i_d(replay), .o_q(o_replay));
+
+    procyon_ff #(OPTN_LQ_DEPTH) o_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_lq_replay_select), .o_q(o_lq_select));
+    procyon_ff #(OPTN_SQ_DEPTH) o_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_retire_select), .o_q(o_sq_select));
+    procyon_ff #(OPTN_DATA_WIDTH) o_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_retire_data), .o_q(o_retire_data));
+
+    // Assign outputs to dcache interface
+    logic dc_wr_en;
+    assign dc_wr_en = n_flush & (i_sq_retire_en | i_mhq_fill_en);
+    procyon_srff #(1) o_dc_wr_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(dc_wr_en), .i_reset(1'b0), .o_q(o_dc_wr_en));
+
+    logic dc_dirty;
+    assign dc_dirty = i_mhq_fill_en ? i_mhq_fill_dirty : i_sq_retire_en;
+    procyon_ff #(1) o_dc_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(dc_dirty), .o_q(o_dc_dirty));
+
+    procyon_ff #(OPTN_DATA_WIDTH) o_dc_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_retire_data), .o_q(o_dc_data));
+    procyon_ff #(1) o_dc_valid_ff (.clk(clk), .i_en(1'b1), .i_d(1'b1), .o_q(o_dc_valid));
+    procyon_ff #(1) o_dc_fill_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_fill_en), .o_q(o_dc_fill));
+    procyon_ff #(DC_LINE_WIDTH) o_dc_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_fill_data), .o_q(o_dc_fill_data));
+
+    // Mux AD outputs to next stage depending on replay_en/retire_en
+    logic [1:0] lsu_ad_mux_sel;
+    assign lsu_ad_mux_sel = {i_lq_replay_en, i_sq_retire_en};
+
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_ad_addr_mux;
+
+    always_comb begin
+        case (lsu_ad_mux_sel)
+            2'b00: lsu_ad_addr_mux = addr;
+            2'b01: lsu_ad_addr_mux = i_sq_retire_addr;
+            2'b10: lsu_ad_addr_mux = i_lq_replay_addr;
+            2'b11: lsu_ad_addr_mux = i_sq_retire_addr;
+        endcase
+
+        lsu_ad_addr_mux = i_mhq_fill_en ? i_mhq_fill_addr : lsu_ad_addr_mux;
     end
 
-    // Fill requests get priority over pipeline flushes
-    always_ff @(posedge clk) begin
-        if (~n_rst) o_valid <= 1'b0;
-        else        o_valid <= i_mhq_fill_en | (~i_flush & ((i_valid & ~i_lq_full & ~i_sq_full) | i_lq_replay_en | i_sq_retire_en));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_addr_mux), .o_q(o_addr));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_dc_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_addr_mux), .o_q(o_dc_addr));
+
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_ad_lsu_func_mux;
+
+    always_comb begin
+        case (lsu_ad_mux_sel)
+            2'b00: lsu_ad_lsu_func_mux = lsu_func;
+            2'b01: lsu_ad_lsu_func_mux = i_sq_retire_lsu_func;
+            2'b10: lsu_ad_lsu_func_mux = i_lq_replay_lsu_func;
+            2'b11: lsu_ad_lsu_func_mux = i_sq_retire_lsu_func;
+        endcase
+
+        lsu_ad_lsu_func_mux = i_mhq_fill_en ? `PCYN_LSU_FUNC_FILL : lsu_ad_lsu_func_mux;
     end
+
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_lsu_func_mux), .o_q(o_lsu_func));
+    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_dc_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_lsu_func_mux), .o_q(o_dc_lsu_func));
+
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_ad_tag_mux;
+
+    always_comb begin
+        case (lsu_ad_mux_sel)
+            2'b00: lsu_ad_tag_mux = i_tag;
+            2'b01: lsu_ad_tag_mux = i_sq_retire_tag;
+            2'b10: lsu_ad_tag_mux = i_lq_replay_tag;
+            2'b11: lsu_ad_tag_mux = i_sq_retire_tag;
+        endcase
+
+        lsu_ad_tag_mux = i_mhq_fill_en ? '0 : lsu_ad_tag_mux;
+    end
+
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_tag_mux), .o_q(o_tag));
+
+    assign o_sq_retire_stall = i_flush | i_mhq_fill_en;
+    assign o_lq_replay_stall = i_sq_retire_en | i_mhq_fill_en;
 
 endmodule

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -24,15 +24,15 @@ module data_ram #(
     localparam MEM_SIZE      = 64;
     localparam MEM_IDX_WIDTH = $clog2(MEM_SIZE);
 
-    logic [7:0]                  memory [0:MEM_SIZE-1];
+    logic [7:0] memory [0:MEM_SIZE-1];
     logic [$clog2(MEM_SIZE)-1:0] dc_addr;
 
-    assign dc_addr          = i_dc_addr[MEM_IDX_WIDTH-1:0];
+    assign dc_addr = i_dc_addr[MEM_IDX_WIDTH-1:0];
 
     // FIXME: Temporary data cache interface
-    assign o_dc_hit         = 1'b1;
-    assign o_dc_data[7:0]   = memory[dc_addr];
-    assign o_dc_data[15:8]  = memory[dc_addr + 1];
+    assign o_dc_hit = 1'b1;
+    assign o_dc_data[7:0] = memory[dc_addr];
+    assign o_dc_data[15:8] = memory[dc_addr + 1];
     assign o_dc_data[23:16] = memory[dc_addr + 2];
     assign o_dc_data[31:24] = memory[dc_addr + 3];
 
@@ -42,8 +42,8 @@ module data_ram #(
 
     always @(posedge clk) begin
         if (i_dc_we) begin
-            memory[dc_addr]     <= i_dc_byte_select[0] ? i_dc_data[7:0]   : memory[dc_addr];
-            memory[dc_addr + 1] <= i_dc_byte_select[1] ? i_dc_data[15:8]  : memory[dc_addr + 1];
+            memory[dc_addr] <= i_dc_byte_select[0] ? i_dc_data[7:0] : memory[dc_addr];
+            memory[dc_addr + 1] <= i_dc_byte_select[1] ? i_dc_data[15:8] : memory[dc_addr + 1];
             memory[dc_addr + 2] <= i_dc_byte_select[2] ? i_dc_data[23:16] : memory[dc_addr + 2];
             memory[dc_addr + 3] <= i_dc_byte_select[3] ? i_dc_data[31:24] : memory[dc_addr + 3];
         end

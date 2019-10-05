@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
@@ -14,6 +14,7 @@ module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_REGMAP_DEPTH       = 32,
+    parameter OPTN_INSN_FIFO_DEPTH    = 8,
     parameter OPTN_ROB_DEPTH          = 32,
     parameter OPTN_RS_IEU_DEPTH       = 16,
     parameter OPTN_RS_LSU_DEPTH       = 16,
@@ -57,46 +58,47 @@ module dut #(
     localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
 
-    logic                          wb_clk;
-    logic                          wb_rst;
-    logic                          wb_ack;
+    logic wb_clk;
+    logic wb_rst;
+    logic wb_ack;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_i;
-    logic                          wb_cyc;
-    logic                          wb_stb;
-    logic                          wb_we;
-    logic [`WB_CTI_WIDTH-1:0]      wb_cti;
-    logic [`WB_BTE_WIDTH-1:0]      wb_bte;
-    logic [WB_DATA_SIZE-1:0]       wb_sel;
+    logic wb_cyc;
+    logic wb_stb;
+    logic wb_we;
+    logic [`WB_CTI_WIDTH-1:0] wb_cti;
+    logic [`WB_BTE_WIDTH-1:0] wb_bte;
+    logic [WB_DATA_SIZE-1:0] wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
 
-    logic                          sram_we_n;
+    logic sram_we_n;
 /* verilator lint_off UNOPTFLAT */
-    logic [`SRAM_DATA_WIDTH-1:0]   sram_dq;
+    logic [`SRAM_DATA_WIDTH-1:0] sram_dq;
 /* verilator lint_on  UNOPTFLAT */
 
 /* verilator lint_off UNUSED */
     // FIXME: FPGA debugging output
-    logic                         rob_redirect;
-    logic [OPTN_ADDR_WIDTH-1:0]   rob_redirect_addr;
-    logic                         regmap_retire_en;
-    logic [REGMAP_IDX_WIDTH-1:0]  regmap_retire_rdest;
-    logic [OPTN_DATA_WIDTH-1:0]   regmap_retire_data;
+    logic rob_redirect;
+    logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr;
+    logic regmap_retire_en;
+    logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
+    logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
 /* verilator lint_on  UNUSED */
 
     assign o_sim_retire = regmap_retire_en;
 
-    assign wb_clk       = clk;
-    assign wb_rst       = ~n_rst;
+    assign wb_clk = clk;
+    assign wb_rst = ~n_rst;
 
-    assign sram_dq      = sram_we_n ? i_sram_dq : {(`SRAM_DATA_WIDTH){1'bz}};
-    assign o_sram_we_n  = sram_we_n;
-    assign o_sram_dq    = sram_dq;
+    assign sram_dq = sram_we_n ? i_sram_dq : 'z;
+    assign o_sram_we_n = sram_we_n;
+    assign o_sram_dq = sram_dq;
 
     procyon #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
         .OPTN_RS_IEU_DEPTH(OPTN_RS_IEU_DEPTH),
         .OPTN_RS_LSU_DEPTH(OPTN_RS_LSU_DEPTH),
@@ -108,7 +110,7 @@ module dut #(
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
-    ) procyon (
+    ) procyon_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_sim_tp(o_sim_tp),

@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2019 Sekhar Bhattacharya
+ * Copyright (c) 2021 Sekhar Bhattacharya
  *
  * SPDX-License-Identifier: MIT
  */
 
 // Load/Store Unit
-// Encapsulates the ID, D0, D1, EX pipeline stages and the Load Queue and Store Queue and D$
+// Encapsulates the ID, DT, DW, EX pipeline stages and the Load Queue and Store Queue and D$
 
 `include "procyon_constants.svh"
 
@@ -74,95 +74,95 @@ module procyon_lsu #(
 
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
 
-    logic                                     sq_full;
-    logic                                     sq_retire_en;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            sq_retire_tag;
-    logic [OPTN_DATA_WIDTH-1:0]               sq_retire_data;
-    logic [OPTN_ADDR_WIDTH-1:0]               sq_retire_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          sq_retire_lsu_func;
-    logic [OPTN_SQ_DEPTH-1:0]                 sq_retire_select;
-    logic                                     sq_retire_stall;
-    logic                                     lq_full;
-    logic                                     lq_replay_en;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            lq_replay_tag;
-    logic [OPTN_ADDR_WIDTH-1:0]               lq_replay_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          lq_replay_lsu_func;
-    logic [OPTN_LQ_DEPTH-1:0]                 lq_replay_select;
-    logic                                     lq_replay_stall;
-    logic                                     lsu_ad_valid;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          lsu_ad_lsu_func;
-    logic [OPTN_LQ_DEPTH-1:0]                 lsu_ad_lq_select;
-    logic [OPTN_SQ_DEPTH-1:0]                 lsu_ad_sq_select;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            lsu_ad_tag;
-    logic [OPTN_ADDR_WIDTH-1:0]               lsu_ad_addr;
-    logic [OPTN_DATA_WIDTH-1:0]               lsu_ad_retire_data;
-    logic                                     lsu_ad_retire;
-    logic                                     lsu_ad_replay;
-    logic                                     lsu_d0_valid;
-    logic                                     lsu_d0_fill_replay;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          lsu_d0_lsu_func;
-    logic [OPTN_LQ_DEPTH-1:0]                 lsu_d0_lq_select;
-    logic [OPTN_SQ_DEPTH-1:0]                 lsu_d0_sq_select;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            lsu_d0_tag;
-    logic [OPTN_ADDR_WIDTH-1:0]               lsu_d0_addr;
-    logic [OPTN_DATA_WIDTH-1:0]               lsu_d0_retire_data;
-    logic                                     lsu_d0_retire;
-    logic                                     lsu_d0_replay;
-    logic                                     lsu_d1_valid;
-    logic                                     lsu_d1_mhq_lookup_valid;
-    logic                                     lsu_d1_fill_replay;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          lsu_d1_lsu_func;
-    logic [OPTN_LQ_DEPTH-1:0]                 lsu_d1_lq_select;
-    logic [OPTN_SQ_DEPTH-1:0]                 lsu_d1_sq_select;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            lsu_d1_tag;
-    logic [OPTN_ADDR_WIDTH-1:0]               lsu_d1_addr;
-    logic [OPTN_DATA_WIDTH-1:0]               lsu_d1_retire_data;
-    logic                                     lsu_d1_retire;
+    logic sq_full;
+    logic sq_retire_en;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag;
+    logic [OPTN_DATA_WIDTH-1:0] sq_retire_data;
+    logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] sq_retire_lsu_func;
+    logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
+    logic sq_retire_stall;
+    logic lq_full;
+    logic lq_replay_en;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lq_replay_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] lq_replay_addr;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_replay_lsu_func;
+    logic [OPTN_LQ_DEPTH-1:0] lq_replay_select;
+    logic lq_replay_stall;
+    logic lsu_ad_valid;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_ad_lsu_func;
+    logic [OPTN_LQ_DEPTH-1:0] lsu_ad_lq_select;
+    logic [OPTN_SQ_DEPTH-1:0] lsu_ad_sq_select;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_ad_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_ad_addr;
+    logic [OPTN_DATA_WIDTH-1:0] lsu_ad_retire_data;
+    logic lsu_ad_retire;
+    logic lsu_ad_replay;
+    logic lsu_dt_valid;
+    logic lsu_dt_fill_replay;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_dt_lsu_func;
+    logic [OPTN_LQ_DEPTH-1:0] lsu_dt_lq_select;
+    logic [OPTN_SQ_DEPTH-1:0] lsu_dt_sq_select;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_dt_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_dt_addr;
+    logic [OPTN_DATA_WIDTH-1:0] lsu_dt_retire_data;
+    logic lsu_dt_retire;
+    logic lsu_dt_replay;
+    logic lsu_dw_valid;
+    logic lsu_dw_mhq_lookup_valid;
+    logic lsu_dw_fill_replay;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_dw_lsu_func;
+    logic [OPTN_LQ_DEPTH-1:0] lsu_dw_lq_select;
+    logic [OPTN_SQ_DEPTH-1:0] lsu_dw_sq_select;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_dw_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_dw_addr;
+    logic [OPTN_DATA_WIDTH-1:0] lsu_dw_retire_data;
+    logic lsu_dw_retire;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] lsu_mhq_fill_addr;
-    logic                                     dc_wr_en;
-    logic [OPTN_ADDR_WIDTH-1:0]               dc_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          dc_lsu_func;
-    logic [OPTN_DATA_WIDTH-1:0]               dc_wr_data;
-    logic                                     dc_valid;
-    logic                                     dc_dirty;
-    logic                                     dc_fill;
-    logic [DC_LINE_WIDTH-1:0]                 dc_fill_data;
-    logic                                     dc_hit;
-    logic [OPTN_DATA_WIDTH-1:0]               dc_rd_data;
-    logic                                     dc_victim_valid;
-    logic                                     dc_victim_dirty;
-    logic [OPTN_ADDR_WIDTH-1:0]               dc_victim_addr;
-    logic [DC_LINE_WIDTH-1:0]                 dc_victim_data;
-    logic                                     alloc_sq_en;
-    logic                                     alloc_lq_en;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0]          alloc_lsu_func;
-    logic [OPTN_ROB_IDX_WIDTH-1:0]            alloc_tag;
-    logic [OPTN_ADDR_WIDTH-1:0]               alloc_addr;
-    logic [OPTN_DATA_WIDTH-1:0]               alloc_data;
-    logic [OPTN_LQ_DEPTH-1:0]                 alloc_lq_select;
-    logic                                     update_lq_en;
-    logic [OPTN_LQ_DEPTH-1:0]                 update_lq_select;
-    logic                                     update_sq_en;
-    logic [OPTN_SQ_DEPTH-1:0]                 update_sq_select;
-    logic                                     update_retry;
-    logic                                     update_replay;
+    logic dc_wr_en;
+    logic [OPTN_ADDR_WIDTH-1:0] dc_addr;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] dc_lsu_func;
+    logic [OPTN_DATA_WIDTH-1:0] dc_wr_data;
+    logic dc_valid;
+    logic dc_dirty;
+    logic dc_fill;
+    logic [DC_LINE_WIDTH-1:0] dc_fill_data;
+    logic dc_hit;
+    logic [OPTN_DATA_WIDTH-1:0] dc_rd_data;
+    logic dc_victim_valid;
+    logic dc_victim_dirty;
+    logic [OPTN_ADDR_WIDTH-1:0] dc_victim_addr;
+    logic [DC_LINE_WIDTH-1:0] dc_victim_data;
+    logic alloc_sq_en;
+    logic alloc_lq_en;
+    logic [`PCYN_LSU_FUNC_WIDTH-1:0] alloc_lsu_func;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] alloc_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] alloc_addr;
+    logic [OPTN_DATA_WIDTH-1:0] alloc_data;
+    logic [OPTN_LQ_DEPTH-1:0] alloc_lq_select;
+    logic update_lq_en;
+    logic [OPTN_LQ_DEPTH-1:0] update_lq_select;
+    logic update_sq_en;
+    logic [OPTN_SQ_DEPTH-1:0] update_sq_select;
+    logic update_retry;
+    logic update_replay;
 /* verilator lint_off UNUSED */
-    logic                                     victim_en;
-    logic [OPTN_ADDR_WIDTH-1:0]               victim_addr;
-    logic [DC_LINE_WIDTH-1:0]                 victim_data;
+    logic victim_en;
+    logic [OPTN_ADDR_WIDTH-1:0] victim_addr;
+    logic [DC_LINE_WIDTH-1:0] victim_data;
 /* verilator lint_on  UNUSED */
 
-    assign o_cdb_redirect        = 1'b0;
+    assign o_cdb_redirect = 1'b0;
 
-    assign lsu_mhq_fill_addr     = i_mhq_fill_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    assign lsu_mhq_fill_addr = i_mhq_fill_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
 
     // Outputs to the MHQ lookup interface
-    assign o_mhq_lookup_valid    = lsu_d1_mhq_lookup_valid;
-    assign o_mhq_lookup_dc_hit   = dc_hit;
-    assign o_mhq_lookup_addr     = lsu_d1_addr;
-    assign o_mhq_lookup_lsu_func = lsu_d1_lsu_func;
-    assign o_mhq_lookup_data     = lsu_d1_retire_data;
-    assign o_mhq_lookup_we       = lsu_d1_retire;
+    assign o_mhq_lookup_valid = lsu_dw_mhq_lookup_valid;
+    assign o_mhq_lookup_dc_hit = dc_hit;
+    assign o_mhq_lookup_addr = lsu_dw_addr;
+    assign o_mhq_lookup_lsu_func = lsu_dw_lsu_func;
+    assign o_mhq_lookup_data = lsu_dw_retire_data;
+    assign o_mhq_lookup_we = lsu_dw_retire;
 
     procyon_lsu_ad #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -226,14 +226,14 @@ module procyon_lsu #(
         .o_alloc_addr(alloc_addr)
     );
 
-    procyon_lsu_d0 #(
+    procyon_lsu_dt #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
         .OPTN_DC_OFFSET_WIDTH(DC_OFFSET_WIDTH)
-    ) procyon_lsu_d0_inst (
+    ) procyon_lsu_dt_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
@@ -248,52 +248,52 @@ module procyon_lsu #(
         .i_retire_data(lsu_ad_retire_data),
         .i_retire(lsu_ad_retire),
         .i_replay(lsu_ad_replay),
-        .o_valid(lsu_d0_valid),
-        .o_fill_replay(lsu_d0_fill_replay),
-        .o_lsu_func(lsu_d0_lsu_func),
-        .o_lq_select(lsu_d0_lq_select),
-        .o_sq_select(lsu_d0_sq_select),
-        .o_tag(lsu_d0_tag),
-        .o_addr(lsu_d0_addr),
-        .o_retire_data(lsu_d0_retire_data),
-        .o_retire(lsu_d0_retire),
-        .o_replay(lsu_d0_replay)
+        .o_valid(lsu_dt_valid),
+        .o_fill_replay(lsu_dt_fill_replay),
+        .o_lsu_func(lsu_dt_lsu_func),
+        .o_lq_select(lsu_dt_lq_select),
+        .o_sq_select(lsu_dt_sq_select),
+        .o_tag(lsu_dt_tag),
+        .o_addr(lsu_dt_addr),
+        .o_retire_data(lsu_dt_retire_data),
+        .o_retire(lsu_dt_retire),
+        .o_replay(lsu_dt_replay)
     );
 
-    procyon_lsu_d1 #(
+    procyon_lsu_dw #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
         .OPTN_DC_OFFSET_WIDTH(DC_OFFSET_WIDTH)
-    ) procyon_lsu_d1_inst (
+    ) procyon_lsu_dw_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
         .i_mhq_fill_en(i_mhq_fill_en),
         .i_mhq_fill_addr(lsu_mhq_fill_addr),
-        .i_valid(lsu_d0_valid),
-        .i_fill_replay(lsu_d0_fill_replay),
-        .i_lsu_func(lsu_d0_lsu_func),
-        .i_lq_select(lsu_d0_lq_select),
-        .i_sq_select(lsu_d0_sq_select),
-        .i_tag(lsu_d0_tag),
-        .i_addr(lsu_d0_addr),
-        .i_retire_data(lsu_d0_retire_data),
-        .i_retire(lsu_d0_retire),
-        .i_replay(lsu_d0_replay),
+        .i_valid(lsu_dt_valid),
+        .i_fill_replay(lsu_dt_fill_replay),
+        .i_lsu_func(lsu_dt_lsu_func),
+        .i_lq_select(lsu_dt_lq_select),
+        .i_sq_select(lsu_dt_sq_select),
+        .i_tag(lsu_dt_tag),
+        .i_addr(lsu_dt_addr),
+        .i_retire_data(lsu_dt_retire_data),
+        .i_retire(lsu_dt_retire),
+        .i_replay(lsu_dt_replay),
         .i_alloc_lq_select(alloc_lq_select),
-        .o_valid(lsu_d1_valid),
-        .o_mhq_lookup_valid(lsu_d1_mhq_lookup_valid),
-        .o_fill_replay(lsu_d1_fill_replay),
-        .o_lsu_func(lsu_d1_lsu_func),
-        .o_lq_select(lsu_d1_lq_select),
-        .o_sq_select(lsu_d1_sq_select),
-        .o_tag(lsu_d1_tag),
-        .o_addr(lsu_d1_addr),
-        .o_retire_data(lsu_d1_retire_data),
-        .o_retire(lsu_d1_retire)
+        .o_valid(lsu_dw_valid),
+        .o_mhq_lookup_valid(lsu_dw_mhq_lookup_valid),
+        .o_fill_replay(lsu_dw_fill_replay),
+        .o_lsu_func(lsu_dw_lsu_func),
+        .o_lq_select(lsu_dw_lq_select),
+        .o_sq_select(lsu_dw_sq_select),
+        .o_tag(lsu_dw_tag),
+        .o_addr(lsu_dw_addr),
+        .o_retire_data(lsu_dw_retire_data),
+        .o_retire(lsu_dw_retire)
     );
 
     procyon_lsu_ex #(
@@ -307,14 +307,14 @@ module procyon_lsu #(
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
-        .i_valid(lsu_d1_valid),
-        .i_fill_replay(lsu_d1_fill_replay),
-        .i_lsu_func(lsu_d1_lsu_func),
-        .i_lq_select(lsu_d1_lq_select),
-        .i_sq_select(lsu_d1_sq_select),
-        .i_tag(lsu_d1_tag),
-        .i_addr(lsu_d1_addr),
-        .i_retire(lsu_d1_retire),
+        .i_valid(lsu_dw_valid),
+        .i_fill_replay(lsu_dw_fill_replay),
+        .i_lsu_func(lsu_dw_lsu_func),
+        .i_lq_select(lsu_dw_lq_select),
+        .i_sq_select(lsu_dw_sq_select),
+        .i_tag(lsu_dw_tag),
+        .i_addr(lsu_dw_addr),
+        .i_retire(lsu_dw_retire),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_rd_data),
         .i_dc_victim_valid(dc_victim_valid),
@@ -337,9 +337,9 @@ module procyon_lsu #(
     );
 
     procyon_lsu_lq #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
-        .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH),
         .OPTN_MHQ_IDX_WIDTH(OPTN_MHQ_IDX_WIDTH)
     ) procyon_lsu_lq_inst (
