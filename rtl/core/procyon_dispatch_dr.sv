@@ -106,7 +106,7 @@ module procyon_dispatch_dr #(
 
     always_comb begin
         logic [1:0] rob_op_sel;
-        
+
         rob_op_sel = {is_store | is_branch | is_jal | is_jalr, is_load | is_branch | is_jal | is_jalr};
         case (rob_op_sel)
             2'b00: rob_enq_op = `PCYN_ROB_OP_INT;

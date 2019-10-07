@@ -35,14 +35,14 @@ To build the FPGA bitstream with a custom binary loaded into the bootrom: `make 
 
 The Procyon core is an out-of-order, speculative processor. At a high-level the processor has 6 stages:
 
-Stage | Description  
------ | -----------  
-Fetch | Retrieve an instruction from the instruction cache/bootrom and place it into the Instruction FIFO  
-Dispatch | Decode an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type  
-Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle  
-Execute | Execute the instruction, this may take one or more cycles. The functional units are pipelined so they can be executing multiple instructions in different stages simultaneously  
-Complete | Broadcast the result on the CDB (Common Data Bus) which will feed into each Reservation Station to provide dependent instructions with the operands they may be waiting for and mark the entry as completed in the Reorder Buffer  
-Retire | Once the instruction reaches the head of the Reorder Buffer and the instruction has been completed it will be retired which means it will be removed from the Reorder Buffer and the result value (if any) written into the Register File  
+Stage | Description
+----- | -----------
+Fetch | Retrieve an instruction from the instruction cache/bootrom and place it into the Instruction FIFO
+Dispatch | Decode an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type
+Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle
+Execute | Execute the instruction, this may take one or more cycles. The functional units are pipelined so they can be executing multiple instructions in different stages simultaneously
+Complete | Broadcast the result on the CDB (Common Data Bus) which will feed into each Reservation Station to provide dependent instructions with the operands they may be waiting for and mark the entry as completed in the Reorder Buffer
+Retire | Once the instruction reaches the head of the Reorder Buffer and the instruction has been completed it will be retired which means it will be removed from the Reorder Buffer and the result value (if any) written into the Register File
 
 Currently, there are two functional units:
 
