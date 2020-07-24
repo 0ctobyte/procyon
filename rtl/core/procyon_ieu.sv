@@ -1,7 +1,7 @@
-/* 
+/*
  * Copyright (c) 2019 Sekhar Bhattacharya
  *
- * SPDS-License-Identifier: MIT
+ * SPDX-License-Identifier: MIT
  */
 
 // Integer Execution Unit

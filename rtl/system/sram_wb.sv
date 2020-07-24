@@ -47,10 +47,10 @@
 `define WB_BTE_8BEAT  (`WB_BTE_WIDTH'b10)
 `define WB_BTE_16BEAT (`WB_BTE_WIDTH'b11)
 
-/* 
+/*
  * Copyright (c) 2019 Sekhar Bhattacharya
  *
- * SPDS-License-Identifier: MIT
+ * SPDX-License-Identifier: MIT
  */
 
 module sram_wb #(
