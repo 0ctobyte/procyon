@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // MHQ lookup stage
 // Lookup MHQ for address matches and generate byte select signals depending on store type
 

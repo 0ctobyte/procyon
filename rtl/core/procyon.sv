@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // `define NOOP 32'h00000013 // ADDI X0, X0, #0
 
 `include "procyon_constants.svh"

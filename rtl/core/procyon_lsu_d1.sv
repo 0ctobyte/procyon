@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // LSU dcache stage 1
 
 `include "procyon_constants.svh"

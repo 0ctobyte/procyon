@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Reservation Station switch
 // Routes reservation station enqueue signals to the right reservation station
 // Also bypasses source data from CDB on enqueue cycle

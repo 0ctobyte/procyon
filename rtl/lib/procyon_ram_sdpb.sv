@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Simple Dual Port RAM with bypassing
 
 module procyon_ram_sdpb #(

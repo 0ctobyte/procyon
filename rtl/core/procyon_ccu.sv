@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Core Communications Unit
 // This module is responsible for arbitrating between the MHQ, fetch and
 // victim requests within the CPU and controlling the BIU

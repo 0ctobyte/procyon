@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // n-bit, m-deep Synchronizer
 // Synchronizes an asynchronous signal into the clock domain
 // The synchronization depth, m, (i.e. the number of flops from input signal

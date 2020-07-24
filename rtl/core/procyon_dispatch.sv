@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Dispatch module
 // Decodes and dispatches instructions over two cycles
 // Cycle 1:

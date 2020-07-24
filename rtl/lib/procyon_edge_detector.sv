@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Posedge/Negedge Detector
 // Use a synchronizer because the edge is most likely asynchronous
 // Posedge detection is easy, the nth flop in the delay line LOW and the n-1 flop is HIGH

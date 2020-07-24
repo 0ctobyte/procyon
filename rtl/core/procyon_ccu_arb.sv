@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Core Communications Unit Arbiter
 // This module will select requests to forward to the BIU using priority arbitration
 

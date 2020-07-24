@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Load Queue
 // Every cycle a new load op may be allocated in the load queue when issued from the reservation station
 // Every cycle a load may be deallocated from the load queue when retired from the ROB

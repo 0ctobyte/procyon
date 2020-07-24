@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Wishbone Bus Interface Unit
 // This module is the interface to the Wishbone Bus
 // All transactions from the CPU will go through here

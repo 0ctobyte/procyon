@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 module data_ram #(
     parameter OPTN_DATA_WIDTH = 32,
     parameter OPTN_ADDR_WIDTH = 32,

@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Reservation Station with age-matrix based out of order issue
 // The reservation station will pick the oldest instruction that has all
 // it's source operands ready for issue. New instructions allocated in the

@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Seven Segment Decoder
 // Take a 4-bit input and drive a 6-bit output powering
 // a seven segment display

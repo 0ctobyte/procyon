@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Store Queue
 // Every cycle a new store op may be allocated in the store queue when issued from the reservation station
 // Every cycle a store may be launched to memory from the store queue after being retired from the ROB

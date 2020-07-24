@@ -47,6 +47,12 @@
 `define WB_BTE_8BEAT  (`WB_BTE_WIDTH'b10)
 `define WB_BTE_16BEAT (`WB_BTE_WIDTH'b11)
 
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 module sram_wb #(
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,

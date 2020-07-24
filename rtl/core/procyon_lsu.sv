@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Load/Store Unit
 // Encapsulates the ID, D0, D1, EX pipeline stages and the Load Queue and Store Queue and D$
 

@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Data Cache - Dcache hit check and generate dcache write signals stage
 
 module procyon_dcache_d1 #(

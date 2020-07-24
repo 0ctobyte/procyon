@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Re-Order Buffer
 // Every cycle a new entry may be allocated at the tail of the buffer
 // Every cycle a ready entry from the head of the FIFO is committed to the register file

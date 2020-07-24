@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 `define SRAM_ADDR_WIDTH 20
 `define SRAM_DATA_WIDTH 16
 

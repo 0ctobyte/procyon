@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Integer Execution Unit
 // Encapsulates the ID and EX stages
 // Writes the result of the EX stage to the CDB when it is available

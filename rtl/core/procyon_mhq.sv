@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Miss Handling Queue
 // Queue for loads or stores that miss in the cache
 // Merges missed loads if the load address already exists in the queue

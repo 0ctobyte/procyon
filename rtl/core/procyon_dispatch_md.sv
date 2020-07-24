@@ -1,3 +1,9 @@
+/* 
+ * Copyright (c) 2019 Sekhar Bhattacharya
+ *
+ * SPDS-License-Identifier: MIT
+ */
+
 // Map & Dispatch
 // Just registers it's inputs taking care of stall and flush conditions
 // Also the reorder buffer enqueues the instruction in this cycle as well as looking up source operands
