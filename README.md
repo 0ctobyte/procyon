@@ -33,25 +33,71 @@ To build the FPGA bitstream with a custom binary loaded into the bootrom: `make 
 
 ![Procyon uArchitecture Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core.png)
 
-The Procyon core is an out-of-order, speculative processor. At a high-level the processor has 6 stages:
+The Procyon core is an out-of-order, speculative processor. At a high-level an instruction goes through the following stages in the processor:
 
 Stage | Description
 ----- | -----------
-Fetch | Retrieve an instruction from the instruction cache/bootrom and place it into the Instruction FIFO
-Dispatch | Decode an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type
-Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle
-Execute | Execute the instruction, this may take one or more cycles. The functional units are pipelined so they can be executing multiple instructions in different stages simultaneously
-Complete | Broadcast the result on the CDB (Common Data Bus) which will feed into each Reservation Station to provide dependent instructions with the operands they may be waiting for and mark the entry as completed in the Reorder Buffer
-Retire | Once the instruction reaches the head of the Reorder Buffer and the instruction has been completed it will be retired which means it will be removed from the Reorder Buffer and the result value (if any) written into the Register File
+Fetch | Retrieve an instruction from the instruction cache and place it into the Instruction FIFO
+Dispatch | Partially decode an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type. Gets values or producer of source registers and renames destination registers in the register map
+Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle. The reservation station will capture register values from produce ops and schedule ready instructions to it's functional unit when available
+Execute | Execute the instruction, this may take one or more cycles. The functional units are pipelined so they can be executing multiple instructions in different stages simultaneously. Loads will speculatively load from the data cache regardless of outstanding stores. Stores will just generate the effective address and wait in the store queue until it can be retired.
+Complete | Broadcast the result on the CDB (Common Data Bus) which will feed into each Reservation Station to provide dependent instructions with the operands they may be waiting for and mark the entry as completed in the Reorder Buffer. Loads that miss in the data cache will wait in the load queue until the data is available at which point the load will be retried. Stores will let the reorder buffer know that it's ready to be retired but will not update the cache.
+Retire | Once the instruction reaches the head of the Reorder Buffer and the instruction has been completed it will be retired which means it will be removed from the Reorder Buffer and the result value (if any) written into the Register File. For stores, the reorder buffer will signal the store queue to retire the store. The store queue will, as soon as the next cycle, tell the LSU to write the store data to the cache. If the store misses in the cache it will wait in the store queue until the cacheline is available. At this point the stores will CAM the load queue and mark any load to the same address bytes as invalid.
 
-Currently, there are two functional units:
+At a finer level, the processor's pipeline is organized as described below for the various execution paths.
 
-###### LSU: Load Store Unit
+## Front-End Pipeline
 
-Processes loads and stores and interfaces with the Data Cache and the Miss Handling Queue. Loads are kept in the Load Queue until they are retired from the Reorder Buffer. Mis-speculated loads are detected every time a store is retired. When loads are retired they will signal to the Reorder Buffer that the load has been mis-speculated in which case the Reorder Buffer will signal to the Fetch Unit to restart fetching from the load instruction and flush the pipeline. Stores are kept in the Store Queue and are not written out to the Data Cache or Miss Handling Queue (if it misses in the Data Cache) until they are retired. Loads that miss in the cache are enqueued in the Miss Handling Queue and the are marked as "needing replay" and tagged with the Miss Handling Queue entry number in the Load Queue. When the Miss Handling Queue services the miss request, it will signal to the Load Queue with the tag and any load waiting on that tag will be replayed.
+![Procyon Front-End Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-FE-Pipeline.jpeg)
 
-###### IEU: Integer Execution Unit
+This part of the pipeline is the same for all instructions both ALU, branch and load/store instructions. It's composed of the Fetch and Dispatch stages. The dispatch stage is split into two cycles as described below
 
-Processes integer instructions including jump and branch instructions. Jump and branch instructions that are determined to be taken will signal to the Reorder Buffer the branch address and that the branch is "valid". The Reorder Buffer will then signal to the Fetch Unit to perform the branch/jump when the branch/jump instruction is retired (this will cause a pipeline/Reorder Buffer flush).
+### Fetch Stage
 
-# The Procyon System
+The fetch stage is very simple at the moment. It simply takes the current PC and retrieves the instruction word from the bootrom. There is no instruction cache, address translation or branch prediction implemented at the moment. The PC is incremented by 4 for the next fetch.
+
+### Dispatch Stage
+
+#### Decode & Rename
+
+#### Map & Dispatch
+
+## IEU Pipeline
+
+![Procyon IEU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-IEU-Pipeline.jpeg)
+
+The IEU (Integer Execution Unit) decodes and executes all ALU and branch instructions in the execution stage of the pipeline. It is split into two cycles.
+
+### IEU: Integer Execution Unit
+
+#### Instruction Decode
+
+#### Execute
+
+## LSU Pipeline
+
+![Procyon LSU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-LSU-Pipeline.jpeg)
+
+The load/store unit performs loads and stores in the execution stage. The main pipeline is split into four cycles but is complicated by the fact of data cache misses and structural hazards due to cache fills, older loads/stores replaying or stores retiring.
+
+### LSU: Load/Store Unit
+
+#### Instruction Decode & Address Generation
+
+#### DCache Data/Tag Read
+
+#### DCache Hit Check & Write
+
+#### Execute
+
+#### Store Retire
+
+#### Load/Store Replay
+
+### MHQ: Miss Handling Queue
+
+#### MHQ Lookup
+
+#### MHQ Execute
+
+#### Cache Fills
