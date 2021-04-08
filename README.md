@@ -122,6 +122,10 @@ The execute stage is straightforward. The actual bytes needed by the load instru
 
 The data on the CDB will be used to forward any load data to dependent instructions in any of the Reservation Stations. The ROB entry for the instruction will be marked as completed and it'll wait there until it is ready to be retired. Stores will not write to the Data Cache until they are retired to prevent mis-speculated updates to the cache and maintain precise interrupts. Both loads and stores will be kept in the respective queues until they are retired. For loads this allows retiring stores to look up younger loads and mark them as mis-speculated if the address ranges overlap. There is no store data bypassing in the LSU so this is necessary.
 
+#### LQ/SQ Update
+
+During the same cycle as `CM` (complete), the Load Queue and Store Queue will be updated with the MHQ tag or an MHQ fill in the case the load or store missed in the cache. Load/stores will be immediately be marked `replayable` if the cacheline they need is ready in the MHQ and the MHQ is ready to launch a cache fill request to the LSU.
+
 #### Retire
 
 Loads will be deallocated from the Load Queue if a mis-speculation did not occur. If the load was speculatively executed and an older Store wrote to the same bytes as the load, it'll be marked as mis-speculated in the ROB and the ROB will flush the entire pipeline and restart execution at the mis-speculated load. Stores will be removed from the ROB but not from the Store Queue. Instead they will be marked as non-speculative or retired in the Store Queue. This mechanism is described further below.
@@ -142,7 +146,7 @@ The Miss Handling Queue takes care of any cache misses. It interfaces with the B
 
 The MHQ is looked up in the same cycle as the LSU `EX` cycle. This is to find a matching entry or a new entry for the given load/store address if any exists so that, for loads, the Load Queue can be updated in the next cycle in case of a cache miss and for stores, the store data can be written to the MHQ entry in case of a cache miss.
 
-#### MHQ Execute
+#### MHQ Update
 
 A new entry is allocated in this cycle in case of a cache miss. If an entry already exists for the given load/store address the load/store will be simply be merged with this entry. For stores, this means the store data will be written into the cache-line buffer for the entry (in both the new or existing entry cases). The MHQ will interface with the BIU to request data and write received data into the entry merging the received data with the store data. There is a bypass network to select store data to be written into the buffer over received data from the BIU in case they occur on the same cycle.
 
