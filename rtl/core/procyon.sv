@@ -73,29 +73,28 @@ module procyon #(
     logic [OPTN_DATA_WIDTH-1:0] dispatch_insn;
     logic dispatch_valid;
 
+    logic rob_reserve_en;
+    logic [ROB_IDX_WIDTH-1:0] rob_reserve_tag;
     logic rob_stall;
     logic rob_lookup_rdy_ovrd [0:1];
-    logic rob_enq_en;
     logic [`PCYN_ROB_OP_WIDTH-1:0] rob_enq_op;
     logic [OPTN_ADDR_WIDTH-1:0] rob_enq_pc;
     logic [REGMAP_IDX_WIDTH-1:0] rob_enq_rdest;
 
+    logic [REGMAP_IDX_WIDTH-1:0] regmap_rename_rdest;
     logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
     logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
     logic [ROB_IDX_WIDTH-1:0] regmap_retire_tag;
     logic regmap_retire_en;
-
-    logic [ROB_IDX_WIDTH-1:0] regmap_rename_tag;
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_rename_rdest;
-    logic regmap_rename_en;
 
     logic [REGMAP_IDX_WIDTH-1:0] regmap_lookup_rsrc [0:1];
     logic regmap_lookup_rdy   [0:1];
     logic [ROB_IDX_WIDTH-1:0] regmap_lookup_tag [0:1];
     logic [OPTN_DATA_WIDTH-1:0]regmap_lookup_data [0:1];
 
+    logic rs_reserve_en;
+    logic [`PCYN_OPCODE_WIDTH-1:0] rs_reserve_opcode;
     logic rs_stall;
-    logic rs_en;
     logic [`PCYN_OPCODE_WIDTH-1:0] rs_opcode;
     logic [OPTN_ADDR_WIDTH-1:0] rs_pc;
     logic [OPTN_DATA_WIDTH-1:0] rs_insn;
@@ -104,7 +103,7 @@ module procyon #(
     logic rs_src_rdy [0:1];
     logic [ROB_IDX_WIDTH-1:0] rs_dst_tag;
 
-    logic rs_switch_en [0:CDB_DEPTH-1];
+    logic rs_switch_reserve_en [0:CDB_DEPTH-1];
     logic rs_switch_stall [0:CDB_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] rs_switch_src_data [0:1];
     logic [ROB_IDX_WIDTH-1:0] rs_switch_src_tag [0:1];
@@ -184,7 +183,6 @@ module procyon #(
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
     ) procyon_dispatch_inst (
         .clk(clk),
-        .n_rst(n_rst),
         .i_flush(rob_redirect),
         .i_rob_stall(rob_stall),
         .i_rs_stall(rs_stall),
@@ -194,14 +192,14 @@ module procyon #(
         .o_dispatch_stall(dispatch_stall),
         .o_regmap_lookup_rsrc(regmap_lookup_rsrc),
         .o_regmap_rename_rdest(regmap_rename_rdest),
-        .o_regmap_rename_en(regmap_rename_en),
-        .i_rob_dst_tag(regmap_rename_tag),
+        .o_rob_reserve_en(rob_reserve_en),
+        .i_rob_dst_tag(rob_reserve_tag),
         .o_rob_lookup_rdy_ovrd(rob_lookup_rdy_ovrd),
-        .o_rob_enq_en(rob_enq_en),
         .o_rob_enq_op(rob_enq_op),
         .o_rob_enq_pc(rob_enq_pc),
         .o_rob_enq_rdest(rob_enq_rdest),
-        .o_rs_en(rs_en),
+        .o_rs_reserve_en(rs_reserve_en),
+        .o_rs_reserve_opcode(rs_reserve_opcode),
         .o_rs_opcode(rs_opcode),
         .o_rs_pc(rs_pc),
         .o_rs_insn(rs_insn),
@@ -221,9 +219,9 @@ module procyon #(
         .i_regmap_retire_rdest(regmap_retire_rdest),
         .i_regmap_retire_tag(regmap_retire_tag),
         .i_regmap_retire_en(regmap_retire_en),
-        .i_regmap_rename_tag(regmap_rename_tag),
+        .i_regmap_rename_tag(rob_reserve_tag),
         .i_regmap_rename_rdest(regmap_rename_rdest),
-        .i_regmap_rename_en(regmap_rename_en),
+        .i_regmap_rename_en(rob_reserve_en),
         .i_regmap_lookup_rsrc(regmap_lookup_rsrc),
         .o_regmap_lookup_rdy(regmap_lookup_rdy),
         .o_regmap_lookup_tag(regmap_lookup_tag),
@@ -248,7 +246,8 @@ module procyon #(
         .i_cdb_data(cdb_data),
         .i_cdb_addr(cdb_addr),
         .i_cdb_tag(cdb_tag),
-        .i_rob_enq_en(rob_enq_en),
+        .i_rob_reserve_en(rob_reserve_en),
+        .o_rob_reserve_tag(rob_reserve_tag),
         .i_rob_enq_op(rob_enq_op),
         .i_rob_enq_pc(rob_enq_pc),
         .i_rob_enq_rdest(rob_enq_rdest),
@@ -259,8 +258,6 @@ module procyon #(
         .o_rs_src_data(rs_src_data),
         .o_rs_src_tag(rs_src_tag),
         .o_rs_src_rdy(rs_src_rdy),
-        .i_regmap_rename_en(regmap_rename_en),
-        .o_regmap_rename_tag(regmap_rename_tag),
         .o_regmap_retire_data(regmap_retire_data),
         .o_regmap_retire_rdest(regmap_retire_rdest),
         .o_regmap_retire_tag(regmap_retire_tag),
@@ -282,12 +279,12 @@ module procyon #(
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
-        .i_rs_en(rs_en),
-        .i_rs_opcode(rs_opcode),
+        .i_rs_reserve_en(rs_reserve_en),
+        .i_rs_reserve_opcode(rs_reserve_opcode),
+        .o_rs_reserve_en(rs_switch_reserve_en),
         .i_rs_src_tag(rs_src_tag),
         .i_rs_src_data(rs_src_data),
         .i_rs_src_rdy(rs_src_rdy),
-        .o_rs_en(rs_switch_en),
         .o_rs_src_tag(rs_switch_src_tag),
         .o_rs_src_data(rs_switch_src_data),
         .o_rs_src_rdy(rs_switch_src_rdy),
@@ -308,7 +305,7 @@ module procyon #(
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
-        .i_rs_en(rs_switch_en[0]),
+        .i_rs_reserve_en(rs_switch_reserve_en[0]),
         .i_rs_opcode(rs_opcode),
         .i_rs_iaddr(rs_pc),
         .i_rs_insn(rs_insn),
@@ -363,7 +360,7 @@ module procyon #(
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
-        .i_rs_en(rs_switch_en[1]),
+        .i_rs_reserve_en(rs_switch_reserve_en[1]),
         .i_rs_opcode(rs_opcode),
         .i_rs_iaddr(rs_pc),
         .i_rs_insn(rs_insn),

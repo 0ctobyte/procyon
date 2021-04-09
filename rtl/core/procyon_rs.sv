@@ -30,7 +30,7 @@ module procyon_rs #(
     input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag     [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
-    input  logic                          i_rs_en,
+    input  logic                          i_rs_reserve_en,
     input  logic [`PCYN_OPCODE_WIDTH-1:0] i_rs_opcode,
     input  logic [OPTN_ADDR_WIDTH-1:0]    i_rs_iaddr,
     input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_insn,
@@ -61,7 +61,8 @@ module procyon_rs #(
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_insn [0:OPTN_RS_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_src_data [0:OPTN_RS_DEPTH-1] [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_tag [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_RS_DEPTH-1:0] rs_dispatch_select;
+    logic [OPTN_RS_DEPTH-1:0] rs_reserve_select;
+    logic [OPTN_RS_DEPTH-1:0] rs_dispatch_select_r;
     logic [OPTN_RS_DEPTH-1:0] rs_issue_select;
     logic dispatching;
     logic issuing;
@@ -91,7 +92,8 @@ module procyon_rs #(
             .i_cdb_en(i_cdb_en),
             .i_cdb_data(i_cdb_data),
             .i_cdb_tag(i_cdb_tag),
-            .i_dispatch_en(rs_dispatch_select[inst]),
+            .i_reserve_en(rs_reserve_select[inst]),
+            .i_dispatch_en(rs_dispatch_select_r[inst]),
             .i_dispatch_opcode(i_rs_opcode),
             .i_dispatch_iaddr(i_rs_iaddr),
             .i_dispatch_insn(i_rs_insn),
@@ -107,10 +109,12 @@ module procyon_rs #(
     end
     endgenerate
 
-    // Generate a one-hot vector of the entry that will be used to store the dispatched instruction
-    logic [OPTN_RS_DEPTH-1:0] rs_dispatch_picked;
-    procyon_priority_picker #(OPTN_RS_DEPTH) rs_dispatch_picked_priority_picker (.i_in(rs_entry_empty), .o_pick(rs_dispatch_picked));
-    assign rs_dispatch_select = {(OPTN_RS_DEPTH){i_rs_en}} & rs_dispatch_picked;
+    // Generate a one-hot vector reserving an RS entry for the next cycle when the dispatcher will enqueue into the entry
+    logic [OPTN_RS_DEPTH-1:0] rs_reserve_picked;
+    procyon_priority_picker #(OPTN_RS_DEPTH) rs_reserve_picked_priority_picker (.i_in(rs_entry_empty), .o_pick(rs_reserve_picked));
+    assign rs_reserve_select = {(OPTN_RS_DEPTH){i_rs_reserve_en}} & rs_reserve_picked;
+
+    procyon_ff #(OPTN_RS_DEPTH) rs_dispatch_select_r_ff (.clk(clk), .i_en(1'b1), .i_d(rs_reserve_select), .o_q(rs_dispatch_select_r));
 
     logic n_fu_stall;
     assign n_fu_stall = ~i_fu_stall;
@@ -147,7 +151,7 @@ module procyon_rs #(
     logic rs_full;
     assign rs_full = (rs_entry_empty == 0);
 
-    assign dispatching = ~rs_full & i_rs_en;
+    assign dispatching = (rs_dispatch_select_r != 0);
     assign issuing = (rs_issue_select != 0);
 
     // The reservation station is full if there are no empty entries. Assert the stall signal in this situation

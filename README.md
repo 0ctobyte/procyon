@@ -63,7 +63,7 @@ The dispatch stage takes two cycles named `DMR` and `RUP`.
 #### Decode, Map & Rename
 
 In this cycle the instruction will be decoded at a high-level. Essentially the class of instruction will be determined here (ALU, branch, load or store). In addition, the source registers will be looked up in the Register Map for either the value of the register or the producer of the register value if a previous instruction is in the process of writing to it. This lookup resolves RAW hazards.
-The destination register for the instruction (if needed) will be renamed in the Register Map as well thus avoiding WAR and WAW hazards.
+The destination register for the instruction (if needed) will be renamed in the Register Map as well thus avoiding WAR and WAW hazards. An entry will be reserved in both the ROB and Reservation Station in this cycle and will be filled with the instruction details in the next cycle. If either the ROB or the Reservation Station are full, then the pipeline will stall here. 
 
 #### Reorder Buffer & Reservation Station Update
 

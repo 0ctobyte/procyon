@@ -38,8 +38,12 @@ module procyon_rob #(
     input  logic [OPTN_ADDR_WIDTH-1:0]        i_cdb_addr            [0:OPTN_CDB_DEPTH-1],
     input  logic [ROB_IDX_WIDTH-1:0]          i_cdb_tag             [0:OPTN_CDB_DEPTH-1],
 
+    // Dispatcher interface to reserve an entry for enqueuing in the next cycle. The tag is forwared to Register Map
+    // to rename the destination register for this new instruction
+    input  logic                              i_rob_reserve_en,
+    output logic [ROB_IDX_WIDTH-1:0]          o_rob_reserve_tag,
+
     // Dispatcher <-> ROB interface to enqueue a new instruction
-    input  logic                              i_rob_enq_en,
     input  logic [`PCYN_ROB_OP_WIDTH-1:0]     i_rob_enq_op,
     input  logic [OPTN_ADDR_WIDTH-1:0]        i_rob_enq_pc,
     input  logic [OPTN_REGMAP_IDX_WIDTH-1:0]  i_rob_enq_rdest,
@@ -52,10 +56,6 @@ module procyon_rob #(
     output logic [OPTN_DATA_WIDTH-1:0]        o_rs_src_data         [0:1],
     output logic [ROB_IDX_WIDTH-1:0]          o_rs_src_tag          [0:1],
     output logic                              o_rs_src_rdy          [0:1],
-
-    // Interface to register map to update tag information of the destination register of the newly enqueued instruction
-    input  logic                              i_regmap_rename_en,
-    output logic [ROB_IDX_WIDTH-1:0]          o_regmap_rename_tag,
 
     // Interface to register map to update destination register for retired instruction
     output logic [OPTN_DATA_WIDTH-1:0]        o_regmap_retire_data,
@@ -87,7 +87,7 @@ module procyon_rob #(
     logic [OPTN_REGMAP_IDX_WIDTH-1:0] rob_entry_rdest [OPTN_ROB_DEPTH-1:0];
     logic [`PCYN_ROB_OP_WIDTH-1:0] rob_entry_op [OPTN_ROB_DEPTH-1:0];
     logic [OPTN_ADDR_WIDTH-1:0] rob_entry_pc [OPTN_ROB_DEPTH-1:0];
-    logic [OPTN_ROB_DEPTH-1:0] rob_dispatch_select;
+    logic [OPTN_ROB_DEPTH-1:0] rob_dispatch_select_r;
     logic [OPTN_ROB_DEPTH-1:0] rob_retire_select;
     logic [OPTN_ROB_DEPTH-1:0] lsu_retire_lq_ack_select;
     logic [OPTN_ROB_DEPTH-1:0] lsu_retire_sq_ack_select;
@@ -124,7 +124,7 @@ module procyon_rob #(
             .i_cdb_data(i_cdb_data),
             .i_cdb_addr(i_cdb_addr),
             .i_cdb_tag(i_cdb_tag),
-            .i_dispatch_en(rob_dispatch_select[inst]),
+            .i_dispatch_en(rob_dispatch_select_r[inst]),
             .i_dispatch_op(i_rob_enq_op),
             .i_dispatch_pc(i_rob_enq_pc),
             .i_dispatch_rdest(i_rob_enq_rdest),
@@ -136,12 +136,12 @@ module procyon_rob #(
     end
     endgenerate
 
-    // Check if a rename and retire event are occurring in this cycle. rob_queue_head, rob_queue_tail and the rob_entry_counter_r
+    // Check if a reserve and retire event are occurring in this cycle. rob_queue_head, rob_queue_tail and the rob_entry_counter_r
     // all depend on these signals.
-    logic rob_rename_en;
+    logic rob_reserve_en;
     logic rob_retire_en;
 
-    assign rob_rename_en = i_regmap_rename_en;
+    assign rob_reserve_en = i_rob_reserve_en;
     assign rob_retire_en = rob_entry_retirable[rob_queue_head];
 
     // Increment the tail pointer to reserve an entry when the Dispatcher is in the renaming cycle and the ROB is not full.
@@ -154,7 +154,7 @@ module procyon_rob #(
         .n_rst(n_rst),
         .i_flush(redirect_r),
         .i_incr_head(rob_retire_en),
-        .i_incr_tail(rob_rename_en),
+        .i_incr_tail(rob_reserve_en),
         .o_queue_head(rob_queue_head),
         .o_queue_tail(rob_queue_tail),
         .o_queue_full(rob_queue_full),
@@ -162,18 +162,14 @@ module procyon_rob #(
     );
 
     // Generate a one-hot vector reserving an ROB entry for the next cycle when the dispatcher will enqueue into the entry
-    logic [OPTN_ROB_DEPTH-1:0] rob_rename_select;
+    logic [OPTN_ROB_DEPTH-1:0] rob_reserve_select;
 
     always_comb begin
-        rob_rename_select = '0;
-        rob_rename_select[rob_queue_tail] = rob_rename_en;
+        rob_reserve_select = '0;
+        rob_reserve_select[rob_queue_tail] = rob_reserve_en;
     end
 
-    logic [OPTN_ROB_DEPTH-1:0] rob_rename_select_r;
-    procyon_ff #(OPTN_ROB_DEPTH) rob_rename_select_r_ff (.clk(clk), .i_en(1'b1), .i_d(rob_rename_select), .o_q(rob_rename_select_r));
-
-    // If previous (rename) cycle reserved an ROB entry, use it here to enqueue if the dispatch signals to enqueue
-    assign rob_dispatch_select = {(OPTN_ROB_DEPTH){i_rob_enq_en}} & rob_rename_select_r;
+    procyon_ff #(OPTN_ROB_DEPTH) rob_dispatch_select_r_ff (.clk(clk), .i_en(1'b1), .i_d(rob_reserve_select), .o_q(rob_dispatch_select_r));
 
     // Only allow the head ROB entry to retire. This is basically a "is_head" signal passed to each entry.
     always_comb begin
@@ -198,7 +194,7 @@ module procyon_rob #(
     procyon_ff #(OPTN_ADDR_WIDTH) o_redirect_addr_ff (.clk(clk), .i_en(1'b1), .i_d(redirect_addr_mux), .o_q(o_redirect_addr));
 
     // Send the next free ROB entry number to the regmap so it can use it to rename the destination register for a new instruction
-    assign o_regmap_rename_tag = rob_queue_tail;
+    assign o_rob_reserve_tag = rob_queue_tail;
 
     // Output stall if the ROB is full
     assign o_rob_stall = rob_queue_full;

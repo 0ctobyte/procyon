@@ -36,6 +36,7 @@ module procyon_rs_entry #(
     input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag           [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
+    input  logic                          i_reserve_en,
     input  logic                          i_dispatch_en,
     input  logic [`PCYN_OPCODE_WIDTH-1:0] i_dispatch_opcode,
     input  logic [OPTN_ADDR_WIDTH-1:0]    i_dispatch_iaddr,
@@ -74,13 +75,14 @@ module procyon_rs_entry #(
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_src_tag_r [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_dst_tag_r;
 
-    // The empty bit is only cleared if the entry will be used to hold the next dispatched instruction.
+    // The empty bit is only cleared if the entry will be used to hold the next dispatched instruction. This means we
+    // need to clear it when reserving an entry as the dispatcher will send the rest of the RS data in the next cycle.
     // Set it if the entry is issuing or on a pipeline flush
     logic rs_entry_empty_mux;
 
     always_comb begin
         logic [1:0] rs_entry_empty_sel;
-        rs_entry_empty_sel = {i_issue_en, i_dispatch_en};
+        rs_entry_empty_sel = {i_issue_en, i_reserve_en};
 
         case (rs_entry_empty_sel)
             2'b00: rs_entry_empty_mux = rs_entry_empty_r;
@@ -128,9 +130,12 @@ module procyon_rs_entry #(
             end
         end
 
-        // Take the dispatch data and rdy bits if we're using this entry to enqueue a new op
+        // Take the dispatch data if we're using this entry to enqueue a new op
         rs_entry_src_data_mux = i_dispatch_en ? i_dispatch_src_data : rs_entry_src_data_mux;
-        rs_entry_src_rdy_mux = i_dispatch_en ? i_dispatch_src_rdy : rs_entry_src_rdy_mux;
+
+        // The ready bits should be cleared when reserving an entry
+        rs_entry_src_rdy_mux =  i_dispatch_en ? i_dispatch_src_rdy : rs_entry_src_rdy_mux;
+        rs_entry_src_rdy_mux = '{~i_reserve_en & rs_entry_src_rdy_mux[0], ~i_reserve_en & rs_entry_src_rdy_mux[1]};
     end
 
     procyon_ff #(OPTN_DATA_WIDTH) rs_entry_src_data_r_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_entry_src_data_mux[0]), .o_q(rs_entry_src_data_r[0]));

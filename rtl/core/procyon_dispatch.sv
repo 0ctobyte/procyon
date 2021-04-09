@@ -8,7 +8,7 @@
 // Decodes and dispatches instructions over two cycles
 // Cycle 1:
 // * Decodes instruction
-// * Renames destination register in Register Map and reserves and entry in the ROB
+// * Renames destination register in Register Map and reserves and entry in the ROB and RS
 // * Lookup source register from the Register Map
 // Cycle 2:
 // * Updates ROB with new op, pc and rdest
@@ -23,7 +23,6 @@ module procyon_dispatch #(
     parameter OPTN_ROB_IDX_WIDTH    = 5
 )(
     input  logic                             clk,
-    input  logic                             n_rst,
 
     input  logic                             i_flush,
     input  logic                             i_rob_stall,
@@ -40,7 +39,6 @@ module procyon_dispatch #(
 
     // Register Map rename interface
     output logic [OPTN_REGMAP_IDX_WIDTH-1:0] o_regmap_rename_rdest,
-    output logic                             o_regmap_rename_en,
 
     // ROB tag used to rename destination register in the Register Map
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]    i_rob_dst_tag,
@@ -48,52 +46,43 @@ module procyon_dispatch #(
     // Override ready signals when ROB looks up source registers
     output logic                             o_rob_lookup_rdy_ovrd [0:1],
 
+    // ROB reserve interface
+    output logic                             o_rob_reserve_en,
+
     // ROB enqueue interface
-    output logic                             o_rob_enq_en,
     output logic [`PCYN_ROB_OP_WIDTH-1:0]    o_rob_enq_op,
     output logic [OPTN_ADDR_WIDTH-1:0]       o_rob_enq_pc,
     output logic [OPTN_REGMAP_IDX_WIDTH-1:0] o_rob_enq_rdest,
 
+    // Reservation Station reserve interface
+    output logic                             o_rs_reserve_en,
+    output logic [`PCYN_OPCODE_WIDTH-1:0]    o_rs_reserve_opcode,
+
     // Reservation Station enqueue interface
-    output logic                             o_rs_en,
     output logic [`PCYN_OPCODE_WIDTH-1:0]    o_rs_opcode,
     output logic [OPTN_ADDR_WIDTH-1:0]       o_rs_pc,
     output logic [OPTN_DATA_WIDTH-1:0]       o_rs_insn,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]    o_rs_dst_tag
 );
 
-    logic dispatch_stall;
-    assign dispatch_stall = i_rob_stall | i_rs_stall;
-    assign o_dispatch_stall = dispatch_stall;
+    assign o_dispatch_stall = i_rob_stall | i_rs_stall;
 
-    logic n_flush;
-    logic n_rs_stall;
-    logic n_rob_stall;
+    // Signal the RS to reserve an entry
+    logic dispatch_en;
+    assign dispatch_en = ~i_flush & ~i_rs_stall & ~i_rob_stall & i_dispatch_valid;
 
-    assign n_flush = ~i_flush;
-    assign n_rs_stall = ~i_rs_stall;
-    assign n_rob_stall = ~i_rob_stall;
-
-    // The rs_dispatch_en should be set to i_dispatch_valid if there are no stalls. If the RS is stalled we must maintain
-    // the previous value of the register. Otherwise, if the ROB is stalled we need to clear the register in order to
-    // punch a bubble in the RS enqueue interface so the RS does not enqueue anything in that cycle. If i_flush is
-    // asserted then this register will be cleared.
-    logic rs_dispatch_en;
-    logic rs_dispatch_en_r;
-
-    assign rs_dispatch_en = n_flush & (i_rs_stall ? rs_dispatch_en_r : (n_rob_stall & i_dispatch_valid));
-    procyon_srff #(1) rs_dispatch_en_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rs_dispatch_en), .i_reset(1'b0), .o_q(rs_dispatch_en_r));
-
-    assign o_rs_en = rs_dispatch_en_r;
-
-    // The RS dispatch registers should not be overwritten if the RS is stalled
-    procyon_ff #(OPTN_ADDR_WIDTH) o_rs_pc_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_dispatch_pc), .o_q(o_rs_pc));
-    procyon_ff #(OPTN_DATA_WIDTH) o_rs_insn_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_dispatch_insn), .o_q(o_rs_insn));
-    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_rs_dst_tag_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_rob_dst_tag), .o_q(o_rs_dst_tag));
+    assign o_rs_reserve_en = dispatch_en;
 
     logic [`PCYN_OPCODE_WIDTH-1:0] opcode;
     assign opcode = i_dispatch_insn[6:0];
-    procyon_ff #(`PCYN_OPCODE_WIDTH) o_rs_opcode_ff (.clk(clk), .i_en(n_rs_stall), .i_d(opcode), .o_q(o_rs_opcode));
+
+    assign o_rs_reserve_opcode = opcode;
+
+    // The RS dispatch registers should not be overwritten if the RS is stalled
+    procyon_ff #(OPTN_ADDR_WIDTH) o_rs_pc_ff (.clk(clk), .i_en(1'b1), .i_d(i_dispatch_pc), .o_q(o_rs_pc));
+    procyon_ff #(OPTN_DATA_WIDTH) o_rs_insn_ff (.clk(clk), .i_en(1'b1), .i_d(i_dispatch_insn), .o_q(o_rs_insn));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_rs_dst_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_dst_tag), .o_q(o_rs_dst_tag));
+    procyon_ff #(`PCYN_OPCODE_WIDTH) o_rs_opcode_ff (.clk(clk), .i_en(1'b1), .i_d(opcode), .o_q(o_rs_opcode));
 
     // opcode comparators
     logic is_opimm;
@@ -121,13 +110,11 @@ module procyon_dispatch #(
     assign o_rob_lookup_rdy_ovrd[0] = ~(is_opimm | is_op | is_jalr | is_branch | is_load | is_store);
     assign o_rob_lookup_rdy_ovrd[1] = ~(is_op | is_branch | is_store);
 
-    // Don't enqueue anything in the ROB if any one of i_flush, i_rs_stall or i_rob_stall are asserted.
-    logic rob_dispatch_en;
-    assign rob_dispatch_en = n_flush & n_rs_stall & n_rob_stall & i_dispatch_valid;
-    procyon_srff #(1) o_rob_enq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_dispatch_en), .i_reset(1'b0), .o_q(o_rob_enq_en));
+    // Signal the ROB to reserve an entry
+    assign o_rob_reserve_en = dispatch_en;
 
     // The ROB enqueue registers should not be overwritten if the ROB stalls
-    procyon_ff #(OPTN_ADDR_WIDTH) o_rob_enq_pc_ff (.clk(clk), .i_en(n_rob_stall), .i_d(i_dispatch_pc), .o_q(o_rob_enq_pc));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_rob_enq_pc_ff (.clk(clk), .i_en(1'b1), .i_d(i_dispatch_pc), .o_q(o_rob_enq_pc));
 
     logic [OPTN_REGMAP_IDX_WIDTH-1:0] rdest;
     logic rob_rdest_sel;
@@ -136,7 +123,7 @@ module procyon_dispatch #(
     assign rdest = i_dispatch_insn[11:7];
     assign rob_rdest_sel = is_opimm | is_lui | is_auipc | is_op | is_jal | is_jalr | is_load;
     assign rob_enq_rdest = rob_rdest_sel ? rdest : '0;
-    procyon_ff #(OPTN_REGMAP_IDX_WIDTH) o_rob_enq_rdest_ff (.clk(clk), .i_en(n_rob_stall), .i_d(rob_enq_rdest), .o_q(o_rob_enq_rdest));
+    procyon_ff #(OPTN_REGMAP_IDX_WIDTH) o_rob_enq_rdest_ff (.clk(clk), .i_en(1'b1), .i_d(rob_enq_rdest), .o_q(o_rob_enq_rdest));
 
     logic [`PCYN_ROB_OP_WIDTH-1:0] rob_enq_op;
 
@@ -152,7 +139,7 @@ module procyon_dispatch #(
         endcase
     end
 
-    procyon_ff #(`PCYN_ROB_OP_WIDTH) o_rob_enq_op_ff (.clk(clk), .i_en(n_rob_stall), .i_d(rob_enq_op), .o_q(o_rob_enq_op));
+    procyon_ff #(`PCYN_ROB_OP_WIDTH) o_rob_enq_op_ff (.clk(clk), .i_en(1'b1), .i_d(rob_enq_op), .o_q(o_rob_enq_op));
 
     // Interface to Register Map to lookup source operands
     logic [OPTN_REGMAP_IDX_WIDTH-1:0] rsrc [0:1];
@@ -162,6 +149,5 @@ module procyon_dispatch #(
 
     // Interface to Register Map to rename destination register for new instruction
     assign o_regmap_rename_rdest = rob_enq_rdest;
-    assign o_regmap_rename_en = ~dispatch_stall & i_dispatch_valid;
 
 endmodule
