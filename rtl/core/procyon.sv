@@ -355,7 +355,7 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
-        .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH)
+        .OPTN_RS_DEPTH(OPTN_RS_LSU_DEPTH)
     ) procyon_rs_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
