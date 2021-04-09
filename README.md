@@ -41,7 +41,7 @@ Fetch | Retrieve an instruction from the instruction cache and place it into the
 Dispatch | Partially decode an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type. Gets values or producer of source registers and renames destination registers in the register map.
 Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle. The reservation station will capture register values from produce ops and schedule ready instructions to it's functional unit when available.
 Execute | Execute the instruction, this may take one or more cycles. The functional units are pipelined so they can be executing multiple instructions in different pipeline cycles simultaneously. Loads will speculatively load from the data cache regardless of outstanding stores. Stores will just generate the effective address and wait in the store queue until it can be retired.
-Complete | Broadcast the result on theCommon Data Bus (CDB) which will feed into each Reservation Station to provide dependent instructions with the operands that they may be waiting for and mark the entry as completed in the Reorder Buffer. Loads that miss in the data cache will wait in the load queue until the data is available at which point the load will be retried. Stores will let the Reorder Buffer know that it's ready to be retired but will not update the cache.
+Complete | Broadcast the result on the Common Data Bus (CDB) which will feed into each Reservation Station to provide dependent instructions with the operands that they may be waiting for and mark the entry as completed in the Reorder Buffer. Loads that miss in the data cache will wait in the load queue until the data is available at which point the load will be retried. Stores will let the Reorder Buffer know that it's ready to be retired but will not update the cache.
 Retire | Once the instruction reaches the head of the Reorder Buffer and the instruction has been completed it will be retired which means it will be removed from the Reorder Buffer and the result value (if any) written into the Register File. For stores, the reorder buffer will signal the store queue to retire the store. The store queue will, as soon as the next cycle, tell the LSU to write the store data to the cache. If the store misses in the cache it will wait in the store queue until the cache-line is available. At this point the stores will also CAM the load queue and mark any load to the same address bytes as "mis-speculated".
 
 At a finer level, the processor's pipeline is organized as described below for the various execution paths.
@@ -58,15 +58,16 @@ The fetch stage is very simple at the moment. It simply takes the current PC and
 
 ### Dispatch Stage
 
-The dispatch stage takes two cycles named `DR` and `MD`.
+The dispatch stage takes two cycles named `DMR` and `RUP`.
 
-#### Decode & Rename
+#### Decode, Map & Rename
 
 In this cycle the instruction will be decoded at a high-level. Essentially the class of instruction will be determined here (ALU, branch, load or store). In addition, the source registers will be looked up in the Register Map for either the value of the register or the producer of the register value if a previous instruction is in the process of writing to it. This lookup resolves RAW hazards.
+The destination register for the instruction (if needed) will be renamed in the Register Map as well thus avoiding WAR and WAW hazards.
 
-#### Map & Dispatch
+#### Reorder Buffer & Reservation Station Update
 
-The destination register for the instruction (if needed) will be renamed in this cycle in the Register Map thus avoiding WAR and WAW hazards. The source operands or producer tag (which is essentially the Reorder Buffer entry number), renamed destination register and decoded instruction bits are sent to the Reorder Buffer and Reservation Stations to be latched at the end of the cycle thus finishing the Dispatch stage. If either the Reorder Buffer or Reservation Station are full, the Front-End pipeline will stall.
+The Reorder Buffer and the Reservation Station will be updated in this cycle simply enqueuing the new op. Data for source operands will be bypassed from the CDB before enqueuing in the Reservation Station in case the CDB is valid in the same cycle.
 
 ## IEU Pipeline
 
