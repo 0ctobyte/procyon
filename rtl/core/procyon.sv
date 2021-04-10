@@ -103,8 +103,9 @@ module procyon #(
     logic rs_src_rdy [0:1];
     logic [ROB_IDX_WIDTH-1:0] rs_dst_tag;
 
-    logic rs_switch_reserve_en [0:CDB_DEPTH-1];
-    logic rs_switch_stall [0:CDB_DEPTH-1];
+    logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] rs_switch_fu_type [0:CDB_DEPTH-1];
+    logic [CDB_DEPTH-1:0] rs_switch_reserve_en;
+    logic [CDB_DEPTH-1:0] rs_switch_stall;
     logic [OPTN_DATA_WIDTH-1:0] rs_switch_src_data [0:1];
     logic [ROB_IDX_WIDTH-1:0] rs_switch_src_tag [0:1];
     logic rs_switch_src_rdy [0:1];
@@ -239,7 +240,6 @@ module procyon #(
         .n_rst(n_rst),
         .o_redirect(rob_redirect),
         .o_redirect_addr(rob_redirect_addr),
-        .i_rs_stall(rs_stall),
         .o_rob_stall(rob_stall),
         .i_cdb_en(cdb_en),
         .i_cdb_redirect(cdb_redirect),
@@ -276,12 +276,15 @@ module procyon #(
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH)
     ) procyon_rs_switch_inst (
+        .clk(clk),
+        .n_rst(n_rst),
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
         .i_rs_reserve_en(rs_reserve_en),
         .i_rs_reserve_opcode(rs_reserve_opcode),
         .o_rs_reserve_en(rs_switch_reserve_en),
+        .i_rs_fu_type(rs_switch_fu_type),
         .i_rs_src_tag(rs_src_tag),
         .i_rs_src_data(rs_src_data),
         .i_rs_src_rdy(rs_src_rdy),
@@ -297,11 +300,13 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
-        .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH)
+        .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH),
+        .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_IEU)
     ) procyon_rs_ieu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
+        .o_rs_fu_type(rs_switch_fu_type[0]),
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
@@ -352,11 +357,13 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
-        .OPTN_RS_DEPTH(OPTN_RS_LSU_DEPTH)
+        .OPTN_RS_DEPTH(OPTN_RS_LSU_DEPTH),
+        .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_LSU)
     ) procyon_rs_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
+        .o_rs_fu_type(rs_switch_fu_type[1]),
         .i_cdb_en(cdb_en),
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),

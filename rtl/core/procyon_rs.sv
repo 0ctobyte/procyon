@@ -17,41 +17,47 @@ module procyon_rs #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_CDB_DEPTH     = 2,
-    parameter OPTN_RS_DEPTH      = 16
+    parameter OPTN_RS_DEPTH      = 16,
+    parameter OPTN_RS_FU_TYPE    = 0
 )(
-    input  logic                          clk,
-    input  logic                          n_rst,
+    input  logic                              clk,
+    input  logic                              n_rst,
 
-    input  logic                          i_flush,
+    input  logic                              i_flush,
+
+    // One-hot vector indicating what functional unit is attached to this reservation station
+    output logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] o_rs_fu_type,
 
     // Common Data Bus networks
-    input  logic                          i_cdb_en      [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data    [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag     [0:OPTN_CDB_DEPTH-1],
+    input  logic                              i_cdb_en      [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data    [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag     [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
-    input  logic                          i_rs_reserve_en,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0] i_rs_opcode,
-    input  logic [OPTN_ADDR_WIDTH-1:0]    i_rs_iaddr,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_insn,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rs_src_tag  [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_src_data [0:1],
-    input  logic                          i_rs_src_rdy  [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rs_dst_tag,
-    output logic                          o_rs_stall,
+    input  logic                              i_rs_reserve_en,
+    input  logic [`PCYN_OPCODE_WIDTH-1:0]     i_rs_opcode,
+    input  logic [OPTN_ADDR_WIDTH-1:0]        i_rs_iaddr,
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_insn,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_src_tag  [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_src_data [0:1],
+    input  logic                              i_rs_src_rdy  [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dst_tag,
+    output logic                              o_rs_stall,
 
     // Functional Unit interface
-    input  logic                          i_fu_stall,
-    output logic                          o_fu_valid,
-    output logic [`PCYN_OPCODE_WIDTH-1:0] o_fu_opcode,
-    output logic [OPTN_ADDR_WIDTH-1:0]    o_fu_iaddr,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_fu_insn,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_fu_src_a,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_fu_src_b,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_fu_tag
+    input  logic                              i_fu_stall,
+    output logic                              o_fu_valid,
+    output logic [`PCYN_OPCODE_WIDTH-1:0]     o_fu_opcode,
+    output logic [OPTN_ADDR_WIDTH-1:0]        o_fu_iaddr,
+    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_insn,
+    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src_a,
+    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src_b,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_fu_tag
 );
 
     localparam RS_IDX_WIDTH = $clog2(OPTN_RS_DEPTH);
+
+    assign o_rs_fu_type = OPTN_RS_FU_TYPE;
 
     logic [OPTN_RS_DEPTH-1:0] rs_entry_ready;
     logic [OPTN_RS_DEPTH-1:0] rs_entry_empty;

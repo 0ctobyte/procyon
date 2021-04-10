@@ -6,6 +6,14 @@
 
 // Procyon constants
 
+// RS functional unit types
+`define PCYN_RS_FU_TYPE_WIDTH     2
+`define PCYN_RS_FU_TYPE_IDX_WIDTH ($clog2(`PCYN_RS_FU_TYPE_WIDTH))
+`define PCYN_RS_FU_TYPE_IDX_IEU   `PCYN_RS_FU_TYPE_IDX_WIDTH'(0)
+`define PCYN_RS_FU_TYPE_IDX_LSU   `PCYN_RS_FU_TYPE_IDX_WIDTH'(1)
+`define PCYN_RS_FU_TYPE_IEU       (`PCYN_RS_FU_TYPE_WIDTH'b01)
+`define PCYN_RS_FU_TYPE_LSU       (`PCYN_RS_FU_TYPE_WIDTH'b10)
+
 // ROB op types
 `define PCYN_ROB_OP_WIDTH 2
 `define PCYN_ROB_OP_INT   (`PCYN_ROB_OP_WIDTH'b00)

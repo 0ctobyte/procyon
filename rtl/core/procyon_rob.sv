@@ -23,7 +23,6 @@ module procyon_rob #(
     input  logic                              clk,
     input  logic                              n_rst,
 
-    input  logic                              i_rs_stall,
     output logic                              o_rob_stall,
 
     // The redirect signal and addr/pc are used by the Fetch unit to jump to the redirect address
@@ -231,15 +230,12 @@ module procyon_rob #(
         end
     end
 
-    logic n_rs_stall;
-    assign n_rs_stall = ~i_rs_stall;
-
-    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_data_mux[0]), .o_q(o_rs_src_data[0]));
-    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_data_mux[1]), .o_q(o_rs_src_data[1]));
-    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_rob_lookup_tag[0]), .o_q(o_rs_src_tag[0]));
-    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(i_rob_lookup_tag[1]), .o_q(o_rs_src_tag[1]));
-    procyon_ff #(1) o_rs_src_rdy_0_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_rdy[0]), .o_q(o_rs_src_rdy[0]));
-    procyon_ff #(1) o_rs_src_rdy_1_ff (.clk(clk), .i_en(n_rs_stall), .i_d(rs_src_rdy[1]), .o_q(o_rs_src_rdy[1]));
+    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_data_mux[0]), .o_q(o_rs_src_data[0]));
+    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_1_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_data_mux[1]), .o_q(o_rs_src_data[1]));
+    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_0_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_lookup_tag[0]), .o_q(o_rs_src_tag[0]));
+    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_1_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_lookup_tag[1]), .o_q(o_rs_src_tag[1]));
+    procyon_ff #(1) o_rs_src_rdy_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_rdy[0]), .o_q(o_rs_src_rdy[0]));
+    procyon_ff #(1) o_rs_src_rdy_1_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_rdy[1]), .o_q(o_rs_src_rdy[1]));
 
     // Let the LSU know that the instruction at the head of the ROB is ready to be retired and is waiting for an ack from the LSU
     procyon_ff #(ROB_IDX_WIDTH) o_lsu_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_queue_head), .o_q(o_lsu_retire_tag));
