@@ -142,31 +142,38 @@ module procyon_lsu_lq_entry #(
 
     procyon_srff #(LQ_STATE_WIDTH) lq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(lq_entry_state_next), .i_reset(LQ_STATE_INVALID), .o_q(lq_entry_state_r));
 
-    // Calculate misspeculated bit based off of overlapping load and retiring store addresses
+    // Calculate misspeculated bit based off of overlapping load and retiring store addresses. We need to perform this check
+    // for allocating loads in case the store is retiring on the same cycle as the allocation.
     logic lq_entry_misspeculated;
 
     always_comb begin
+        logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_lsu_func;
+        logic [OPTN_ADDR_WIDTH-1:0] lq_addr_start;
         logic [OPTN_ADDR_WIDTH-1:0] lq_addr_end;
         logic lq_overlap_sq;
         logic sq_overlap_lq;
         logic overlap_detected;
 
-        case (lq_entry_lsu_func_r)
-            `PCYN_LSU_FUNC_LB:  lq_addr_end = lq_entry_addr_r + OPTN_ADDR_WIDTH'(1);
-            `PCYN_LSU_FUNC_LH:  lq_addr_end = lq_entry_addr_r + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            `PCYN_LSU_FUNC_LBU: lq_addr_end = lq_entry_addr_r + OPTN_ADDR_WIDTH'(1);
-            `PCYN_LSU_FUNC_LHU: lq_addr_end = lq_entry_addr_r + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            default:            lq_addr_end = lq_entry_addr_r + OPTN_ADDR_WIDTH'(DATA_SIZE);
+        lq_lsu_func = i_alloc_en ? i_alloc_lsu_func : lq_entry_lsu_func_r;
+        lq_addr_start = i_alloc_en ? i_alloc_addr : lq_entry_addr_r;
+
+        case (lq_lsu_func)
+            `PCYN_LSU_FUNC_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            `PCYN_LSU_FUNC_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            `PCYN_LSU_FUNC_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            `PCYN_LSU_FUNC_LHU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            default:            lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE);
         endcase
 
         // Compare retired store address with all valid load addresses to detect mis-speculated loads
-        lq_overlap_sq = (lq_entry_addr_r >= i_sq_retire_addr) & (lq_entry_addr_r < i_sq_retire_addr_end);
-        sq_overlap_lq = (i_sq_retire_addr >= lq_entry_addr_r) & (i_sq_retire_addr < lq_addr_end);
+        lq_overlap_sq = (lq_addr_start >= i_sq_retire_addr) & (lq_addr_start < i_sq_retire_addr_end);
+        sq_overlap_lq = (i_sq_retire_addr >= lq_addr_start) & (i_sq_retire_addr < lq_addr_end);
         overlap_detected = i_sq_retire_en & (lq_overlap_sq | sq_overlap_lq);
 
-        // Update misspeculated bit depending on state; it is cleared if we enter LQ_STATE_MHQ_TAG_WAIT, LQ_STATE_MHQ_FILL_WAIT or LQ_STATE_REPLAYABLE or if the entry is being allocated
+        // Update misspeculated bit depending on state; it is cleared if we enter LQ_STATE_MHQ_TAG_WAIT, LQ_STATE_MHQ_FILL_WAIT or LQ_STATE_REPLAYABLE
         // since we know the load hasn't forwarded the incorrect data over the CDB. It is set when the retiring store matches the loads address range
-        lq_entry_misspeculated = ~(i_alloc_en | (lq_entry_state_r == LQ_STATE_MHQ_TAG_WAIT) | (lq_entry_state_r == LQ_STATE_MHQ_FILL_WAIT) | (lq_entry_state_r == LQ_STATE_REPLAYABLE)) & (overlap_detected | lq_entry_misspeculated_r);
+        // We also need to clear the bit when the entry is being allocated and there is no overlap with a same-cycle retiring store
+        lq_entry_misspeculated = ~((lq_entry_state_r == LQ_STATE_MHQ_TAG_WAIT) | (lq_entry_state_r == LQ_STATE_MHQ_FILL_WAIT) | (lq_entry_state_r == LQ_STATE_REPLAYABLE)) & (overlap_detected | (~i_alloc_en & lq_entry_misspeculated_r));
     end
 
     procyon_ff #(1) lq_entry_misspeculated_r_ff (.clk(clk), .i_en(1'b1), .i_d(lq_entry_misspeculated), .o_q(lq_entry_misspeculated_r));
