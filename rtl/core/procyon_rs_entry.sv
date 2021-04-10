@@ -113,6 +113,9 @@ module procyon_rs_entry #(
     logic rs_entry_src_rdy_mux [0:1];
 
     always_comb begin
+        logic n_reserve_en;
+        n_reserve_en = ~i_reserve_en;
+
         for (int src_idx = 0; src_idx < 2; src_idx++) begin
             rs_entry_src_data_mux[src_idx] = rs_entry_src_data_r[src_idx];
             rs_entry_src_rdy_mux[src_idx] = rs_entry_src_rdy_r[src_idx];
@@ -135,7 +138,7 @@ module procyon_rs_entry #(
 
         // The ready bits should be cleared when reserving an entry
         rs_entry_src_rdy_mux =  i_dispatch_en ? i_dispatch_src_rdy : rs_entry_src_rdy_mux;
-        rs_entry_src_rdy_mux = '{~i_reserve_en & rs_entry_src_rdy_mux[0], ~i_reserve_en & rs_entry_src_rdy_mux[1]};
+        rs_entry_src_rdy_mux = '{n_reserve_en & rs_entry_src_rdy_mux[0], n_reserve_en & rs_entry_src_rdy_mux[1]};
     end
 
     procyon_ff #(OPTN_DATA_WIDTH) rs_entry_src_data_r_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_entry_src_data_mux[0]), .o_q(rs_entry_src_data_r[0]));

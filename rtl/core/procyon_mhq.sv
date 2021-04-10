@@ -119,17 +119,20 @@ module procyon_mhq #(
     end
     endgenerate
 
-    logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_entry_alloc_select;
-    logic mhq_lookup_allocating;
-    logic mhq_fill_en;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lookup_fill_addr;
-
     // Convert tail pointer to one-hot allocation select vector
+    logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_entry_alloc_select;
     procyon_binary2onehot #(OPTN_MHQ_DEPTH) mhq_lookup_entry_alloc_select_binary2onehot (.i_binary(mhq_queue_tail), .o_onehot(mhq_lookup_entry_alloc_select));
 
     // Send to the MHQ_LU stage to compare against current lookup address and signal immediate replay
-    assign mhq_lookup_fill_addr = mhq_entry_addr[mhq_queue_head];
-    assign mhq_fill_en = mhq_entry_complete[mhq_queue_head];
+    logic mhq_completing;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_completing_addr;
+
+    assign mhq_completing = mhq_entry_complete[mhq_queue_head];
+    assign mhq_completing_addr = mhq_entry_addr[mhq_queue_head];
+
+    logic mhq_fill_en_r;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_fill_addr_r;
+    logic mhq_lookup_allocating;
 
     procyon_mhq_lu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -160,8 +163,10 @@ module procyon_mhq #(
         .o_mhq_update_byte_select(mhq_update_byte_select),
         .o_mhq_update_addr(mhq_update_addr),
         .i_biu_done(i_biu_done),
-        .i_mhq_fill_en(mhq_fill_en),
-        .i_mhq_fill_addr(mhq_lookup_fill_addr)
+        .i_mhq_completing(mhq_completing),
+        .i_mhq_completing_addr(mhq_completing_addr),
+        .i_mhq_filling(mhq_fill_en_r),
+        .i_mhq_filling_addr(mhq_fill_addr_r)
     );
 
     // Increment tail pointer if an entry is going to be allocated (i.e. lookup is valid and missed in the cache but
@@ -172,7 +177,7 @@ module procyon_mhq #(
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(1'b0),
-        .i_incr_head(mhq_fill_en),
+        .i_incr_head(mhq_completing),
         .i_incr_tail(mhq_lookup_allocating),
         .o_queue_head(mhq_queue_head),
         .o_queue_tail(mhq_queue_tail),
@@ -181,18 +186,19 @@ module procyon_mhq #(
     );
 
     // Fill request signals sent to LSU
-    procyon_ff #(1) o_mhq_fill_en_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_fill_en), .o_q(o_mhq_fill_en));
+    procyon_ff #(1) mhq_fill_en_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_completing), .o_q(mhq_fill_en_r));
+    assign o_mhq_fill_en = mhq_fill_en_r;
+
     procyon_ff #(MHQ_IDX_WIDTH) o_mhq_fill_tag_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_queue_head), .o_q(o_mhq_fill_tag));
     procyon_ff #(1) o_mhq_fill_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_dirty[mhq_queue_head]), .o_q(o_mhq_fill_dirty));
 
-    logic [OPTN_ADDR_WIDTH-1:0] mhq_fill_addr;
-    assign mhq_fill_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
-    procyon_ff #(OPTN_ADDR_WIDTH) o_mhq_fill_addr_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_fill_addr), .o_q(o_mhq_fill_addr));
+    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) mhq_fill_addr_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_addr[mhq_queue_head]), .o_q(mhq_fill_addr_r));
+    assign o_mhq_fill_addr = {mhq_fill_addr_r, {(DC_OFFSET_WIDTH){1'b0}}};
 
     procyon_ff #(DC_LINE_WIDTH) o_mhq_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_data[mhq_queue_head]), .o_q(o_mhq_fill_data));
 
     // Signal to BIU to fetch data from memory
-    assign o_biu_addr = mhq_fill_addr;
+    assign o_biu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
     assign o_biu_en = mhq_entry_valid[mhq_queue_head] & ~mhq_entry_complete[mhq_queue_head];
 
 endmodule
