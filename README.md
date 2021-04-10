@@ -111,6 +111,11 @@ For new loads or stores, the instruction is decoded further to determine what ki
 
 The Data Cache is queried for tag and the data (it will return the full cache-line) in this cycle. Write data from the next cycle is bypassed here to avoid RAW memory hazards.
 
+#### LQ/SQ Allocate
+
+In the same cycle as `DT` (Data Cache Data/Tag Read), an entry will be allocated in either the LQ or SQ depending on whether the instruction is a Load or Store with the relevant details
+stored in the entry.
+
 #### Data Cache Hit Check & Write
 
 Cache hit signals are checked here and if a cache hit is indicated then the load data will be marked valid and retiring store data will be written into the cache.
