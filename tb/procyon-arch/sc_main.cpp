@@ -115,7 +115,7 @@ int sc_main(int argc, char** argv) {
 
     std::cout << "\nINSTRUCTIONS: " << std::dec << retired_insns
         << " CYCLES: " << std::dec << cycles
-        << " IPC: " << std::dec << (double)retired_insns/(double)cycles << std::endl;
+        << " CPI: " << std::dec << (double)cycles/(double)retired_insns << std::endl;
 
     int err = 0;
     if (sim_tp == PASS && sc_get_status() != SC_STOPPED) {

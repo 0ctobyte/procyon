@@ -12,6 +12,7 @@ module procyon #(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_REGMAP_DEPTH     = 32,
+    parameter OPTN_NUM_IEU          = 1,
     parameter OPTN_INSN_FIFO_DEPTH  = 8,
     parameter OPTN_ROB_DEPTH        = 64,
     parameter OPTN_RS_IEU_DEPTH     = 16,
@@ -25,8 +26,8 @@ module procyon #(
     parameter OPTN_WB_DATA_WIDTH    = 16,
     parameter OPTN_WB_ADDR_WIDTH    = 32,
 
-    parameter REGMAP_IDX_WIDTH   = $clog2(OPTN_REGMAP_DEPTH),
-    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter REGMAP_IDX_WIDTH      = $clog2(OPTN_REGMAP_DEPTH),
+    parameter WB_DATA_SIZE          = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                          clk,
     input  logic                          n_rst,
@@ -62,7 +63,7 @@ module procyon #(
     output logic [OPTN_WB_DATA_WIDTH-1:0] o_wb_data
 );
 
-    localparam CDB_DEPTH     = 2;
+    localparam CDB_DEPTH     = 1 + OPTN_NUM_IEU;
     localparam ROB_IDX_WIDTH = $clog2(OPTN_ROB_DEPTH);
     localparam MHQ_IDX_WIDTH = $clog2(OPTN_MHQ_DEPTH);
     localparam DC_LINE_WIDTH = OPTN_DC_LINE_SIZE * 8;
@@ -300,9 +301,9 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
-        .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH),
-        .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_IEU)
-    ) procyon_rs_ieu_inst (
+        .OPTN_RS_DEPTH(OPTN_RS_LSU_DEPTH),
+        .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_LSU)
+    ) procyon_rs_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -329,11 +330,15 @@ module procyon #(
         .o_fu_tag(fu_tag[0])
     );
 
-    procyon_ieu #(
+    procyon_lsu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) procyon_ieu_inst (
+        .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
+        .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
+        .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
+        .OPTN_MHQ_IDX_WIDTH(MHQ_IDX_WIDTH)
+    ) procyon_lsu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(rob_redirect),
@@ -349,68 +354,7 @@ module procyon #(
         .i_fu_src_a(fu_src_a[0]),
         .i_fu_src_b(fu_src_b[0]),
         .i_fu_tag(fu_tag[0]),
-        .o_fu_stall(fu_stall[0])
-    );
-
-    procyon_rs #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
-        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
-        .OPTN_CDB_DEPTH(CDB_DEPTH),
-        .OPTN_RS_DEPTH(OPTN_RS_LSU_DEPTH),
-        .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_LSU)
-    ) procyon_rs_lsu_inst (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(rob_redirect),
-        .o_rs_fu_type(rs_switch_fu_type[1]),
-        .i_cdb_en(cdb_en),
-        .i_cdb_data(cdb_data),
-        .i_cdb_tag(cdb_tag),
-        .i_rs_reserve_en(rs_switch_reserve_en[1]),
-        .i_rs_opcode(rs_opcode),
-        .i_rs_iaddr(rs_pc),
-        .i_rs_insn(rs_insn),
-        .i_rs_src_tag(rs_switch_src_tag),
-        .i_rs_src_data(rs_switch_src_data),
-        .i_rs_src_rdy(rs_switch_src_rdy),
-        .i_rs_dst_tag(rs_dst_tag),
-        .o_rs_stall(rs_switch_stall[1]),
-        .i_fu_stall(fu_stall[1]),
-        .o_fu_valid(fu_valid[1]),
-        .o_fu_opcode(fu_opcode[1]),
-        .o_fu_iaddr(fu_iaddr[1]),
-        .o_fu_insn(fu_insn[1]),
-        .o_fu_src_a(fu_src_a[1]),
-        .o_fu_src_b(fu_src_b[1]),
-        .o_fu_tag(fu_tag[1])
-    );
-
-    procyon_lsu #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
-        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
-        .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
-        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
-        .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
-        .OPTN_MHQ_IDX_WIDTH(MHQ_IDX_WIDTH)
-    ) procyon_lsu_inst (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(rob_redirect),
-        .o_cdb_en(cdb_en[1]),
-        .o_cdb_redirect(cdb_redirect[1]),
-        .o_cdb_data(cdb_data[1]),
-        .o_cdb_addr(cdb_addr[1]),
-        .o_cdb_tag(cdb_tag[1]),
-        .i_fu_valid(fu_valid[1]),
-        .i_fu_opcode(fu_opcode[1]),
-        .i_fu_iaddr(fu_iaddr[1]),
-        .i_fu_insn(fu_insn[1]),
-        .i_fu_src_a(fu_src_a[1]),
-        .i_fu_src_b(fu_src_b[1]),
-        .i_fu_tag(fu_tag[1]),
-        .o_fu_stall(fu_stall[1]),
+        .o_fu_stall(fu_stall[0]),
         .i_rob_retire_tag(lsu_retire_tag),
         .i_rob_retire_lq_en(lsu_retire_lq_en),
         .i_rob_retire_sq_en(lsu_retire_sq_en),
@@ -432,6 +376,68 @@ module procyon #(
         .i_mhq_fill_addr(mhq_fill_addr),
         .i_mhq_fill_data(mhq_fill_data)
     );
+
+    genvar inst;
+    generate
+    for (inst = 1; inst <= OPTN_NUM_IEU; inst++) begin : GEN_RS_IEU
+        procyon_rs #(
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
+            .OPTN_CDB_DEPTH(CDB_DEPTH),
+            .OPTN_RS_DEPTH(OPTN_RS_IEU_DEPTH),
+            .OPTN_RS_FU_TYPE(`PCYN_RS_FU_TYPE_IEU)
+        ) procyon_rs_ieu_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_flush(rob_redirect),
+            .o_rs_fu_type(rs_switch_fu_type[inst]),
+            .i_cdb_en(cdb_en),
+            .i_cdb_data(cdb_data),
+            .i_cdb_tag(cdb_tag),
+            .i_rs_reserve_en(rs_switch_reserve_en[inst]),
+            .i_rs_opcode(rs_opcode),
+            .i_rs_iaddr(rs_pc),
+            .i_rs_insn(rs_insn),
+            .i_rs_src_tag(rs_switch_src_tag),
+            .i_rs_src_data(rs_switch_src_data),
+            .i_rs_src_rdy(rs_switch_src_rdy),
+            .i_rs_dst_tag(rs_dst_tag),
+            .o_rs_stall(rs_switch_stall[inst]),
+            .i_fu_stall(fu_stall[inst]),
+            .o_fu_valid(fu_valid[inst]),
+            .o_fu_opcode(fu_opcode[inst]),
+            .o_fu_iaddr(fu_iaddr[inst]),
+            .o_fu_insn(fu_insn[inst]),
+            .o_fu_src_a(fu_src_a[inst]),
+            .o_fu_src_b(fu_src_b[inst]),
+            .o_fu_tag(fu_tag[inst])
+        );
+
+        procyon_ieu #(
+            .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+            .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+            .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
+        ) procyon_ieu_inst (
+            .clk(clk),
+            .n_rst(n_rst),
+            .i_flush(rob_redirect),
+            .o_cdb_en(cdb_en[inst]),
+            .o_cdb_redirect(cdb_redirect[inst]),
+            .o_cdb_data(cdb_data[inst]),
+            .o_cdb_addr(cdb_addr[inst]),
+            .o_cdb_tag(cdb_tag[inst]),
+            .i_fu_valid(fu_valid[inst]),
+            .i_fu_opcode(fu_opcode[inst]),
+            .i_fu_iaddr(fu_iaddr[inst]),
+            .i_fu_insn(fu_insn[inst]),
+            .i_fu_src_a(fu_src_a[inst]),
+            .i_fu_src_b(fu_src_b[inst]),
+            .i_fu_tag(fu_tag[inst]),
+            .o_fu_stall(fu_stall[inst])
+        );
+    end
+    endgenerate
 
     procyon_ccu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
