@@ -113,16 +113,19 @@ int sc_main(int argc, char** argv) {
         if (n_rst) cycles++;
     }
 
+    double cpi = (double)cycles/(double)retired_insns;
+
     std::cout << "\nINSTRUCTIONS: " << std::dec << retired_insns
         << " CYCLES: " << std::dec << cycles
-        << " CPI: " << std::dec << (double)cycles/(double)retired_insns << std::endl;
+        << " CPI: " << std::dec << cpi << std::endl;
 
     int err = 0;
     if (sim_tp == PASS && sc_get_status() != SC_STOPPED) {
         std::cout << "\n\n" << "*********************************    PASS    *********************************" << std::endl;
+        err = cpi;
     } else {
         std::cout << "\n\n" << "*********************************    FAIL    *********************************" << std::endl;
-        err = 1;
+        err = 0;
     }
 
     dut.final();

@@ -10,7 +10,7 @@ VDUT := V$(DUT)
 VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp
 
-TESTS_RUN_DIR := tests
+TESTS_RUN_DIR := $(shell echo $(RISCV_ARCH_TESTS))
 TESTS_RUN_SCRIPT := ./run_tests.py
 
 .PHONY: all sim clean

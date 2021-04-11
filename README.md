@@ -10,7 +10,7 @@ In the `tb` directory there are some tests:
 * `procyon-arch`: RISCV CPU architectural tests
 * `wb-sram`: Wishbone SRAM slave module simulation
 
-Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests in `procyon-arch/tests` (pre-compiled from the [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks). It's also possible to run an arbitrary free-standing bare-metal binary. From the `procyon-arch` directory:
+Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set pointing to the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests) repo with some special tweaks). It's also possible to run an arbitrary free-standing bare-metal binary. From the `procyon-arch` directory:
 
 `make`
 
