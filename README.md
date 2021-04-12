@@ -8,9 +8,8 @@ Procyon is a dynamically scheduling, scalar, speculative RISCV processor. The ha
 In the `tb` directory there are some tests:
 
 * `procyon-arch`: RISCV CPU architectural tests
-* `wb-sram`: Wishbone SRAM slave module simulation
 
-Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set pointing to the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests) repo with some special tweaks). It's also possible to run an arbitrary free-standing bare-metal binary. From the `procyon-arch` directory:
+Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set to the directory containing the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests). This repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `procyon-arch` directory:
 
 `make`
 
@@ -18,7 +17,7 @@ Running `make sim` in each directory will build and run the simulation. For `pro
 
 # FPGA Build
 
-In the `fpga` directory there are several fpga tests similar to the simulation tests. Currently, only the CycloneIVe FPGA on the Terasic DE2-115 board is supported. To build run `make`. To program the FPGA run `make program`.
+In the `fpga` directory there are several FPGA tests similar to the simulation tests. Currently, only the CycloneIVe FPGA on the Terasic DE2-115 board is supported. To build run `make`. To program the FPGA run `make program`.
 
 The Procyon core and system is functional on the FPGA with the following blocks:
 
@@ -26,8 +25,10 @@ The Procyon core and system is functional on the FPGA with the following blocks:
 * `bootrom`: Interfaces with the fetch unit in the core. This is loaded with a freestanding bare-metal binary converted to .hex format
 * `wb_sram`: Wishbone SRAM slave module used to interface with the IS61WV102416BLL SRAM chip on the DE2-115 board and connected to the Wishbone bus
 
-To convert a binary to .hex format use the `hexify-bin.py` script in the `fpga/procyon-arch` directory: `hexify-bin.py <binary>`
-To build the FPGA bitstream with a custom binary loaded into the bootrom: `make HEX_FILE=<hex_file>`
+A python script, `hexify-bin.py`, is provided to convert an elf or binary file to .hex format: `hexify-bin.py <binary> <out_dir>`. This is used by the Makefile automatically.
+
+To build the FPGA bitstream with a custom binary loaded into the bootrom: `make PROG_FILE=<riscv_program>`.
+The `RISCV_ARCH_TESTS` environment variable must be set to the directory containing the riscv elf/binary file or it can be overridden by providing `PROG_DIR=<dir>` to the `make` command. 
 
 # The Procyon Core
 

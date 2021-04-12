@@ -15,17 +15,21 @@ PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
 
 # Load code from hex file
-HEX_FILE ?= "tests/rv32ui-u-add.hex"
-HEX_SIZE := $(shell wc -l < $(HEX_FILE))
+PROG_DIR = $(shell echo $(RISCV_ARCH_TESTS))
+PROG_FILE ?= rv32ui-px-add
+HEX_FILE := $(basename $(PROG_FILE)).hex
 
-all: $(PROJECT).sof
+all: $(HEX_FILE) $(PROJECT).sof
+
+$(HEX_FILE): $(PROG_DIR)/$(PROG_FILE)
+	./hexify-bin.py $< ./
 
 program: $(PROJECT).sof
 	$(QUARTUS_PGM) -m JTAG -o "P;$<"
 
 clean:
 	-$(QUARTUS_SH) --clean $(PROJECT)
-	rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf
+	rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
 	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
 
 $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
@@ -50,7 +54,7 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "" >> $@
 	echo "# Set HEX_FILE parameter for top-level entity" >> $@
 	echo "set_parameter -name OPTN_HEX_FILE \"$(HEX_FILE)\"" >> $@
-	echo "set_parameter -name OPTN_HEX_SIZE $(HEX_SIZE)" >> $@
+	echo "set_parameter -name OPTN_HEX_SIZE $(shell wc -l < $(HEX_FILE) | xargs expr 1 +)" >> $@
 	echo "" >> $@
 	echo "# Set pin assignments" >> $@
 	echo "source \"$(PIN_ASSIGNMENTS_FILE)\"" >> $@
