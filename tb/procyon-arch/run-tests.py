@@ -9,7 +9,7 @@ import tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument("sim_bin", help="Path to systemc simulation executable to run")
 parser.add_argument("tests_dir", help="Path to simulation test directory containing binaries of architectural tests to run")
-parser.add_argument("--timeout", default=5, help="Specify a timeout in seconds to allow an architectural test to run for before it is killed and considered a failed test")
+parser.add_argument("--timeout", default=3, help="Specify a timeout in seconds to allow an architectural test to run for before it is killed and considered a failed test")
 args = parser.parse_args()
 
 test_list = os.listdir(args.tests_dir)
@@ -40,7 +40,7 @@ for test in test_list:
     try:
         result = subprocess.run([args.sim_bin, test_path], capture_output=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        print("FAIL")
+        print("HANG")
         continue
 
     if result.returncode != 0:

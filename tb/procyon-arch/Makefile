@@ -1,6 +1,14 @@
 VERILATOR = verilator
 MAKE := make
 
+RISCV_ARCH_TESTS := $(shell echo $(RISCV_ARCH_TESTS))
+
+ifndef TESTS_RUN_DIR
+ifeq ($(RISCV_ARCH_TESTS),)
+    $(error RISCV_ARCH_TESTS not set)
+endif
+endif
+
 OBJ_DIR := obj_dir
 DUT := dut
 CFLAGS := -I../../common
@@ -10,7 +18,7 @@ VDUT := V$(DUT)
 VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp
 
-TESTS_RUN_DIR := $(shell echo $(RISCV_ARCH_TESTS))
+TESTS_RUN_DIR := $(RISCV_ARCH_TESTS)
 TESTS_RUN_SCRIPT := ./run-tests.py
 
 .PHONY: all sim clean

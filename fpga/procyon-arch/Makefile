@@ -14,8 +14,16 @@ PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 # Directory where source files are located
 SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
 
+RISCV_ARCH_TESTS := $(shell echo $(RISCV_ARCH_TESTS))
+
+ifndef PROG_DIR
+ifeq ($(RISCV_ARCH_TESTS),)
+    $(error RISCV_ARCH_TESTS not set)
+endif
+endif
+
 # Load code from hex file
-PROG_DIR = $(shell echo $(RISCV_ARCH_TESTS))
+PROG_DIR = $(RISCV_ARCH_TESTS)
 PROG_FILE ?= rv32ui-px-add
 HEX_FILE := $(basename $(PROG_FILE)).hex
 
