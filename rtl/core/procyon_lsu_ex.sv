@@ -26,11 +26,13 @@ module procyon_lsu_ex #(
     // Inputs from previous pipeline stage
     input  logic                            i_valid,
     input  logic                            i_fill_replay,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_op,
+/* verilator lint_off UNUSED */
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]    i_op_is,
+/* verilator lint_on  UNUSED */
     input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_select,
     input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_select,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_addr,
     input  logic                            i_retire,
 
     // Inputs from dcache
@@ -44,7 +46,6 @@ module procyon_lsu_ex #(
     // Broadcast CDB results
     output logic                            o_valid,
     output logic [OPTN_DATA_WIDTH-1:0]      o_data,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_tag,
 
     // Update LQ/SQ
@@ -65,9 +66,9 @@ module procyon_lsu_ex #(
     logic is_not_fill;
     logic is_store;
 
-    assign is_fill = i_lsu_func == `PCYN_LSU_FUNC_FILL;
+    assign is_fill = (i_op == `PCYN_OP_FILL);
     assign is_not_fill = ~is_fill;
-    assign is_store = (i_lsu_func == `PCYN_LSU_FUNC_SB) | (i_lsu_func == `PCYN_LSU_FUNC_SH) | (i_lsu_func == `PCYN_LSU_FUNC_SW);
+    assign is_store = i_op_is[`PCYN_OP_IS_ST_IDX];
 
     logic n_flush;
     assign n_flush = ~i_flush;
@@ -78,17 +79,16 @@ module procyon_lsu_ex #(
     assign valid = n_flush & i_valid & is_not_fill & ~i_retire & (i_dc_hit | is_store);
     procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
 
-    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_addr), .o_q(o_addr));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
 
     // LB and LH need to sign extend to DATA_WIDTH
     logic [OPTN_DATA_WIDTH-1:0] load_data;
 
     always_comb begin
-        case (i_lsu_func)
-            `PCYN_LSU_FUNC_LB: load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            `PCYN_LSU_FUNC_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
-            default:           load_data = i_dc_data;
+        case (i_op)
+            `PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
+            `PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
+            default:     load_data = i_dc_data;
         endcase
     end
 

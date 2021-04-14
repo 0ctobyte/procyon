@@ -33,7 +33,7 @@ module procyon_mhq_lu #(
     input  logic                                     i_mhq_lookup_we,
     input  logic                                     i_mhq_lookup_dc_hit,
     input  logic [OPTN_ADDR_WIDTH-1:0]               i_mhq_lookup_addr,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0]          i_mhq_lookup_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]                i_mhq_lookup_op,
     input  logic [OPTN_DATA_WIDTH-1:0]               i_mhq_lookup_data,
     input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_hit_select,
     input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_alloc_select,
@@ -115,7 +115,7 @@ module procyon_mhq_lu #(
 
     // Determine if an entry needs to be updated/allocated
     logic mhq_update_en;
-    assign mhq_update_en = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & (i_mhq_lookup_lsu_func != `PCYN_LSU_FUNC_FILL) & ~mhq_lookup_retry & ~mhq_lookup_replay;
+    assign mhq_update_en = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & (i_mhq_lookup_op != `PCYN_OP_FILL) & ~mhq_lookup_retry & ~mhq_lookup_replay;
     assign o_mhq_lookup_allocating = mhq_update_en & n_mhq_lookup_hit;
 
     // Update enable bits for each entry. Only 1 bit should be set or 0 if no update is to take place
@@ -133,10 +133,10 @@ module procyon_mhq_lu #(
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
 
     always_comb begin
-        case (i_mhq_lookup_lsu_func)
-            `PCYN_LSU_FUNC_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
-            `PCYN_LSU_FUNC_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
-            `PCYN_LSU_FUNC_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
+        case (i_mhq_lookup_op)
+            `PCYN_OP_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
+            `PCYN_OP_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
+            `PCYN_OP_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
             default:           mhq_update_byte_select = '0;
         endcase
 

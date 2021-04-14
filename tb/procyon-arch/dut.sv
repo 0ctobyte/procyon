@@ -13,7 +13,7 @@
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
-    parameter OPTN_REGMAP_DEPTH       = 32,
+    parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_NUM_IEU            = 1,
     parameter OPTN_INSN_FIFO_DEPTH    = 8,
     parameter OPTN_ROB_DEPTH          = 32,
@@ -56,7 +56,7 @@ module dut #(
     timeunit 1ns;
     timeprecision 1ns;
 
-    localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
+    localparam RAT_IDX_WIDTH    = $clog2(OPTN_RAT_DEPTH);
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
 
     logic wb_clk;
@@ -81,12 +81,12 @@ module dut #(
     // FIXME: FPGA debugging output
     logic rob_redirect;
     logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr;
-    logic regmap_retire_en;
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
-    logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
+    logic rat_retire_en;
+    logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst;
+    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
 /* verilator lint_on  UNUSED */
 
-    assign o_sim_retire = regmap_retire_en;
+    assign o_sim_retire = rat_retire_en;
 
     assign wb_clk = clk;
     assign wb_rst = ~n_rst;
@@ -98,7 +98,7 @@ module dut #(
     procyon #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_RAT_DEPTH(OPTN_RAT_DEPTH),
         .OPTN_NUM_IEU(OPTN_NUM_IEU),
         .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
@@ -118,9 +118,9 @@ module dut #(
         .o_sim_tp(o_sim_tp),
         .o_rob_redirect(rob_redirect),
         .o_rob_redirect_addr(rob_redirect_addr),
-        .o_regmap_retire_en(regmap_retire_en),
-        .o_regmap_retire_rdest(regmap_retire_rdest),
-        .o_regmap_retire_data(regmap_retire_data),
+        .o_rat_retire_en(rat_retire_en),
+        .o_rat_retire_rdst(rat_retire_rdst),
+        .o_rat_retire_data(rat_retire_data),
         .i_ic_insn(i_ic_insn),
         .i_ic_valid(i_ic_valid),
         .o_ic_pc(o_ic_pc),

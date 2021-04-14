@@ -26,7 +26,7 @@ module procyon_lsu_sq #(
 
     // Signals from LSU_ID to allocate new store op in SQ
     input  logic                            i_alloc_en,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_alloc_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
     input  logic [OPTN_DATA_WIDTH-1:0]      i_alloc_data,
@@ -36,7 +36,7 @@ module procyon_lsu_sq #(
     input  logic                            i_sq_retire_stall,
     output logic                            o_sq_retire_en,
     output logic [OPTN_SQ_DEPTH-1:0]        o_sq_retire_select,
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_sq_retire_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0]       o_sq_retire_op,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_sq_retire_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_sq_retire_tag,
     output logic [OPTN_DATA_WIDTH-1:0]      o_sq_retire_data,
@@ -65,7 +65,7 @@ module procyon_lsu_sq #(
     logic [OPTN_SQ_DEPTH-1:0] sq_allocate_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_update_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] sq_retire_lsu_func [0:OPTN_SQ_DEPTH-1];
+    logic [`PCYN_OP_WIDTH-1:0] sq_retire_op [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] sq_retire_data [0:OPTN_SQ_DEPTH-1];
@@ -85,12 +85,12 @@ module procyon_lsu_sq #(
             .o_empty(sq_entry_empty[inst]),
             .o_retirable(sq_entry_retirable[inst]),
             .i_alloc_en(sq_allocate_select[inst]),
-            .i_alloc_lsu_func(i_alloc_lsu_func),
+            .i_alloc_op(i_alloc_op),
             .i_alloc_tag(i_alloc_tag),
             .i_alloc_addr(i_alloc_addr),
             .i_alloc_data(i_alloc_data),
             .i_retire_en(sq_retire_select[inst]),
-            .o_retire_lsu_func(sq_retire_lsu_func[inst]),
+            .o_retire_op(sq_retire_op[inst]),
             .o_retire_tag(sq_retire_tag[inst]),
             .o_retire_addr(sq_retire_addr[inst]),
             .o_retire_data(sq_retire_data[inst]),
@@ -137,7 +137,7 @@ module procyon_lsu_sq #(
     procyon_srff #(1) o_sq_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(n_sq_retire_stall), .i_set(sq_retire_en), .i_reset(1'b0), .o_q(o_sq_retire_en));
 
     procyon_ff #(OPTN_SQ_DEPTH) o_sq_retire_select_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_select), .o_q(o_sq_retire_select));
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_sq_retire_lsu_func_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_lsu_func[sq_retire_entry]), .o_q(o_sq_retire_lsu_func));
+    procyon_ff #(`PCYN_OP_WIDTH) o_sq_retire_op_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_op[sq_retire_entry]), .o_q(o_sq_retire_op));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_sq_retire_tag_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_tag[sq_retire_entry]), .o_q(o_sq_retire_tag));
     procyon_ff #(OPTN_DATA_WIDTH) o_sq_retire_data_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_data[sq_retire_entry]), .o_q(o_sq_retire_data));
     procyon_ff #(OPTN_ADDR_WIDTH) o_sq_retire_addr_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_addr[sq_retire_entry]), .o_q(o_sq_retire_addr));

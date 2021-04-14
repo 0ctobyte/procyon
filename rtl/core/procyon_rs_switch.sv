@@ -19,22 +19,24 @@ module procyon_rs_switch #(
     input  logic                              clk,
     input  logic                              n_rst,
 
-    input  logic                              i_cdb_en        [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data      [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag       [0:OPTN_CDB_DEPTH-1],
+    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
-    input  logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] i_rs_fu_type    [0:OPTN_CDB_DEPTH-1],
+    input  logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] i_rs_fu_type [0:OPTN_CDB_DEPTH-1],
 
     input  logic                              i_rs_reserve_en,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0]     i_rs_reserve_opcode,
+/* verilator lint_off UNUSED */
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_rs_reserve_op_is,
+/* verilator lint_on  UNUSED */
     output logic [OPTN_CDB_DEPTH-1:0]         o_rs_reserve_en,
 
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_src_tag    [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_src_data   [0:1],
-    input  logic                              i_rs_src_rdy    [0:1],
-    output logic [OPTN_DATA_WIDTH-1:0]        o_rs_src_data   [0:1],
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_rs_src_tag    [0:1],
-    output logic                              o_rs_src_rdy    [0:1],
+    input  logic                              i_rs_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_src_tag [0:1],
+    output logic                              o_rs_src_rdy [0:1],
+    output logic [OPTN_DATA_WIDTH-1:0]        o_rs_src_data [0:1],
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_rs_src_tag [0:1],
 
     input  logic [OPTN_CDB_DEPTH-1:0]         i_rs_stall,
     output logic                              o_rs_stall
@@ -54,12 +56,9 @@ module procyon_rs_switch #(
         end
     end
 
-    logic rs_reserve_opcode_is_lsu;
-    assign rs_reserve_opcode_is_lsu = (i_rs_reserve_opcode == `PCYN_OPCODE_STORE) | (i_rs_reserve_opcode == `PCYN_OPCODE_LOAD);
-
     // Figure out what kind of RS this op needs to be sent to
     logic [`PCYN_RS_FU_TYPE_IDX_WIDTH-1:0] rs_fu_type_idx;
-    assign rs_fu_type_idx = rs_reserve_opcode_is_lsu ? `PCYN_RS_FU_TYPE_IDX_LSU : `PCYN_RS_FU_TYPE_IDX_IEU;
+    assign rs_fu_type_idx = (i_rs_reserve_op_is[`PCYN_OP_IS_ST_IDX] | i_rs_reserve_op_is[`PCYN_OP_IS_LD_IDX]) ? `PCYN_RS_FU_TYPE_IDX_LSU : `PCYN_RS_FU_TYPE_IDX_IEU;
 
     // Get a vector of RS's that support this type of op
     logic [OPTN_CDB_DEPTH-1:0] rs_supported;
@@ -74,9 +73,9 @@ module procyon_rs_switch #(
     assign o_rs_stall = |(rs_granted & i_rs_stall);
 
     // Check if we need to bypass source data from the CDB when enqueuing new instruction in the Reservation Stations
+    logic rs_src_rdy_mux [0:1];
     logic [OPTN_DATA_WIDTH-1:0] rs_src_data_mux [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_src_tag_mux [0:1];
-    logic rs_src_rdy_mux [0:1];
 
     always_comb begin
         for (int src_idx = 0; src_idx < 2; src_idx++) begin
@@ -88,17 +87,17 @@ module procyon_rs_switch #(
                 logic cdb_tag_match;
                 cdb_tag_match = i_cdb_en[cdb_idx] & (i_cdb_tag[cdb_idx] == i_rs_src_tag[src_idx]);
 
+                rs_src_rdy_mux[src_idx] = cdb_tag_match | rs_src_rdy_mux[src_idx];
                 rs_src_data_mux[src_idx] = cdb_tag_match ? i_cdb_data[cdb_idx] : rs_src_data_mux[src_idx];
                 rs_src_tag_mux[src_idx]  = cdb_tag_match ? i_cdb_tag[cdb_idx] : rs_src_tag_mux[src_idx];
-                rs_src_rdy_mux[src_idx] = cdb_tag_match | rs_src_rdy_mux[src_idx];
             end
 
             rs_src_data_mux[src_idx] = i_rs_src_rdy[src_idx] ? i_rs_src_data[src_idx] : rs_src_data_mux[src_idx];
         end
     end
 
+    assign o_rs_src_rdy = rs_src_rdy_mux;
     assign o_rs_src_data = rs_src_data_mux;
     assign o_rs_src_tag = rs_src_tag_mux;
-    assign o_rs_src_rdy = rs_src_rdy_mux;
 
 endmodule

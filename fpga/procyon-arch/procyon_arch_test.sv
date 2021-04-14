@@ -13,7 +13,7 @@
 module procyon_arch_test #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
-    parameter OPTN_REGMAP_DEPTH       = 32,
+    parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_INSN_FIFO_DEPTH    = 8,
     parameter OPTN_ROB_DEPTH          = 32,
     parameter OPTN_RS_IEU_DEPTH       = 16,
@@ -56,7 +56,7 @@ module procyon_arch_test #(
     output logic [6:0]                  HEX7
 );
 
-    localparam REGMAP_IDX_WIDTH = $clog2(OPTN_REGMAP_DEPTH);
+    localparam RAT_IDX_WIDTH    = $clog2(OPTN_RAT_DEPTH);
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
     localparam TEST_STATE_WIDTH = 1;
     localparam TEST_STATE_RUN   = 1'b0;
@@ -73,9 +73,9 @@ module procyon_arch_test #(
     // FIXME: FPGA debugging output
     logic rob_redirect;
     logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr;
-    logic regmap_retire_en;
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
-    logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
+    logic rat_retire_en;
+    logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst;
+    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
 
     // FIXME: Temporary instruction cache interface
     logic [OPTN_DATA_WIDTH-1:0] ic_insn;
@@ -107,7 +107,7 @@ module procyon_arch_test #(
     assign LEDR[17] = SW[17];
     assign LEDR[16] = rob_redirect;
     assign LEDR[15:0] = rob_redirect_addr[15:0];
-    assign LEDG = regmap_retire_rdest;
+    assign LEDG = rat_retire_rdst;
     assign HEX0 = o_hex[0];
     assign HEX1 = o_hex[1];
     assign HEX2 = o_hex[2];
@@ -129,7 +129,7 @@ module procyon_arch_test #(
             state <= TEST_STATE_RUN;
         end else begin
             case (state)
-                TEST_STATE_RUN:  state <= regmap_retire_en ? TEST_STATE_HALT : TEST_STATE_RUN;
+                TEST_STATE_RUN:  state <= rat_retire_en ? TEST_STATE_HALT : TEST_STATE_RUN;
                 TEST_STATE_HALT: state <= key_pulse ? TEST_STATE_RUN : TEST_STATE_HALT;
             endcase
         end
@@ -140,7 +140,7 @@ module procyon_arch_test #(
         for (inst = 0; inst < 8; inst++) begin : GEN_SEG7_DECODER_INSTANCES
             procyon_seg7_decoder procyon_seg7_decoder_inst (
                 .n_rst(n_rst),
-                .i_hex(regmap_retire_data[inst*4+3:inst*4]),
+                .i_hex(rat_retire_data[inst*4+3:inst*4]),
                 .o_hex(o_hex[inst])
             );
         end
@@ -168,7 +168,7 @@ module procyon_arch_test #(
     procyon #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_RAT_DEPTH(OPTN_RAT_DEPTH),
         .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
         .OPTN_RS_IEU_DEPTH(OPTN_RS_IEU_DEPTH),
@@ -187,9 +187,9 @@ module procyon_arch_test #(
         .o_sim_tp(sim_tp),
         .o_rob_redirect(rob_redirect),
         .o_rob_redirect_addr(rob_redirect_addr),
-        .o_regmap_retire_en(regmap_retire_en),
-        .o_regmap_retire_rdest(regmap_retire_rdest),
-        .o_regmap_retire_data(regmap_retire_data),
+        .o_rat_retire_en(rat_retire_en),
+        .o_rat_retire_rdst(rat_retire_rdst),
+        .o_rat_retire_data(rat_retire_data),
         .i_ic_insn(ic_insn),
         .i_ic_valid(ic_valid),
         .o_ic_pc(ic_pc),

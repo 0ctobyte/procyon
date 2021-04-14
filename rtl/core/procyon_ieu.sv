@@ -5,8 +5,6 @@
  */
 
 // Integer Execution Unit
-// Encapsulates the ID and EX stages
-// Writes the result of the EX stage to the CDB when it is available
 
 `include "procyon_constants.svh"
 
@@ -24,84 +22,71 @@ module procyon_ieu #(
     output logic                          o_cdb_en,
     output logic                          o_cdb_redirect,
     output logic [OPTN_DATA_WIDTH-1:0]    o_cdb_data,
-    output logic [OPTN_ADDR_WIDTH-1:0]    o_cdb_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0] o_cdb_tag,
 
     // Reservation station interface
     input  logic                          i_fu_valid,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0] i_fu_opcode,
-    input  logic [OPTN_ADDR_WIDTH-1:0]    i_fu_iaddr,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_insn,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_src_a,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_src_b,
+    input  logic [`PCYN_OP_WIDTH-1:0]     i_fu_op,
+/* verilator lint_off UNUSED */
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]  i_fu_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_imm,
+/* verilator lint_on  UNUSED */
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_src [0:1],
     input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_fu_tag,
     output logic                          o_fu_stall
 );
 
-    // ID -> EX pipeline registers
-    logic [`PCYN_ALU_FUNC_WIDTH-1:0] alu_func;
-    logic [OPTN_DATA_WIDTH-1:0] src_a;
-    logic [OPTN_DATA_WIDTH-1:0] src_b;
-    logic [OPTN_ADDR_WIDTH-1:0] iaddr;
-    logic [OPTN_DATA_WIDTH-1:0] imm_b;
-    logic [`PCYN_ALU_SHAMT_WIDTH-1:0] shamt;
-    logic [OPTN_ROB_IDX_WIDTH-1:0] tag;
-    logic jmp;
-    logic br;
-    logic valid;
-
     assign o_fu_stall = 1'b0;
 
-    procyon_ieu_id #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
-        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) procyon_ieu_id_inst (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(i_flush),
-        .i_opcode(i_fu_opcode),
-        .i_iaddr(i_fu_iaddr),
-        .i_insn(i_fu_insn),
-        .i_src_a(i_fu_src_a),
-        .i_src_b(i_fu_src_b),
-        .i_tag(i_fu_tag),
-        .i_valid(i_fu_valid),
-        .o_alu_func(alu_func),
-        .o_src_a(src_a),
-        .o_src_b(src_b),
-        .o_iaddr(iaddr),
-        .o_imm_b(imm_b),
-        .o_shamt(shamt),
-        .o_tag(tag),
-        .o_jmp(jmp),
-        .o_br(br),
-        .o_valid(valid)
-    );
+    logic cdb_en;
+    assign cdb_en = ~i_flush & i_fu_valid;
+    procyon_srff #(1) o_cdb_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cdb_en), .i_reset(1'b0), .o_q(o_cdb_en));
 
-    procyon_ieu_ex #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
-        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) procyon_ieu_ex_inst (
-        .clk(clk),
-        .n_rst(n_rst),
-        .i_flush(i_flush),
-        .i_alu_func(alu_func),
-        .i_src_a(src_a),
-        .i_src_b(src_b),
-        .i_iaddr(iaddr),
-        .i_imm_b(imm_b),
-        .i_shamt(shamt),
-        .i_tag(tag),
-        .i_jmp(jmp),
-        .i_br(br),
-        .i_valid(valid),
-        .o_data(o_cdb_data),
-        .o_addr(o_cdb_addr),
-        .o_tag(o_cdb_tag),
-        .o_redirect(o_cdb_redirect),
-        .o_valid(o_cdb_en)
-    );
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_fu_tag), .o_q(o_cdb_tag));
+
+    // ALU
+    logic [OPTN_DATA_WIDTH-1:0] result;
+
+    always_comb begin
+        logic [OPTN_DATA_WIDTH*2-1:0] e_src;
+        logic signed [OPTN_DATA_WIDTH-1:0] s_src [0:1];
+        logic [`PCYN_OP_SHAMT_WIDTH-1:0] shamt;
+
+        // Extended src[0] for arithmetic right shifts
+        e_src = {{(OPTN_DATA_WIDTH){i_fu_src[0][OPTN_DATA_WIDTH-1]}}, i_fu_src[0]};
+
+        // Signed src inputs
+        s_src[0] = i_fu_src[0];
+        s_src[1] = i_fu_src[1];
+
+        // Shift amount
+        shamt = i_fu_src[1][`PCYN_OP_SHAMT_WIDTH-1:0];
+
+        case (i_fu_op)
+            `PCYN_OP_ADD: result = i_fu_src[0] + i_fu_src[1];
+            `PCYN_OP_SUB: result = i_fu_src[0] - i_fu_src[1];
+            `PCYN_OP_AND: result = i_fu_src[0] & i_fu_src[1];
+            `PCYN_OP_OR:  result = i_fu_src[0] | i_fu_src[1];
+            `PCYN_OP_XOR: result = i_fu_src[0] ^ i_fu_src[1];
+            `PCYN_OP_SLL: result = i_fu_src[0] << shamt;
+            `PCYN_OP_SRL: result = i_fu_src[0] >> shamt;
+/* verilator lint_off WIDTH */
+            `PCYN_OP_SRA: result = OPTN_DATA_WIDTH'(e_src >> shamt);
+            `PCYN_OP_EQ:  result = i_fu_src[0] == i_fu_src[1];
+            `PCYN_OP_NE:  result = i_fu_src[0] != i_fu_src[1];
+            `PCYN_OP_LT:  result = s_src[0] < s_src[1];
+            `PCYN_OP_LTU: result = i_fu_src[0] < i_fu_src[1];
+            `PCYN_OP_GE:  result = s_src[0] >= s_src[1];
+            `PCYN_OP_GEU: result = i_fu_src[0] >= i_fu_src[1];
+/* verilator lint_on  WIDTH */
+            default:      result = '0;
+        endcase
+    end
+
+    procyon_ff #(OPTN_DATA_WIDTH) o_data_ff (.clk(clk), .i_en(1'b1), .i_d(result), .o_q(o_cdb_data));
+
+    logic redirect;
+    assign redirect = i_fu_op_is[`PCYN_OP_IS_JL_IDX] | (i_fu_op_is[`PCYN_OP_IS_BR_IDX] & result[0]);
+    procyon_ff #(1) o_redirect_ff (.clk(clk), .i_en(1'b1), .i_d(redirect), .o_q(o_cdb_redirect));
 
 endmodule

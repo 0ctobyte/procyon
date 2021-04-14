@@ -24,27 +24,27 @@ module procyon_rs_entry #(
 
     output logic                          o_rs_entry_empty,
     output logic [RS_IDX_WIDTH-1:0]       o_rs_entry_age,
-    output logic [`PCYN_OPCODE_WIDTH-1:0] o_rs_entry_opcode,
-    output logic [OPTN_ADDR_WIDTH-1:0]    o_rs_entry_iaddr,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_rs_entry_insn,
+    output logic [`PCYN_OP_WIDTH-1:0]     o_rs_entry_op,
+    output logic [`PCYN_OP_IS_WIDTH-1:0]  o_rs_entry_op_is,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_rs_entry_imm,
     output logic [OPTN_DATA_WIDTH-1:0]    o_rs_entry_src_data [0:1],
     output logic [OPTN_ROB_IDX_WIDTH-1:0] o_rs_entry_tag,
 
     // Common Data Bus networks
-    input  logic                          i_cdb_en            [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data          [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag           [0:OPTN_CDB_DEPTH-1],
+    input  logic                          i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
     input  logic                          i_reserve_en,
     input  logic                          i_dispatch_en,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0] i_dispatch_opcode,
-    input  logic [OPTN_ADDR_WIDTH-1:0]    i_dispatch_iaddr,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_insn,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_dispatch_src_tag  [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_src_data [0:1],
-    input  logic                          i_dispatch_src_rdy  [0:1],
+    input  logic [`PCYN_OP_WIDTH-1:0]     i_dispatch_op,
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]  i_dispatch_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_imm,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_dispatch_dst_tag,
+    input  logic                          i_dispatch_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_dispatch_src_tag [0:1],
 
     // Indication that this entry is going to be issued
     input  logic                          i_issue_en,
@@ -58,22 +58,22 @@ module procyon_rs_entry #(
     // Reservation station entry registers
     // empty:         Indicates if this entry is currently empty
     // age:           Indicates the age of the entry compared to all other entries
-    // opcode:        The opcode of the instruction stored in this entry
-    // iaddr:         The instruction address (i.e. PC)
-    // insn:          The actual instruction bits
+    // op:            The operation the instruction intends to perform
+    // op_is:         The operation type (load, store, branch, jump etc.)
+    // imm:           Immediate value encoded in instruction if it required one
+    // dst_tag:       The ROB entry number to write the data (if any) and status to when this op has finished executing
     // src_rdy:       Two bits to indicate the ready status of each source operand
     // src_data:      Actual data for each of the two source operands
     // src_tag:       ROB entry number for each source this entry is waiting on data for
-    // dst_tag:       The ROB entry number to write the data (if any) and status to when this op has finished executing
     logic rs_entry_empty_r;
     logic [RS_IDX_WIDTH-1:0] rs_entry_age_r;
-    logic [`PCYN_OPCODE_WIDTH-1:0] rs_entry_opcode_r;
-    logic [OPTN_ADDR_WIDTH-1:0] rs_entry_iaddr_r;
-    logic [OPTN_DATA_WIDTH-1:0] rs_entry_insn_r;
+    logic [`PCYN_OP_WIDTH-1:0] rs_entry_op_r;
+    logic [`PCYN_OP_IS_WIDTH-1:0] rs_entry_op_is_r;
+    logic [OPTN_DATA_WIDTH-1:0] rs_entry_imm_r;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_dst_tag_r;
     logic rs_entry_src_rdy_r [0:1];
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_src_data_r [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_src_tag_r [0:1];
-    logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_dst_tag_r;
 
     // The empty bit is only cleared if the entry will be used to hold the next dispatched instruction. This means we
     // need to clear it when reserving an entry as the dispatcher will send the rest of the RS data in the next cycle.
@@ -97,12 +97,12 @@ module procyon_rs_entry #(
     procyon_srff #(1) rs_entry_empty_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rs_entry_empty_mux), .i_reset(1'b1), .o_q(rs_entry_empty_r));
 
     // Update entry for newly dispatched instruction
-    procyon_ff #(`PCYN_OPCODE_WIDTH) rs_entry_opcode_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_opcode), .o_q(rs_entry_opcode_r));
-    procyon_ff #(OPTN_ADDR_WIDTH) rs_entry_iaddr_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_iaddr), .o_q(rs_entry_iaddr_r));
-    procyon_ff #(OPTN_DATA_WIDTH) rs_entry_insn_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_insn), .o_q(rs_entry_insn_r));
+    procyon_ff #(`PCYN_OP_WIDTH) rs_entry_op_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op), .o_q(rs_entry_op_r));
+    procyon_ff #(`PCYN_OP_IS_WIDTH) rs_entry_op_is_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op_is), .o_q(rs_entry_op_is_r));
+    procyon_ff #(OPTN_DATA_WIDTH) rs_entry_imm_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_imm), .o_q(rs_entry_imm_r));
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_dst_tag_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_dst_tag), .o_q(rs_entry_dst_tag_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_src_tag_r_0_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_src_tag[0]), .o_q(rs_entry_src_tag_r[0]));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_src_tag_r_1_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_src_tag[1]), .o_q(rs_entry_src_tag_r[1]));
-    procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_dst_tag_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_dst_tag), .o_q(rs_entry_dst_tag_r));
 
     // Grab data from the CDB for the source operands and set the ready bits to true. Don't mess with the src data if
     // it's already "ready", regardless of what is being broadcast on the CDB! This really only applies to ops that use
@@ -170,9 +170,9 @@ module procyon_rs_entry #(
     // Output entry signals
     assign o_rs_entry_empty = rs_entry_empty_r;
     assign o_rs_entry_age = rs_entry_age_r;
-    assign o_rs_entry_opcode = rs_entry_opcode_r;
-    assign o_rs_entry_iaddr = rs_entry_iaddr_r;
-    assign o_rs_entry_insn = rs_entry_insn_r;
+    assign o_rs_entry_op = rs_entry_op_r;
+    assign o_rs_entry_op_is = rs_entry_op_is_r;
+    assign o_rs_entry_imm = rs_entry_imm_r;
     assign o_rs_entry_src_data = rs_entry_src_data_r;
     assign o_rs_entry_tag = rs_entry_dst_tag_r;
 

@@ -29,29 +29,28 @@ module procyon_rs #(
     output logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] o_rs_fu_type,
 
     // Common Data Bus networks
-    input  logic                              i_cdb_en      [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data    [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag     [0:OPTN_CDB_DEPTH-1],
+    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
     input  logic                              i_rs_reserve_en,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0]     i_rs_opcode,
-    input  logic [OPTN_ADDR_WIDTH-1:0]        i_rs_iaddr,
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_insn,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_src_tag  [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_src_data [0:1],
-    input  logic                              i_rs_src_rdy  [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dst_tag,
+    input  logic [`PCYN_OP_WIDTH-1:0]         i_rs_dispatch_op,
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_rs_dispatch_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_dispatch_imm,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dispatch_dst_tag,
+    input  logic                              i_rs_dispatch_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_dispatch_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dispatch_src_tag [0:1],
     output logic                              o_rs_stall,
 
     // Functional Unit interface
     input  logic                              i_fu_stall,
     output logic                              o_fu_valid,
-    output logic [`PCYN_OPCODE_WIDTH-1:0]     o_fu_opcode,
-    output logic [OPTN_ADDR_WIDTH-1:0]        o_fu_iaddr,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_insn,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src_a,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src_b,
+    output logic [`PCYN_OP_WIDTH-1:0]         o_fu_op,
+    output logic [`PCYN_OP_IS_WIDTH-1:0]      o_fu_op_is,
+    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_imm,
+    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src [0:1],
     output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_fu_tag
 );
 
@@ -62,9 +61,9 @@ module procyon_rs #(
     logic [OPTN_RS_DEPTH-1:0] rs_entry_ready;
     logic [OPTN_RS_DEPTH-1:0] rs_entry_empty;
     logic [RS_IDX_WIDTH-1:0] rs_entry_age [0:OPTN_RS_DEPTH-1];
-    logic [`PCYN_OPCODE_WIDTH-1:0] rs_entry_opcode [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0] rs_entry_iaddr [0:OPTN_RS_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0] rs_entry_insn [0:OPTN_RS_DEPTH-1];
+    logic [`PCYN_OP_WIDTH-1:0] rs_entry_op [0:OPTN_RS_DEPTH-1];
+    logic [`PCYN_OP_IS_WIDTH-1:0] rs_entry_op_is [0:OPTN_RS_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] rs_entry_imm [0:OPTN_RS_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_src_data [0:OPTN_RS_DEPTH-1] [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_tag [0:OPTN_RS_DEPTH-1];
     logic [OPTN_RS_DEPTH-1:0] rs_reserve_select;
@@ -90,9 +89,9 @@ module procyon_rs #(
             .o_ready(rs_entry_ready[inst]),
             .o_rs_entry_empty(rs_entry_empty[inst]),
             .o_rs_entry_age(rs_entry_age[inst]),
-            .o_rs_entry_opcode(rs_entry_opcode[inst]),
-            .o_rs_entry_iaddr(rs_entry_iaddr[inst]),
-            .o_rs_entry_insn(rs_entry_insn[inst]),
+            .o_rs_entry_op(rs_entry_op[inst]),
+            .o_rs_entry_op_is(rs_entry_op_is[inst]),
+            .o_rs_entry_imm(rs_entry_imm[inst]),
             .o_rs_entry_src_data(rs_entry_src_data[inst]),
             .o_rs_entry_tag(rs_entry_tag[inst]),
             .i_cdb_en(i_cdb_en),
@@ -100,13 +99,13 @@ module procyon_rs #(
             .i_cdb_tag(i_cdb_tag),
             .i_reserve_en(rs_reserve_select[inst]),
             .i_dispatch_en(rs_dispatch_select_r[inst]),
-            .i_dispatch_opcode(i_rs_opcode),
-            .i_dispatch_iaddr(i_rs_iaddr),
-            .i_dispatch_insn(i_rs_insn),
-            .i_dispatch_src_tag(i_rs_src_tag),
-            .i_dispatch_src_data(i_rs_src_data),
-            .i_dispatch_src_rdy(i_rs_src_rdy),
-            .i_dispatch_dst_tag(i_rs_dst_tag),
+            .i_dispatch_op(i_rs_dispatch_op),
+            .i_dispatch_op_is(i_rs_dispatch_op_is),
+            .i_dispatch_imm(i_rs_dispatch_imm),
+            .i_dispatch_dst_tag(i_rs_dispatch_dst_tag),
+            .i_dispatch_src_rdy(i_rs_dispatch_src_rdy),
+            .i_dispatch_src_data(i_rs_dispatch_src_data),
+            .i_dispatch_src_tag(i_rs_dispatch_src_tag),
             .i_issue_en(rs_issue_select[inst]),
             .i_dispatching(dispatching),
             .i_issuing(issuing),
@@ -172,11 +171,11 @@ module procyon_rs #(
 
     assign o_fu_valid = fu_valid_r;
 
-    procyon_ff #(`PCYN_OPCODE_WIDTH) o_fu_opcode_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_opcode[rs_issue_entry]), .o_q(o_fu_opcode));
-    procyon_ff #(OPTN_ADDR_WIDTH) o_fu_iaddr_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_iaddr[rs_issue_entry]), .o_q(o_fu_iaddr));
-    procyon_ff #(OPTN_DATA_WIDTH) o_fu_insn_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_insn[rs_issue_entry]), .o_q(o_fu_insn));
-    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_a_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][0]), .o_q(o_fu_src_a));
-    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_b_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][1]), .o_q(o_fu_src_b));
+    procyon_ff #(`PCYN_OP_WIDTH) o_fu_op_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op[rs_issue_entry]), .o_q(o_fu_op));
+    procyon_ff #(`PCYN_OP_IS_WIDTH) o_fu_op_is_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op_is[rs_issue_entry]), .o_q(o_fu_op_is));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_imm_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_imm[rs_issue_entry]), .o_q(o_fu_imm));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_0_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][0]), .o_q(o_fu_src[0]));
+    procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_1_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][1]), .o_q(o_fu_src[1]));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_fu_tag_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_tag[rs_issue_entry]), .o_q(o_fu_tag));
 
 endmodule

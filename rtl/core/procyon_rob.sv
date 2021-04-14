@@ -16,7 +16,7 @@ module procyon_rob #(
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_CDB_DEPTH        = 2,
     parameter OPTN_ROB_DEPTH        = 32,
-    parameter OPTN_REGMAP_IDX_WIDTH = 5,
+    parameter OPTN_RAT_IDX_WIDTH    = 5,
 
     parameter ROB_IDX_WIDTH         = $clog2(OPTN_ROB_DEPTH)
 )(
@@ -31,36 +31,32 @@ module procyon_rob #(
     output logic [OPTN_ADDR_WIDTH-1:0]        o_redirect_addr,
 
     // Common Data Bus networks
-    input  logic                              i_cdb_en              [0:OPTN_CDB_DEPTH-1],
-    input  logic                              i_cdb_redirect        [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data            [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ADDR_WIDTH-1:0]        i_cdb_addr            [0:OPTN_CDB_DEPTH-1],
-    input  logic [ROB_IDX_WIDTH-1:0]          i_cdb_tag             [0:OPTN_CDB_DEPTH-1],
+    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic                              i_cdb_redirect [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [ROB_IDX_WIDTH-1:0]          i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
-    // Dispatcher interface to reserve an entry for enqueuing in the next cycle. The tag is forwared to Register Map
+    // Dispatcher interface to reserve an entry for enqueuing in the next cycle. The tag is forwarded to Register Alias Table
     // to rename the destination register for this new instruction
     input  logic                              i_rob_reserve_en,
     output logic [ROB_IDX_WIDTH-1:0]          o_rob_reserve_tag,
 
+    // Lookup data/tags for source operands of newly enqueued instructions
+    input  logic [ROB_IDX_WIDTH-1:0]          i_rob_lookup_tag [0:1],
+    output logic                              o_rob_lookup_rdy [0:1],
+    output logic [OPTN_DATA_WIDTH-1:0]        o_rob_lookup_data [0:1],
+
     // Dispatcher <-> ROB interface to enqueue a new instruction
-    input  logic [`PCYN_ROB_OP_WIDTH-1:0]     i_rob_enq_op,
-    input  logic [OPTN_ADDR_WIDTH-1:0]        i_rob_enq_pc,
-    input  logic [OPTN_REGMAP_IDX_WIDTH-1:0]  i_rob_enq_rdest,
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_rob_dispatch_op_is,
+    input  logic [OPTN_ADDR_WIDTH-1:0]        i_rob_dispatch_pc,
+    input  logic [OPTN_RAT_IDX_WIDTH-1:0]     i_rob_dispatch_rdst,
+    input  logic [OPTN_DATA_WIDTH-1:0]        i_rob_dispatch_rdst_data,
 
-    // Looup data/tags for source operands of newly enqueued instructions
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rob_lookup_data     [0:1],
-    input  logic [ROB_IDX_WIDTH-1:0]          i_rob_lookup_tag      [0:1],
-    input  logic                              i_rob_lookup_rdy      [0:1],
-    input  logic                              i_rob_lookup_rdy_ovrd [0:1],
-    output logic [OPTN_DATA_WIDTH-1:0]        o_rs_src_data         [0:1],
-    output logic [ROB_IDX_WIDTH-1:0]          o_rs_src_tag          [0:1],
-    output logic                              o_rs_src_rdy          [0:1],
-
-    // Interface to register map to update destination register for retired instruction
-    output logic [OPTN_DATA_WIDTH-1:0]        o_regmap_retire_data,
-    output logic [OPTN_REGMAP_IDX_WIDTH-1:0]  o_regmap_retire_rdest,
-    output logic [ROB_IDX_WIDTH-1:0]          o_regmap_retire_tag,
-    output logic                              o_regmap_retire_en,
+    // Interface to register alias table to update destination register for retired instruction
+    output logic [OPTN_DATA_WIDTH-1:0]        o_rat_retire_data,
+    output logic [OPTN_RAT_IDX_WIDTH-1:0]     o_rat_retire_rdst,
+    output logic [ROB_IDX_WIDTH-1:0]          o_rat_retire_tag,
+    output logic                              o_rat_retire_en,
 
     // Interface to LSU to retire loads/stores
     input  logic                              i_lsu_retire_lq_ack,
@@ -81,10 +77,9 @@ module procyon_rob #(
     logic [OPTN_ROB_DEPTH-1:0] rob_entry_retirable;
     logic [OPTN_ROB_DEPTH-1:0] rob_entry_lsu_pending;
     logic [OPTN_ROB_DEPTH-1:0] rob_entry_redirect;
-    logic [OPTN_ADDR_WIDTH-1:0] rob_entry_addr [OPTN_ROB_DEPTH-1:0];
     logic [OPTN_DATA_WIDTH-1:0] rob_entry_data [OPTN_ROB_DEPTH-1:0];
-    logic [OPTN_REGMAP_IDX_WIDTH-1:0] rob_entry_rdest [OPTN_ROB_DEPTH-1:0];
-    logic [`PCYN_ROB_OP_WIDTH-1:0] rob_entry_op [OPTN_ROB_DEPTH-1:0];
+    logic [OPTN_RAT_IDX_WIDTH-1:0] rob_entry_rdst [OPTN_ROB_DEPTH-1:0];
+    logic [`PCYN_OP_IS_WIDTH-1:0] rob_entry_op_is [OPTN_ROB_DEPTH-1:0];
     logic [OPTN_ADDR_WIDTH-1:0] rob_entry_pc [OPTN_ROB_DEPTH-1:0];
     logic [OPTN_ROB_DEPTH-1:0] rob_dispatch_select_r;
     logic [OPTN_ROB_DEPTH-1:0] rob_retire_select;
@@ -104,7 +99,7 @@ module procyon_rob #(
             .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
             .OPTN_CDB_DEPTH(OPTN_CDB_DEPTH),
             .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH),
-            .OPTN_REGMAP_IDX_WIDTH(OPTN_REGMAP_IDX_WIDTH)
+            .OPTN_RAT_IDX_WIDTH(OPTN_RAT_IDX_WIDTH)
         ) procyon_rob_entry_inst (
             .clk(clk),
             .n_rst(n_rst),
@@ -113,20 +108,19 @@ module procyon_rob #(
             .o_retirable(rob_entry_retirable[inst]),
             .o_lsu_pending(rob_entry_lsu_pending[inst]),
             .o_rob_entry_redirect(rob_entry_redirect[inst]),
-            .o_rob_entry_addr(rob_entry_addr[inst]),
             .o_rob_entry_data(rob_entry_data[inst]),
-            .o_rob_entry_rdest(rob_entry_rdest[inst]),
-            .o_rob_entry_op(rob_entry_op[inst]),
+            .o_rob_entry_rdst(rob_entry_rdst[inst]),
+            .o_rob_entry_op_is(rob_entry_op_is[inst]),
             .o_rob_entry_pc(rob_entry_pc[inst]),
             .i_cdb_en(i_cdb_en),
             .i_cdb_redirect(i_cdb_redirect),
             .i_cdb_data(i_cdb_data),
-            .i_cdb_addr(i_cdb_addr),
             .i_cdb_tag(i_cdb_tag),
             .i_dispatch_en(rob_dispatch_select_r[inst]),
-            .i_dispatch_op(i_rob_enq_op),
-            .i_dispatch_pc(i_rob_enq_pc),
-            .i_dispatch_rdest(i_rob_enq_rdest),
+            .i_dispatch_op_is(i_rob_dispatch_op_is),
+            .i_dispatch_pc(i_rob_dispatch_pc),
+            .i_dispatch_rdst(i_rob_dispatch_rdst),
+            .i_dispatch_rdst_data(i_rob_dispatch_rdst_data),
             .i_retire_en(rob_retire_select[inst]),
             .i_lsu_retire_lq_ack(lsu_retire_lq_ack_select[inst]),
             .i_lsu_retire_sq_ack(lsu_retire_sq_ack_select[inst]),
@@ -189,53 +183,39 @@ module procyon_rob #(
     assign o_redirect = redirect_r;
 
     logic [OPTN_ADDR_WIDTH-1:0] redirect_addr_mux;
-    assign redirect_addr_mux = (rob_entry_op[rob_queue_head] == `PCYN_ROB_OP_BR) ? rob_entry_addr[rob_queue_head] : rob_entry_pc[rob_queue_head];
+    assign redirect_addr_mux = rob_entry_pc[rob_queue_head];
     procyon_ff #(OPTN_ADDR_WIDTH) o_redirect_addr_ff (.clk(clk), .i_en(1'b1), .i_d(redirect_addr_mux), .o_q(o_redirect_addr));
 
-    // Send the next free ROB entry number to the regmap so it can use it to rename the destination register for a new instruction
+    // Send the next free ROB entry number to the Register Alias Table so it can use it to rename the destination register for a new instruction
     assign o_rob_reserve_tag = rob_queue_tail;
 
     // Output stall if the ROB is full
     assign o_rob_stall = rob_queue_full;
 
-    // Getting the right source register tags/data is tricky. If the register map has ready data then that must be used
-    // Otherwise the ROB entry corresponding to the tag in the register map for the source register is looked up and the data,
-    // if available, is retrieved from that entry. If it's not available then the instruction must wait for the tag to be broadcast
-    // on the CDB. Now if there is something available on the CDB in the same cycle and it matches the tag from the register map,
-    // then that value must be used over the ROB data.
-    // An instructions source ready bits can be overrided to 1 if that instruction has no use for that source which allows it to skip waiting for that source in RS
-    logic [OPTN_DATA_WIDTH-1:0] rs_src_data_mux [0:1];
-    logic rs_src_rdy [0:1];
+    // Lookup source tags for the decoding stage. Make sure to bypass from the CDB if necessary
+    logic rob_lookup_rdy [0:1];
+    logic [OPTN_DATA_WIDTH-1:0] rob_lookup_data_mux [0:1];
 
     always_comb begin
         for (int src_idx = 0; src_idx < 2; src_idx++) begin
             logic [ROB_IDX_WIDTH-1:0] rob_tag;
-            logic rob_lookup_rdy [0:1];
-
             rob_tag = i_rob_lookup_tag[src_idx];
-            rob_lookup_rdy[src_idx]  = i_rob_lookup_rdy[src_idx] | i_rob_lookup_rdy_ovrd[src_idx];
 
-            rs_src_data_mux[src_idx] = rob_entry_data[rob_tag];
-            rs_src_rdy[src_idx] = rob_lookup_rdy[src_idx] | rob_entry_retirable[rob_tag] | rob_entry_lsu_pending[rob_tag];
+            rob_lookup_rdy[src_idx] = rob_entry_retirable[rob_tag] | rob_entry_lsu_pending[rob_tag];
+            rob_lookup_data_mux[src_idx] = rob_entry_data[rob_tag];
 
             for (int cdb_idx = 0; cdb_idx < OPTN_CDB_DEPTH; cdb_idx++) begin
                 logic cdb_lookup_bypass;
                 cdb_lookup_bypass = i_cdb_en[cdb_idx] & (i_cdb_tag[cdb_idx] == rob_tag);
 
-                rs_src_data_mux[src_idx] = cdb_lookup_bypass ? i_cdb_data[cdb_idx] : rs_src_data_mux[src_idx];
-                rs_src_rdy[src_idx] = cdb_lookup_bypass | rs_src_rdy[src_idx];
+                rob_lookup_rdy[src_idx] = cdb_lookup_bypass | rob_lookup_rdy[src_idx];
+                rob_lookup_data_mux[src_idx] = cdb_lookup_bypass ? i_cdb_data[cdb_idx] : rob_lookup_data_mux[src_idx];
             end
-
-            rs_src_data_mux[src_idx] = rob_lookup_rdy[src_idx] ? i_rob_lookup_data[src_idx] : rs_src_data_mux[src_idx];
         end
     end
 
-    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_data_mux[0]), .o_q(o_rs_src_data[0]));
-    procyon_ff #(OPTN_DATA_WIDTH) o_rs_src_data_1_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_data_mux[1]), .o_q(o_rs_src_data[1]));
-    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_0_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_lookup_tag[0]), .o_q(o_rs_src_tag[0]));
-    procyon_ff #(ROB_IDX_WIDTH) o_rs_src_tag_1_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_lookup_tag[1]), .o_q(o_rs_src_tag[1]));
-    procyon_ff #(1) o_rs_src_rdy_0_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_rdy[0]), .o_q(o_rs_src_rdy[0]));
-    procyon_ff #(1) o_rs_src_rdy_1_ff (.clk(clk), .i_en(1'b1), .i_d(rs_src_rdy[1]), .o_q(o_rs_src_rdy[1]));
+    assign o_rob_lookup_rdy = rob_lookup_rdy;
+    assign o_rob_lookup_data = rob_lookup_data_mux;
 
     // Let the LSU know that the instruction at the head of the ROB is ready to be retired and is waiting for an ack from the LSU
     procyon_ff #(ROB_IDX_WIDTH) o_lsu_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_queue_head), .o_q(o_lsu_retire_tag));
@@ -244,17 +224,17 @@ module procyon_rob #(
     assign n_redirect = ~redirect_r;
 
     logic lsu_retire_lq_en;
-    assign lsu_retire_lq_en = n_redirect & rob_entry_lsu_pending[rob_queue_head] & (rob_entry_op[rob_queue_head] == `PCYN_ROB_OP_LD) & ~i_lsu_retire_lq_ack;
+    assign lsu_retire_lq_en = n_redirect & rob_entry_lsu_pending[rob_queue_head] & rob_entry_op_is[rob_queue_head][`PCYN_OP_IS_LD_IDX] & ~i_lsu_retire_lq_ack;
     procyon_ff #(1) o_lsu_retire_lq_en_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_retire_lq_en), .o_q(o_lsu_retire_lq_en));
 
     logic lsu_retire_sq_en;
-    assign lsu_retire_sq_en = n_redirect & rob_entry_lsu_pending[rob_queue_head] & (rob_entry_op[rob_queue_head] == `PCYN_ROB_OP_ST) & ~i_lsu_retire_sq_ack;
+    assign lsu_retire_sq_en = n_redirect & rob_entry_lsu_pending[rob_queue_head] & rob_entry_op_is[rob_queue_head][`PCYN_OP_IS_ST_IDX] & ~i_lsu_retire_sq_ack;
     procyon_ff #(1) o_lsu_retire_sq_en_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_retire_sq_en), .o_q(o_lsu_retire_sq_en));
 
-    // Let the Regmap know that this instruction is retiring in order to update the destination register mapping
-    procyon_srff #(1) o_regmap_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_retire_en), .i_reset(1'b0), .o_q(o_regmap_retire_en));
-    procyon_ff #(OPTN_DATA_WIDTH) o_regmap_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_data[rob_queue_head]), .o_q(o_regmap_retire_data));
-    procyon_ff #(OPTN_REGMAP_IDX_WIDTH) o_regmap_retire_rdest_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_rdest[rob_queue_head]), .o_q(o_regmap_retire_rdest));
-    procyon_ff #(ROB_IDX_WIDTH) o_regmap_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_queue_head), .o_q(o_regmap_retire_tag));
+    // Let the Regmap know that this instruction is retiring in order to update the destination register alias mapping
+    procyon_srff #(1) o_rat_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_retire_en), .i_reset(1'b0), .o_q(o_rat_retire_en));
+    procyon_ff #(OPTN_DATA_WIDTH) o_rat_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_data[rob_queue_head]), .o_q(o_rat_retire_data));
+    procyon_ff #(OPTN_RAT_IDX_WIDTH) o_rat_retire_rdst_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_rdst[rob_queue_head]), .o_q(o_rat_retire_rdst));
+    procyon_ff #(ROB_IDX_WIDTH) o_rat_retire_tag_ff (.clk(clk), .i_en(1'b1), .i_d(rob_queue_head), .o_q(o_rat_retire_tag));
 
 endmodule

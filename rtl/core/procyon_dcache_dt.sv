@@ -28,7 +28,7 @@ module procyon_dcache_dt #(
     input  logic [DC_TAG_WIDTH-1:0]         i_tag,
     input  logic [DC_INDEX_WIDTH-1:0]       i_index,
     input  logic [DC_OFFSET_WIDTH-1:0]      i_offset,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_op,
     input  logic [OPTN_DATA_WIDTH-1:0]      i_data,
     input  logic                            i_valid,
     input  logic                            i_dirty,
@@ -61,14 +61,14 @@ module procyon_dcache_dt #(
 
     // Derive byte select signals from the LSU op type
     always_comb begin
-        case (i_lsu_func)
-            `PCYN_LSU_FUNC_LB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
-            `PCYN_LSU_FUNC_LH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
-            `PCYN_LSU_FUNC_LBU: byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
-            `PCYN_LSU_FUNC_LHU: byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
-            `PCYN_LSU_FUNC_SB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
-            `PCYN_LSU_FUNC_SH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
-            default:            byte_sel = '1;
+        case (i_op)
+            `PCYN_OP_LB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_OP_LH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
+            `PCYN_OP_LBU: byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_OP_LHU: byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
+            `PCYN_OP_SB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
+            `PCYN_OP_SH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
+            default:      byte_sel = '1;
         endcase
     end
 

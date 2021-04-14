@@ -11,7 +11,7 @@
 module procyon #(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
-    parameter OPTN_REGMAP_DEPTH     = 32,
+    parameter OPTN_RAT_DEPTH        = 32,
     parameter OPTN_NUM_IEU          = 1,
     parameter OPTN_INSN_FIFO_DEPTH  = 8,
     parameter OPTN_ROB_DEPTH        = 64,
@@ -26,7 +26,7 @@ module procyon #(
     parameter OPTN_WB_DATA_WIDTH    = 16,
     parameter OPTN_WB_ADDR_WIDTH    = 32,
 
-    parameter REGMAP_IDX_WIDTH      = $clog2(OPTN_REGMAP_DEPTH),
+    parameter RAT_IDX_WIDTH         = $clog2(OPTN_RAT_DEPTH),
     parameter WB_DATA_SIZE          = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                          clk,
@@ -38,9 +38,9 @@ module procyon #(
     // FIXME: FPGA debugging output
     output logic                          o_rob_redirect,
     output logic [OPTN_ADDR_WIDTH-1:0]    o_rob_redirect_addr,
-    output logic                          o_regmap_retire_en,
-    output logic [REGMAP_IDX_WIDTH-1:0]   o_regmap_retire_rdest,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_regmap_retire_data,
+    output logic                          o_rat_retire_en,
+    output logic [RAT_IDX_WIDTH-1:0]      o_rat_retire_rdst,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_rat_retire_data,
 
     // FIXME: Temporary instruction cache interface
     input  logic [OPTN_DATA_WIDTH-1:0]    i_ic_insn,
@@ -69,61 +69,60 @@ module procyon #(
     localparam DC_LINE_WIDTH = OPTN_DC_LINE_SIZE * 8;
 
     // Module signals
-    logic dispatch_stall;
-    logic [OPTN_ADDR_WIDTH-1:0] dispatch_pc;
-    logic [OPTN_DATA_WIDTH-1:0] dispatch_insn;
-    logic dispatch_valid;
+    logic fetch_valid;
+    logic [OPTN_ADDR_WIDTH-1:0] fetch_pc;
+    logic [OPTN_DATA_WIDTH-1:0] fetch_insn;
+    logic decode_stall;
 
     logic rob_reserve_en;
     logic [ROB_IDX_WIDTH-1:0] rob_reserve_tag;
     logic rob_stall;
-    logic rob_lookup_rdy_ovrd [0:1];
-    logic [`PCYN_ROB_OP_WIDTH-1:0] rob_enq_op;
-    logic [OPTN_ADDR_WIDTH-1:0] rob_enq_pc;
-    logic [REGMAP_IDX_WIDTH-1:0] rob_enq_rdest;
+    logic rob_lookup_rdy [0:1];
+    logic [OPTN_DATA_WIDTH-1:0] rob_lookup_data [0:1];
+    logic [`PCYN_OP_IS_WIDTH-1:0] rob_dispatch_op_is;
+    logic [OPTN_ADDR_WIDTH-1:0] rob_dispatch_pc;
+    logic [RAT_IDX_WIDTH-1:0] rob_dispatch_rdst;
+    logic [OPTN_DATA_WIDTH-1:0] rob_dispatch_rdst_data;
 
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_rename_rdest;
-    logic [OPTN_DATA_WIDTH-1:0] regmap_retire_data;
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_retire_rdest;
-    logic [ROB_IDX_WIDTH-1:0] regmap_retire_tag;
-    logic regmap_retire_en;
+    logic [RAT_IDX_WIDTH-1:0] rat_lookup_rsrc [0:1];
+    logic rat_lookup_rdy [0:1];
+    logic [OPTN_DATA_WIDTH-1:0] rat_lookup_data [0:1];
+    logic [ROB_IDX_WIDTH-1:0] rat_lookup_tag [0:1];
 
-    logic [REGMAP_IDX_WIDTH-1:0] regmap_lookup_rsrc [0:1];
-    logic regmap_lookup_rdy   [0:1];
-    logic [ROB_IDX_WIDTH-1:0] regmap_lookup_tag [0:1];
-    logic [OPTN_DATA_WIDTH-1:0]regmap_lookup_data [0:1];
+    logic [RAT_IDX_WIDTH-1:0] rat_rename_rdst;
+    logic rat_retire_en;
+    logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst;
+    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
+    logic [ROB_IDX_WIDTH-1:0] rat_retire_tag;
 
     logic rs_reserve_en;
-    logic [`PCYN_OPCODE_WIDTH-1:0] rs_reserve_opcode;
+    logic [`PCYN_OP_IS_WIDTH-1:0] rs_reserve_op_is;
     logic rs_stall;
-    logic [`PCYN_OPCODE_WIDTH-1:0] rs_opcode;
-    logic [OPTN_ADDR_WIDTH-1:0] rs_pc;
-    logic [OPTN_DATA_WIDTH-1:0] rs_insn;
-    logic [ROB_IDX_WIDTH-1:0] rs_src_tag [0:1];
-    logic [OPTN_DATA_WIDTH-1:0] rs_src_data [0:1];
-    logic rs_src_rdy [0:1];
-    logic [ROB_IDX_WIDTH-1:0] rs_dst_tag;
+    logic [`PCYN_OP_WIDTH-1:0] rs_dispatch_op;
+    logic [OPTN_DATA_WIDTH-1:0] rs_dispatch_imm;
+    logic [ROB_IDX_WIDTH-1:0] rs_dispatch_dst_tag;
+    logic rs_dispatch_src_rdy [0:1];
+    logic [OPTN_DATA_WIDTH-1:0] rs_dispatch_src_data [0:1];
+    logic [ROB_IDX_WIDTH-1:0] rs_dispatch_src_tag [0:1];
 
     logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] rs_switch_fu_type [0:CDB_DEPTH-1];
     logic [CDB_DEPTH-1:0] rs_switch_reserve_en;
     logic [CDB_DEPTH-1:0] rs_switch_stall;
+    logic rs_switch_src_rdy [0:1];
     logic [OPTN_DATA_WIDTH-1:0] rs_switch_src_data [0:1];
     logic [ROB_IDX_WIDTH-1:0] rs_switch_src_tag [0:1];
-    logic rs_switch_src_rdy [0:1];
 
     logic fu_stall [0:CDB_DEPTH-1];
     logic fu_valid [0:CDB_DEPTH-1];
-    logic [`PCYN_OPCODE_WIDTH-1:0] fu_opcode [0:CDB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0] fu_iaddr [0:CDB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0] fu_insn [0:CDB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0] fu_src_a [0:CDB_DEPTH-1];
-    logic [OPTN_DATA_WIDTH-1:0] fu_src_b [0:CDB_DEPTH-1];
+    logic [`PCYN_OP_WIDTH-1:0] fu_op [0:CDB_DEPTH-1];
+    logic [`PCYN_OP_IS_WIDTH-1:0] fu_op_is [0:CDB_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] fu_imm [0:CDB_DEPTH-1];
+    logic [OPTN_DATA_WIDTH-1:0] fu_src [0:CDB_DEPTH-1] [0:1];
     logic [ROB_IDX_WIDTH-1:0] fu_tag [0:CDB_DEPTH-1];
 
     logic cdb_en [0:CDB_DEPTH-1];
     logic cdb_redirect [0:CDB_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] cdb_data [0:CDB_DEPTH-1];
-    logic [OPTN_ADDR_WIDTH-1:0] cdb_addr [0:CDB_DEPTH-1];
     logic [ROB_IDX_WIDTH-1:0] cdb_tag [0:CDB_DEPTH-1];
 
     logic lsu_retire_lq_en;
@@ -136,7 +135,7 @@ module procyon #(
     logic mhq_lookup_valid;
     logic mhq_lookup_dc_hit;
     logic [OPTN_ADDR_WIDTH-1:0] mhq_lookup_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] mhq_lookup_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] mhq_lookup_op;
     logic [OPTN_DATA_WIDTH-1:0] mhq_lookup_data;
     logic mhq_lookup_we;
     logic mhq_lookup_retry;
@@ -154,9 +153,9 @@ module procyon #(
     // FIXME: FPGA debugging output
     assign o_rob_redirect = rob_redirect;
     assign o_rob_redirect_addr = rob_redirect_addr;
-    assign o_regmap_retire_en = regmap_retire_en;
-    assign o_regmap_retire_rdest = regmap_retire_rdest;
-    assign o_regmap_retire_data = regmap_retire_data;
+    assign o_rat_retire_en = rat_retire_en;
+    assign o_rat_retire_rdst = rat_retire_rdst;
+    assign o_rat_retire_data = rat_retire_data;
 
     // Module Instances
     procyon_fetch #(
@@ -172,62 +171,69 @@ module procyon #(
         .i_data_valid(i_ic_valid),
         .o_pc(o_ic_pc),
         .o_en(o_ic_en),
-        .i_dispatch_stall(dispatch_stall),
-        .o_dispatch_pc(dispatch_pc),
-        .o_dispatch_insn(dispatch_insn),
-        .o_dispatch_valid(dispatch_valid)
+        .i_decode_stall(decode_stall),
+        .o_fetch_pc(fetch_pc),
+        .o_fetch_insn(fetch_insn),
+        .o_fetch_valid(fetch_valid)
     );
 
-    procyon_dispatch #(
+    procyon_decode #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_REGMAP_IDX_WIDTH(REGMAP_IDX_WIDTH),
+        .OPTN_RAT_IDX_WIDTH(RAT_IDX_WIDTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) procyon_dispatch_inst (
+    ) procyon_decode_inst (
         .clk(clk),
         .i_flush(rob_redirect),
         .i_rob_stall(rob_stall),
         .i_rs_stall(rs_stall),
-        .i_dispatch_pc(dispatch_pc),
-        .i_dispatch_insn(dispatch_insn),
-        .i_dispatch_valid(dispatch_valid),
-        .o_dispatch_stall(dispatch_stall),
-        .o_regmap_lookup_rsrc(regmap_lookup_rsrc),
-        .o_regmap_rename_rdest(regmap_rename_rdest),
-        .o_rob_reserve_en(rob_reserve_en),
+        .i_fetch_pc(fetch_pc),
+        .i_fetch_insn(fetch_insn),
+        .i_fetch_valid(fetch_valid),
+        .o_decode_stall(decode_stall),
+        .o_rat_lookup_rsrc(rat_lookup_rsrc),
+        .i_rat_lookup_rdy(rat_lookup_rdy),
+        .i_rat_lookup_data(rat_lookup_data),
+        .i_rat_lookup_tag(rat_lookup_tag),
+        .i_rob_lookup_rdy(rob_lookup_rdy),
+        .i_rob_lookup_data(rob_lookup_data),
         .i_rob_dst_tag(rob_reserve_tag),
-        .o_rob_lookup_rdy_ovrd(rob_lookup_rdy_ovrd),
-        .o_rob_enq_op(rob_enq_op),
-        .o_rob_enq_pc(rob_enq_pc),
-        .o_rob_enq_rdest(rob_enq_rdest),
+        .o_rat_rename_rdst(rat_rename_rdst),
         .o_rs_reserve_en(rs_reserve_en),
-        .o_rs_reserve_opcode(rs_reserve_opcode),
-        .o_rs_opcode(rs_opcode),
-        .o_rs_pc(rs_pc),
-        .o_rs_insn(rs_insn),
-        .o_rs_dst_tag(rs_dst_tag)
+        .o_rs_reserve_op_is(rs_reserve_op_is),
+        .o_rob_reserve_en(rob_reserve_en),
+        .o_rob_dispatch_op_is(rob_dispatch_op_is),
+        .o_rob_dispatch_pc(rob_dispatch_pc),
+        .o_rob_dispatch_rdst(rob_dispatch_rdst),
+        .o_rob_dispatch_rdst_data(rob_dispatch_rdst_data),
+        .o_rs_dispatch_op(rs_dispatch_op),
+        .o_rs_dispatch_imm(rs_dispatch_imm),
+        .o_rs_dispatch_dst_tag(rs_dispatch_dst_tag),
+        .o_rs_dispatch_src_rdy(rs_dispatch_src_rdy),
+        .o_rs_dispatch_src_data(rs_dispatch_src_data),
+        .o_rs_dispatch_src_tag(rs_dispatch_src_tag)
     );
 
-    procyon_regmap #(
+    procyon_rat #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
-        .OPTN_REGMAP_DEPTH(OPTN_REGMAP_DEPTH),
+        .OPTN_RAT_DEPTH(OPTN_RAT_DEPTH),
         .OPTN_ROB_IDX_WIDTH(ROB_IDX_WIDTH)
-    ) procyon_regmap_inst (
+    ) procyon_rat_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_sim_tp(o_sim_tp),
         .i_flush(rob_redirect),
-        .i_regmap_retire_data(regmap_retire_data),
-        .i_regmap_retire_rdest(regmap_retire_rdest),
-        .i_regmap_retire_tag(regmap_retire_tag),
-        .i_regmap_retire_en(regmap_retire_en),
-        .i_regmap_rename_tag(rob_reserve_tag),
-        .i_regmap_rename_rdest(regmap_rename_rdest),
-        .i_regmap_rename_en(rob_reserve_en),
-        .i_regmap_lookup_rsrc(regmap_lookup_rsrc),
-        .o_regmap_lookup_rdy(regmap_lookup_rdy),
-        .o_regmap_lookup_tag(regmap_lookup_tag),
-        .o_regmap_lookup_data(regmap_lookup_data)
+        .i_rat_lookup_rsrc(rat_lookup_rsrc),
+        .o_rat_lookup_rdy(rat_lookup_rdy),
+        .o_rat_lookup_data(rat_lookup_data),
+        .o_rat_lookup_tag(rat_lookup_tag),
+        .i_rat_rename_en(rob_reserve_en),
+        .i_rat_rename_rdst(rat_rename_rdst),
+        .i_rat_rename_tag(rob_reserve_tag),
+        .i_rat_retire_en(rat_retire_en),
+        .i_rat_retire_rdst(rat_retire_rdst),
+        .i_rat_retire_data(rat_retire_data),
+        .i_rat_retire_tag(rat_retire_tag)
     );
 
     procyon_rob #(
@@ -235,7 +241,7 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_CDB_DEPTH(CDB_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
-        .OPTN_REGMAP_IDX_WIDTH(REGMAP_IDX_WIDTH)
+        .OPTN_RAT_IDX_WIDTH(RAT_IDX_WIDTH)
     ) procyon_rob_inst (
         .clk(clk),
         .n_rst(n_rst),
@@ -245,24 +251,20 @@ module procyon #(
         .i_cdb_en(cdb_en),
         .i_cdb_redirect(cdb_redirect),
         .i_cdb_data(cdb_data),
-        .i_cdb_addr(cdb_addr),
         .i_cdb_tag(cdb_tag),
         .i_rob_reserve_en(rob_reserve_en),
         .o_rob_reserve_tag(rob_reserve_tag),
-        .i_rob_enq_op(rob_enq_op),
-        .i_rob_enq_pc(rob_enq_pc),
-        .i_rob_enq_rdest(rob_enq_rdest),
-        .i_rob_lookup_rdy_ovrd(rob_lookup_rdy_ovrd),
-        .i_rob_lookup_rdy(regmap_lookup_rdy),
-        .i_rob_lookup_tag(regmap_lookup_tag),
-        .i_rob_lookup_data(regmap_lookup_data),
-        .o_rs_src_data(rs_src_data),
-        .o_rs_src_tag(rs_src_tag),
-        .o_rs_src_rdy(rs_src_rdy),
-        .o_regmap_retire_data(regmap_retire_data),
-        .o_regmap_retire_rdest(regmap_retire_rdest),
-        .o_regmap_retire_tag(regmap_retire_tag),
-        .o_regmap_retire_en(regmap_retire_en),
+        .i_rob_lookup_tag(rat_lookup_tag),
+        .o_rob_lookup_rdy(rob_lookup_rdy),
+        .o_rob_lookup_data(rob_lookup_data),
+        .i_rob_dispatch_op_is(rob_dispatch_op_is),
+        .i_rob_dispatch_pc(rob_dispatch_pc),
+        .i_rob_dispatch_rdst(rob_dispatch_rdst),
+        .i_rob_dispatch_rdst_data(rob_dispatch_rdst_data),
+        .o_rat_retire_data(rat_retire_data),
+        .o_rat_retire_rdst(rat_retire_rdst),
+        .o_rat_retire_tag(rat_retire_tag),
+        .o_rat_retire_en(rat_retire_en),
         .i_lsu_retire_lq_ack(lsu_retire_lq_ack),
         .i_lsu_retire_sq_ack(lsu_retire_sq_ack),
         .i_lsu_retire_misspeculated(lsu_retire_misspeculated),
@@ -283,15 +285,15 @@ module procyon #(
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
         .i_rs_reserve_en(rs_reserve_en),
-        .i_rs_reserve_opcode(rs_reserve_opcode),
+        .i_rs_reserve_op_is(rs_reserve_op_is),
         .o_rs_reserve_en(rs_switch_reserve_en),
         .i_rs_fu_type(rs_switch_fu_type),
-        .i_rs_src_tag(rs_src_tag),
-        .i_rs_src_data(rs_src_data),
-        .i_rs_src_rdy(rs_src_rdy),
-        .o_rs_src_tag(rs_switch_src_tag),
-        .o_rs_src_data(rs_switch_src_data),
+        .i_rs_src_rdy(rs_dispatch_src_rdy),
+        .i_rs_src_data(rs_dispatch_src_data),
+        .i_rs_src_tag(rs_dispatch_src_tag),
         .o_rs_src_rdy(rs_switch_src_rdy),
+        .o_rs_src_data(rs_switch_src_data),
+        .o_rs_src_tag(rs_switch_src_tag),
         .i_rs_stall(rs_switch_stall),
         .o_rs_stall(rs_stall)
     );
@@ -312,21 +314,20 @@ module procyon #(
         .i_cdb_data(cdb_data),
         .i_cdb_tag(cdb_tag),
         .i_rs_reserve_en(rs_switch_reserve_en[0]),
-        .i_rs_opcode(rs_opcode),
-        .i_rs_iaddr(rs_pc),
-        .i_rs_insn(rs_insn),
-        .i_rs_src_tag(rs_switch_src_tag),
-        .i_rs_src_data(rs_switch_src_data),
-        .i_rs_src_rdy(rs_switch_src_rdy),
-        .i_rs_dst_tag(rs_dst_tag),
+        .i_rs_dispatch_op(rs_dispatch_op),
+        .i_rs_dispatch_op_is(rob_dispatch_op_is),
+        .i_rs_dispatch_imm(rs_dispatch_imm),
+        .i_rs_dispatch_dst_tag(rs_dispatch_dst_tag),
+        .i_rs_dispatch_src_rdy(rs_switch_src_rdy),
+        .i_rs_dispatch_src_data(rs_switch_src_data),
+        .i_rs_dispatch_src_tag(rs_switch_src_tag),
         .o_rs_stall(rs_switch_stall[0]),
         .i_fu_stall(fu_stall[0]),
         .o_fu_valid(fu_valid[0]),
-        .o_fu_opcode(fu_opcode[0]),
-        .o_fu_iaddr(fu_iaddr[0]),
-        .o_fu_insn(fu_insn[0]),
-        .o_fu_src_a(fu_src_a[0]),
-        .o_fu_src_b(fu_src_b[0]),
+        .o_fu_op(fu_op[0]),
+        .o_fu_op_is(fu_op_is[0]),
+        .o_fu_imm(fu_imm[0]),
+        .o_fu_src(fu_src[0]),
         .o_fu_tag(fu_tag[0])
     );
 
@@ -345,14 +346,12 @@ module procyon #(
         .o_cdb_en(cdb_en[0]),
         .o_cdb_redirect(cdb_redirect[0]),
         .o_cdb_data(cdb_data[0]),
-        .o_cdb_addr(cdb_addr[0]),
         .o_cdb_tag(cdb_tag[0]),
         .i_fu_valid(fu_valid[0]),
-        .i_fu_opcode(fu_opcode[0]),
-        .i_fu_iaddr(fu_iaddr[0]),
-        .i_fu_insn(fu_insn[0]),
-        .i_fu_src_a(fu_src_a[0]),
-        .i_fu_src_b(fu_src_b[0]),
+        .i_fu_op(fu_op[0]),
+        .i_fu_op_is(fu_op_is[0]),
+        .i_fu_imm(fu_imm[0]),
+        .i_fu_src(fu_src[0]),
         .i_fu_tag(fu_tag[0]),
         .o_fu_stall(fu_stall[0]),
         .i_rob_retire_tag(lsu_retire_tag),
@@ -367,7 +366,7 @@ module procyon #(
         .o_mhq_lookup_valid(mhq_lookup_valid),
         .o_mhq_lookup_dc_hit(mhq_lookup_dc_hit),
         .o_mhq_lookup_addr(mhq_lookup_addr),
-        .o_mhq_lookup_lsu_func(mhq_lookup_lsu_func),
+        .o_mhq_lookup_op(mhq_lookup_op),
         .o_mhq_lookup_data(mhq_lookup_data),
         .o_mhq_lookup_we(mhq_lookup_we),
         .i_mhq_fill_en(mhq_fill_en),
@@ -396,21 +395,20 @@ module procyon #(
             .i_cdb_data(cdb_data),
             .i_cdb_tag(cdb_tag),
             .i_rs_reserve_en(rs_switch_reserve_en[inst]),
-            .i_rs_opcode(rs_opcode),
-            .i_rs_iaddr(rs_pc),
-            .i_rs_insn(rs_insn),
-            .i_rs_src_tag(rs_switch_src_tag),
-            .i_rs_src_data(rs_switch_src_data),
-            .i_rs_src_rdy(rs_switch_src_rdy),
-            .i_rs_dst_tag(rs_dst_tag),
+            .i_rs_dispatch_op(rs_dispatch_op),
+            .i_rs_dispatch_op_is(rob_dispatch_op_is),
+            .i_rs_dispatch_imm(rs_dispatch_imm),
+            .i_rs_dispatch_dst_tag(rs_dispatch_dst_tag),
+            .i_rs_dispatch_src_rdy(rs_switch_src_rdy),
+            .i_rs_dispatch_src_data(rs_switch_src_data),
+            .i_rs_dispatch_src_tag(rs_switch_src_tag),
             .o_rs_stall(rs_switch_stall[inst]),
             .i_fu_stall(fu_stall[inst]),
             .o_fu_valid(fu_valid[inst]),
-            .o_fu_opcode(fu_opcode[inst]),
-            .o_fu_iaddr(fu_iaddr[inst]),
-            .o_fu_insn(fu_insn[inst]),
-            .o_fu_src_a(fu_src_a[inst]),
-            .o_fu_src_b(fu_src_b[inst]),
+            .o_fu_op(fu_op[inst]),
+            .o_fu_op_is(fu_op_is[inst]),
+            .o_fu_imm(fu_imm[inst]),
+            .o_fu_src(fu_src[inst]),
             .o_fu_tag(fu_tag[inst])
         );
 
@@ -425,14 +423,12 @@ module procyon #(
             .o_cdb_en(cdb_en[inst]),
             .o_cdb_redirect(cdb_redirect[inst]),
             .o_cdb_data(cdb_data[inst]),
-            .o_cdb_addr(cdb_addr[inst]),
             .o_cdb_tag(cdb_tag[inst]),
             .i_fu_valid(fu_valid[inst]),
-            .i_fu_opcode(fu_opcode[inst]),
-            .i_fu_iaddr(fu_iaddr[inst]),
-            .i_fu_insn(fu_insn[inst]),
-            .i_fu_src_a(fu_src_a[inst]),
-            .i_fu_src_b(fu_src_b[inst]),
+            .i_fu_op(fu_op[inst]),
+            .i_fu_op_is(fu_op_is[inst]),
+            .i_fu_imm(fu_imm[inst]),
+            .i_fu_src(fu_src[inst]),
             .i_fu_tag(fu_tag[inst]),
             .o_fu_stall(fu_stall[inst])
         );
@@ -452,7 +448,7 @@ module procyon #(
         .i_mhq_lookup_valid(mhq_lookup_valid),
         .i_mhq_lookup_dc_hit(mhq_lookup_dc_hit),
         .i_mhq_lookup_addr(mhq_lookup_addr),
-        .i_mhq_lookup_lsu_func(mhq_lookup_lsu_func),
+        .i_mhq_lookup_op(mhq_lookup_op),
         .i_mhq_lookup_data(mhq_lookup_data),
         .i_mhq_lookup_we(mhq_lookup_we),
         .o_mhq_lookup_retry(mhq_lookup_retry),

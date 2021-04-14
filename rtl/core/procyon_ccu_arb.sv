@@ -20,10 +20,10 @@ module procyon_ccu_arb #(
 
     // CCU request handshake signals
     input  logic                       i_ccu_arb_valid [0:OPTN_CCU_ARB_DEPTH-1],
-    input  logic                       i_ccu_arb_we    [0:OPTN_CCU_ARB_DEPTH-1],
-    input  logic [OPTN_ADDR_WIDTH-1:0] i_ccu_arb_addr  [0:OPTN_CCU_ARB_DEPTH-1],
-    input  logic [DC_LINE_WIDTH-1:0]   i_ccu_arb_data  [0:OPTN_CCU_ARB_DEPTH-1],
-    output logic                       o_ccu_arb_done  [0:OPTN_CCU_ARB_DEPTH-1],
+    input  logic                       i_ccu_arb_we [0:OPTN_CCU_ARB_DEPTH-1],
+    input  logic [OPTN_ADDR_WIDTH-1:0] i_ccu_arb_addr [0:OPTN_CCU_ARB_DEPTH-1],
+    input  logic [DC_LINE_WIDTH-1:0]   i_ccu_arb_data [0:OPTN_CCU_ARB_DEPTH-1],
+    output logic                       o_ccu_arb_done [0:OPTN_CCU_ARB_DEPTH-1],
     output logic [DC_LINE_WIDTH-1:0]   o_ccu_arb_data,
 
     // BIU interface

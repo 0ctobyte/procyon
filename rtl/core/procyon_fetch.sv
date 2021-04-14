@@ -23,11 +23,11 @@ module procyon_fetch #(
     output logic [OPTN_ADDR_WIDTH-1:0] o_pc,
     output logic                       o_en,
 
-    // Interface to dispatcher
-    input  logic                       i_dispatch_stall,
-    output logic [OPTN_ADDR_WIDTH-1:0] o_dispatch_pc,
-    output logic [OPTN_DATA_WIDTH-1:0] o_dispatch_insn,
-    output logic                       o_dispatch_valid
+    // Interface to decoder
+    input  logic                       i_decode_stall,
+    output logic [OPTN_ADDR_WIDTH-1:0] o_fetch_pc,
+    output logic [OPTN_DATA_WIDTH-1:0] o_fetch_insn,
+    output logic                       o_fetch_valid
 );
 
     logic insn_fifo_ack;
@@ -44,7 +44,7 @@ module procyon_fetch #(
         .i_flush(i_redirect),
         .i_fifo_ack(insn_fifo_ack),
         .o_fifo_data(insn_fifo_data_o),
-        .o_fifo_valid(o_dispatch_valid),
+        .o_fifo_valid(o_fetch_valid),
         .i_fifo_we(i_data_valid),
         .i_fifo_data(insn_fifo_data_i),
         .o_fifo_full(insn_fifo_full)
@@ -94,8 +94,8 @@ module procyon_fetch #(
     assign o_en = ~i_redirect;
 
     // Pop FIFO data and send to dispatch stage. Ack the FIFO to allow it to remove the heaad entry
-    assign o_dispatch_pc = insn_fifo_data_o[OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH-1:OPTN_DATA_WIDTH];
-    assign o_dispatch_insn = insn_fifo_data_o[OPTN_DATA_WIDTH-1:0];
-    assign insn_fifo_ack = ~i_dispatch_stall;
+    assign o_fetch_pc = insn_fifo_data_o[OPTN_ADDR_WIDTH+OPTN_DATA_WIDTH-1:OPTN_DATA_WIDTH];
+    assign o_fetch_insn = insn_fifo_data_o[OPTN_DATA_WIDTH-1:0];
+    assign insn_fifo_ack = ~i_decode_stall;
 
 endmodule

@@ -23,13 +23,13 @@ module procyon_lsu_lq_entry #(
 
     // Signals from LSU_ID to allocate new load op
     input  logic                            i_alloc_en,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_alloc_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
 
     // Output signals to replay this load
     input  logic                            i_replay_en,
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_replay_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0]       o_replay_op,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
 
@@ -79,13 +79,13 @@ module procyon_lsu_lq_entry #(
     // Each entry in the LQ contains the following
     // addr:              The load address
     // tag:               ROB tag used to determine age of the load op
-    // lsu_func:          LSU op i.e. LB, LH, LW, LBU, LHU
+    // op:                LSU op i.e. LB, LH, LW, LBU, LHU, SB, SH, SW
     // mhq_tag:           MHQ tag it is waiting on for replay when the load misses in the cache
     // misspeculated:     Indicates whether the load has been potentially incorrectly speculately executed (when a retiring store hits in the address range of the load)
     // state:             Current state of the entry
     logic [OPTN_ADDR_WIDTH-1:0] lq_entry_addr_r;
     logic [OPTN_ROB_IDX_WIDTH-1:0] lq_entry_tag_r;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_entry_lsu_func_r;
+    logic [`PCYN_OP_WIDTH-1:0] lq_entry_op_r;
     logic [OPTN_MHQ_IDX_WIDTH-1:0] lq_entry_mhq_tag_r;
     logic lq_entry_misspeculated_r;
     logic [LQ_STATE_WIDTH-1:0] lq_entry_state_r;
@@ -147,22 +147,22 @@ module procyon_lsu_lq_entry #(
     logic lq_entry_misspeculated;
 
     always_comb begin
-        logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_lsu_func;
+        logic [`PCYN_OP_WIDTH-1:0] lq_op;
         logic [OPTN_ADDR_WIDTH-1:0] lq_addr_start;
         logic [OPTN_ADDR_WIDTH-1:0] lq_addr_end;
         logic lq_overlap_sq;
         logic sq_overlap_lq;
         logic overlap_detected;
 
-        lq_lsu_func = i_alloc_en ? i_alloc_lsu_func : lq_entry_lsu_func_r;
+        lq_op = i_alloc_en ? i_alloc_op : lq_entry_op_r;
         lq_addr_start = i_alloc_en ? i_alloc_addr : lq_entry_addr_r;
 
-        case (lq_lsu_func)
-            `PCYN_LSU_FUNC_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
-            `PCYN_LSU_FUNC_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            `PCYN_LSU_FUNC_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
-            `PCYN_LSU_FUNC_LHU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            default:            lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE);
+        case (lq_op)
+            `PCYN_OP_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            `PCYN_OP_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            `PCYN_OP_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            `PCYN_OP_LHU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            default:      lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE);
         endcase
 
         // Compare retired store address with all valid load addresses to detect mis-speculated loads
@@ -183,7 +183,7 @@ module procyon_lsu_lq_entry #(
     assign lq_entry_mhq_tag = i_update_en ? i_update_mhq_tag : lq_entry_mhq_tag_r;
     procyon_ff #(OPTN_MHQ_IDX_WIDTH) lq_entry_mhq_tag_r_ff (.clk(clk), .i_en(1'b1), .i_d(lq_entry_mhq_tag), .o_q(lq_entry_mhq_tag_r));
 
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) lq_entry_lsu_func_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_lsu_func), .o_q(lq_entry_lsu_func_r));
+    procyon_ff #(`PCYN_OP_WIDTH) lq_entry_op_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_op), .o_q(lq_entry_op_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) lq_entry_tag_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_tag), .o_q(lq_entry_tag_r));
     procyon_ff #(OPTN_ADDR_WIDTH) lq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(lq_entry_addr_r));
 
@@ -194,7 +194,7 @@ module procyon_lsu_lq_entry #(
     assign o_replayable = (lq_entry_state_r == LQ_STATE_REPLAYABLE);
 
     // Output signals for replays
-    assign o_replay_lsu_func = lq_entry_lsu_func_r;
+    assign o_replay_op = lq_entry_op_r;
     assign o_replay_addr = lq_entry_addr_r;
     assign o_replay_tag = lq_entry_tag_r;
 

@@ -5,7 +5,7 @@
  */
 
 // Load/Store Unit
-// Encapsulates the ID, DT, DW, EX pipeline stages and the Load Queue and Store Queue and D$
+// Encapsulates the AM, DT, DW, EX pipeline stages and the Load Queue and Store Queue and D$
 
 `include "procyon_constants.svh"
 
@@ -31,17 +31,13 @@ module procyon_lsu #(
     output logic                            o_cdb_en,
     output logic                            o_cdb_redirect,
     output logic [OPTN_DATA_WIDTH-1:0]      o_cdb_data,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_cdb_addr,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_cdb_tag,
 
     input  logic                            i_fu_valid,
-    input  logic [`PCYN_OPCODE_WIDTH-1:0]   i_fu_opcode,
-/* verilator lint_off UNUSED */
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_fu_iaddr,
-/* verilator lint_on  UNUSED */
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_fu_insn,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_fu_src_a,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_fu_src_b,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_fu_op,
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]    i_fu_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_fu_imm,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_fu_src [0:1],
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_fu_tag,
     output logic                            o_fu_stall,
 
@@ -60,7 +56,7 @@ module procyon_lsu #(
     output logic                            o_mhq_lookup_valid,
     output logic                            o_mhq_lookup_dc_hit,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_lookup_addr,
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_mhq_lookup_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0]       o_mhq_lookup_op,
     output logic [OPTN_DATA_WIDTH-1:0]      o_mhq_lookup_data,
     output logic                            o_mhq_lookup_we,
 
@@ -79,28 +75,30 @@ module procyon_lsu #(
     logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag;
     logic [OPTN_DATA_WIDTH-1:0] sq_retire_data;
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] sq_retire_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] sq_retire_op;
     logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
     logic sq_retire_stall;
     logic lq_full;
     logic lq_replay_en;
     logic [OPTN_ROB_IDX_WIDTH-1:0] lq_replay_tag;
     logic [OPTN_ADDR_WIDTH-1:0] lq_replay_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_replay_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] lq_replay_op;
     logic [OPTN_LQ_DEPTH-1:0] lq_replay_select;
     logic lq_replay_stall;
-    logic lsu_ad_valid;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_ad_lsu_func;
-    logic [OPTN_LQ_DEPTH-1:0] lsu_ad_lq_select;
-    logic [OPTN_SQ_DEPTH-1:0] lsu_ad_sq_select;
-    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_ad_tag;
-    logic [OPTN_ADDR_WIDTH-1:0] lsu_ad_addr;
-    logic [OPTN_DATA_WIDTH-1:0] lsu_ad_retire_data;
-    logic lsu_ad_retire;
-    logic lsu_ad_replay;
+    logic lsu_am_valid;
+    logic [`PCYN_OP_WIDTH-1:0] lsu_am_op;
+    logic [`PCYN_OP_IS_WIDTH-1:0] lsu_am_op_is;
+    logic [OPTN_LQ_DEPTH-1:0] lsu_am_lq_select;
+    logic [OPTN_SQ_DEPTH-1:0] lsu_am_sq_select;
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_am_tag;
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_am_addr;
+    logic [OPTN_DATA_WIDTH-1:0] lsu_am_retire_data;
+    logic lsu_am_retire;
+    logic lsu_am_replay;
     logic lsu_dt_valid;
     logic lsu_dt_fill_replay;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_dt_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] lsu_dt_op;
+    logic [`PCYN_OP_IS_WIDTH-1:0] lsu_dt_op_is;
     logic [OPTN_LQ_DEPTH-1:0] lsu_dt_lq_select;
     logic [OPTN_SQ_DEPTH-1:0] lsu_dt_sq_select;
     logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_dt_tag;
@@ -111,7 +109,8 @@ module procyon_lsu #(
     logic lsu_dw_valid;
     logic lsu_dw_mhq_lookup_valid;
     logic lsu_dw_fill_replay;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_dw_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] lsu_dw_op;
+    logic [`PCYN_OP_IS_WIDTH-1:0] lsu_dw_op_is;
     logic [OPTN_LQ_DEPTH-1:0] lsu_dw_lq_select;
     logic [OPTN_SQ_DEPTH-1:0] lsu_dw_sq_select;
     logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_dw_tag;
@@ -120,10 +119,6 @@ module procyon_lsu #(
     logic lsu_dw_retire;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] lsu_mhq_fill_addr;
     logic dc_wr_en;
-    logic [OPTN_ADDR_WIDTH-1:0] dc_addr;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] dc_lsu_func;
-    logic [OPTN_DATA_WIDTH-1:0] dc_wr_data;
-    logic dc_valid;
     logic dc_dirty;
     logic dc_fill;
     logic [DC_LINE_WIDTH-1:0] dc_fill_data;
@@ -135,7 +130,7 @@ module procyon_lsu #(
     logic [DC_LINE_WIDTH-1:0] dc_victim_data;
     logic alloc_sq_en;
     logic alloc_lq_en;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] alloc_lsu_func;
+    logic [`PCYN_OP_WIDTH-1:0] alloc_op;
     logic [OPTN_ROB_IDX_WIDTH-1:0] alloc_tag;
     logic [OPTN_ADDR_WIDTH-1:0] alloc_addr;
     logic [OPTN_DATA_WIDTH-1:0] alloc_data;
@@ -160,28 +155,28 @@ module procyon_lsu #(
     assign o_mhq_lookup_valid = lsu_dw_mhq_lookup_valid;
     assign o_mhq_lookup_dc_hit = dc_hit;
     assign o_mhq_lookup_addr = lsu_dw_addr;
-    assign o_mhq_lookup_lsu_func = lsu_dw_lsu_func;
+    assign o_mhq_lookup_op = lsu_dw_op;
     assign o_mhq_lookup_data = lsu_dw_retire_data;
     assign o_mhq_lookup_we = lsu_dw_retire;
 
-    procyon_lsu_ad #(
+    procyon_lsu_am #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_LQ_DEPTH(OPTN_LQ_DEPTH),
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ROB_IDX_WIDTH(OPTN_ROB_IDX_WIDTH)
-    ) procyon_lsu_ad_inst (
+    ) procyon_lsu_am_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
-        .i_valid(i_fu_valid),
         .i_lq_full(lq_full),
         .i_sq_full(sq_full),
-        .i_insn(i_fu_insn),
-        .i_opcode(i_fu_opcode),
-        .i_src_a(i_fu_src_a),
-        .i_src_b(i_fu_src_b),
+        .i_valid(i_fu_valid),
+        .i_op(i_fu_op),
+        .i_op_is(i_fu_op_is),
+        .i_imm(i_fu_imm),
+        .i_src(i_fu_src),
         .i_tag(i_fu_tag),
         .o_stall(o_fu_stall),
         .i_mhq_fill_en(i_mhq_fill_en),
@@ -192,35 +187,32 @@ module procyon_lsu #(
         .i_sq_retire_tag(sq_retire_tag),
         .i_sq_retire_data(sq_retire_data),
         .i_sq_retire_addr(sq_retire_addr),
-        .i_sq_retire_lsu_func(sq_retire_lsu_func),
+        .i_sq_retire_op(sq_retire_op),
         .i_sq_retire_select(sq_retire_select),
         .o_sq_retire_stall(sq_retire_stall),
         .i_lq_replay_en(lq_replay_en),
         .i_lq_replay_tag(lq_replay_tag),
         .i_lq_replay_addr(lq_replay_addr),
-        .i_lq_replay_lsu_func(lq_replay_lsu_func),
+        .i_lq_replay_op(lq_replay_op),
         .i_lq_replay_select(lq_replay_select),
         .o_lq_replay_stall(lq_replay_stall),
-        .o_valid(lsu_ad_valid),
-        .o_lsu_func(lsu_ad_lsu_func),
-        .o_lq_select(lsu_ad_lq_select),
-        .o_sq_select(lsu_ad_sq_select),
-        .o_tag(lsu_ad_tag),
-        .o_addr(lsu_ad_addr),
-        .o_retire_data(lsu_ad_retire_data),
-        .o_retire(lsu_ad_retire),
-        .o_replay(lsu_ad_replay),
+        .o_valid(lsu_am_valid),
+        .o_op(lsu_am_op),
+        .o_op_is(lsu_am_op_is),
+        .o_lq_select(lsu_am_lq_select),
+        .o_sq_select(lsu_am_sq_select),
+        .o_tag(lsu_am_tag),
+        .o_addr(lsu_am_addr),
+        .o_retire_data(lsu_am_retire_data),
+        .o_retire(lsu_am_retire),
+        .o_replay(lsu_am_replay),
         .o_dc_wr_en(dc_wr_en),
-        .o_dc_addr(dc_addr),
-        .o_dc_lsu_func(dc_lsu_func),
-        .o_dc_data(dc_wr_data),
-        .o_dc_valid(dc_valid),
         .o_dc_dirty(dc_dirty),
         .o_dc_fill(dc_fill),
         .o_dc_fill_data(dc_fill_data),
         .o_alloc_sq_en(alloc_sq_en),
         .o_alloc_lq_en(alloc_lq_en),
-        .o_alloc_lsu_func(alloc_lsu_func),
+        .o_alloc_op(alloc_op),
         .o_alloc_tag(alloc_tag),
         .o_alloc_data(alloc_data),
         .o_alloc_addr(alloc_addr)
@@ -239,18 +231,20 @@ module procyon_lsu #(
         .i_flush(i_flush),
         .i_mhq_fill_en(i_mhq_fill_en),
         .i_mhq_fill_addr(lsu_mhq_fill_addr),
-        .i_valid(lsu_ad_valid),
-        .i_lsu_func(lsu_ad_lsu_func),
-        .i_lq_select(lsu_ad_lq_select),
-        .i_sq_select(lsu_ad_sq_select),
-        .i_tag(lsu_ad_tag),
-        .i_addr(lsu_ad_addr),
-        .i_retire_data(lsu_ad_retire_data),
-        .i_retire(lsu_ad_retire),
-        .i_replay(lsu_ad_replay),
+        .i_valid(lsu_am_valid),
+        .i_op(lsu_am_op),
+        .i_op_is(lsu_am_op_is),
+        .i_lq_select(lsu_am_lq_select),
+        .i_sq_select(lsu_am_sq_select),
+        .i_tag(lsu_am_tag),
+        .i_addr(lsu_am_addr),
+        .i_retire_data(lsu_am_retire_data),
+        .i_retire(lsu_am_retire),
+        .i_replay(lsu_am_replay),
         .o_valid(lsu_dt_valid),
         .o_fill_replay(lsu_dt_fill_replay),
-        .o_lsu_func(lsu_dt_lsu_func),
+        .o_op(lsu_dt_op),
+        .o_op_is(lsu_dt_op_is),
         .o_lq_select(lsu_dt_lq_select),
         .o_sq_select(lsu_dt_sq_select),
         .o_tag(lsu_dt_tag),
@@ -275,7 +269,8 @@ module procyon_lsu #(
         .i_mhq_fill_addr(lsu_mhq_fill_addr),
         .i_valid(lsu_dt_valid),
         .i_fill_replay(lsu_dt_fill_replay),
-        .i_lsu_func(lsu_dt_lsu_func),
+        .i_op(lsu_dt_op),
+        .i_op_is(lsu_dt_op_is),
         .i_lq_select(lsu_dt_lq_select),
         .i_sq_select(lsu_dt_sq_select),
         .i_tag(lsu_dt_tag),
@@ -287,7 +282,8 @@ module procyon_lsu #(
         .o_valid(lsu_dw_valid),
         .o_mhq_lookup_valid(lsu_dw_mhq_lookup_valid),
         .o_fill_replay(lsu_dw_fill_replay),
-        .o_lsu_func(lsu_dw_lsu_func),
+        .o_op(lsu_dw_op),
+        .o_op_is(lsu_dw_op_is),
         .o_lq_select(lsu_dw_lq_select),
         .o_sq_select(lsu_dw_sq_select),
         .o_tag(lsu_dw_tag),
@@ -309,11 +305,11 @@ module procyon_lsu #(
         .i_flush(i_flush),
         .i_valid(lsu_dw_valid),
         .i_fill_replay(lsu_dw_fill_replay),
-        .i_lsu_func(lsu_dw_lsu_func),
+        .i_op(lsu_dw_op),
+        .i_op_is(lsu_dw_op_is),
         .i_lq_select(lsu_dw_lq_select),
         .i_sq_select(lsu_dw_sq_select),
         .i_tag(lsu_dw_tag),
-        .i_addr(lsu_dw_addr),
         .i_retire(lsu_dw_retire),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_rd_data),
@@ -323,7 +319,6 @@ module procyon_lsu #(
         .i_dc_victim_data(dc_victim_data),
         .o_valid(o_cdb_en),
         .o_data(o_cdb_data),
-        .o_addr(o_cdb_addr),
         .o_tag(o_cdb_tag),
         .o_update_lq_en(update_lq_en),
         .o_update_lq_select(update_lq_select),
@@ -348,14 +343,14 @@ module procyon_lsu #(
         .i_flush(i_flush),
         .o_full(lq_full),
         .i_alloc_en(alloc_lq_en),
-        .i_alloc_lsu_func(alloc_lsu_func),
+        .i_alloc_op(alloc_op),
         .i_alloc_tag(alloc_tag),
         .i_alloc_addr(alloc_addr),
         .o_alloc_lq_select(alloc_lq_select),
         .i_replay_stall(lq_replay_stall),
         .o_replay_en(lq_replay_en),
         .o_replay_select(lq_replay_select),
-        .o_replay_lsu_func(lq_replay_lsu_func),
+        .o_replay_op(lq_replay_op),
         .o_replay_addr(lq_replay_addr),
         .o_replay_tag(lq_replay_tag),
         .i_update_en(update_lq_en),
@@ -369,7 +364,7 @@ module procyon_lsu #(
         .i_mhq_fill_tag(i_mhq_fill_tag),
         .i_sq_retire_en(sq_retire_en),
         .i_sq_retire_addr(sq_retire_addr),
-        .i_sq_retire_lsu_func(sq_retire_lsu_func),
+        .i_sq_retire_op(sq_retire_op),
         .i_rob_retire_en(i_rob_retire_lq_en),
         .i_rob_retire_tag(i_rob_retire_tag),
         .o_rob_retire_ack(o_rob_retire_lq_ack),
@@ -387,14 +382,14 @@ module procyon_lsu #(
         .i_flush(i_flush),
         .o_full(sq_full),
         .i_alloc_en(alloc_sq_en),
-        .i_alloc_lsu_func(alloc_lsu_func),
+        .i_alloc_op(alloc_op),
         .i_alloc_tag(alloc_tag),
         .i_alloc_addr(alloc_addr),
         .i_alloc_data(alloc_data),
         .i_sq_retire_stall(sq_retire_stall),
         .o_sq_retire_en(sq_retire_en),
         .o_sq_retire_select(sq_retire_select),
-        .o_sq_retire_lsu_func(sq_retire_lsu_func),
+        .o_sq_retire_op(sq_retire_op),
         .o_sq_retire_addr(sq_retire_addr),
         .o_sq_retire_tag(sq_retire_tag),
         .o_sq_retire_data(sq_retire_data),
@@ -420,10 +415,10 @@ module procyon_lsu #(
         .clk(clk),
         .n_rst(n_rst),
         .i_dc_wr_en(dc_wr_en),
-        .i_dc_addr(dc_addr),
-        .i_dc_lsu_func(dc_lsu_func),
-        .i_dc_data(dc_wr_data),
-        .i_dc_valid(dc_valid),
+        .i_dc_addr(lsu_am_addr),
+        .i_dc_op(lsu_am_op),
+        .i_dc_data(lsu_am_retire_data),
+        .i_dc_valid(1'b1),
         .i_dc_dirty(dc_dirty),
         .i_dc_fill(dc_fill),
         .i_dc_fill_data(dc_fill_data),

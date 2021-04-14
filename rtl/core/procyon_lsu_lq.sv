@@ -28,7 +28,7 @@ module procyon_lsu_lq #(
 
     // Signals from LSU_ID to allocate new load op
     input  logic                            i_alloc_en,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_alloc_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
     output logic [OPTN_LQ_DEPTH-1:0]        o_alloc_lq_select,
@@ -37,7 +37,7 @@ module procyon_lsu_lq #(
     input  logic                            i_replay_stall,
     output logic                            o_replay_en,
     output logic [OPTN_LQ_DEPTH-1:0]        o_replay_select,
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_replay_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0]       o_replay_op,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
 
@@ -57,7 +57,7 @@ module procyon_lsu_lq #(
     // SQ will send address of retiring store for mis-speculation detection
     input  logic                            i_sq_retire_en,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_sq_retire_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_sq_retire_op,
 
     // ROB signal that a load has been retired
     input  logic                            i_rob_retire_en,
@@ -72,11 +72,11 @@ module procyon_lsu_lq #(
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;
 
     always_comb begin
-        case (i_sq_retire_lsu_func)
-            `PCYN_LSU_FUNC_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
-            `PCYN_LSU_FUNC_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
-            `PCYN_LSU_FUNC_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
-            default:           sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
+        case (i_sq_retire_op)
+            `PCYN_OP_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
+            `PCYN_OP_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
+            `PCYN_OP_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
+            default:     sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
         endcase
     end
 
@@ -85,7 +85,7 @@ module procyon_lsu_lq #(
     logic [OPTN_LQ_DEPTH-1:0] lq_allocate_select;
     logic [OPTN_LQ_DEPTH-1:0] lq_replay_select;
     logic [OPTN_LQ_DEPTH-1:0] lq_update_select;
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lq_replay_lsu_func [0:OPTN_LQ_DEPTH-1];
+    logic [`PCYN_OP_WIDTH-1:0] lq_replay_op [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_ADDR_WIDTH-1:0] lq_replay_addr [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] lq_replay_tag [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_LQ_DEPTH-1:0] lq_rob_retire_ack;
@@ -106,11 +106,11 @@ module procyon_lsu_lq #(
             .o_empty(lq_entry_empty[inst]),
             .o_replayable(lq_entry_replayable[inst]),
             .i_alloc_en(lq_allocate_select[inst]),
-            .i_alloc_lsu_func(i_alloc_lsu_func),
+            .i_alloc_op(i_alloc_op),
             .i_alloc_tag(i_alloc_tag),
             .i_alloc_addr(i_alloc_addr),
             .i_replay_en(lq_replay_select[inst]),
-            .o_replay_lsu_func(lq_replay_lsu_func[inst]),
+            .o_replay_op(lq_replay_op[inst]),
             .o_replay_tag(lq_replay_tag[inst]),
             .o_replay_addr(lq_replay_addr[inst]),
             .i_update_en(lq_update_select[inst]),
@@ -167,7 +167,7 @@ module procyon_lsu_lq #(
     procyon_onehot2binary #(OPTN_LQ_DEPTH) lq_replay_entry_onehot2binary (.i_onehot(lq_replay_select), .o_binary(lq_replay_entry));
 
     procyon_ff #(OPTN_LQ_DEPTH) o_replay_select_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_select), .o_q(o_replay_select));
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_replay_lsu_func_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_lsu_func[lq_replay_entry]), .o_q(o_replay_lsu_func));
+    procyon_ff #(`PCYN_OP_WIDTH) o_replay_op_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_op[lq_replay_entry]), .o_q(o_replay_op));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_replay_tag_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_tag[lq_replay_entry]), .o_q(o_replay_tag));
     procyon_ff #(OPTN_ADDR_WIDTH) o_replay_addr_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_addr[lq_replay_entry]), .o_q(o_replay_addr));
 

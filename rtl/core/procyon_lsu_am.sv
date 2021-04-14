@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-// LSU op decode and and address generation unit
+// LSU address generation and mux stage
 
 `include "procyon_constants.svh"
 
-module procyon_lsu_ad #(
+module procyon_lsu_am #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
@@ -29,12 +29,10 @@ module procyon_lsu_ad #(
 
     // Inputs from reservation station
     input                                   i_valid,
-/* verilator lint_off UNUSED */
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_insn,
-/* verilator lint_on  UNUSED */
-    input  logic [`PCYN_OPCODE_WIDTH-1:0]   i_opcode,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_src_a,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_src_b,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_op,
+    input  logic [`PCYN_OP_IS_WIDTH-1:0]    i_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_imm,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_src [0:1],
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_tag,
     output logic                            o_stall,
 
@@ -49,7 +47,7 @@ module procyon_lsu_ad #(
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_sq_retire_tag,
     input  logic [OPTN_DATA_WIDTH-1:0]      i_sq_retire_data,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_sq_retire_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_sq_retire_op,
     input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_retire_select,
     output logic                            o_sq_retire_stall,
 
@@ -57,12 +55,13 @@ module procyon_lsu_ad #(
     input  logic                            i_lq_replay_en,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_lq_replay_tag,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_lq_replay_addr,
-    input  logic [`PCYN_LSU_FUNC_WIDTH-1:0] i_lq_replay_lsu_func,
+    input  logic [`PCYN_OP_WIDTH-1:0]       i_lq_replay_op,
     input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_replay_select,
     output logic                            o_lq_replay_stall,
 
     // Outputs to next pipeline stage
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0]       o_op,
+    output logic [`PCYN_OP_IS_WIDTH-1:0]    o_op_is,
     output logic [OPTN_LQ_DEPTH-1:0]        o_lq_select,
     output logic [OPTN_SQ_DEPTH-1:0]        o_sq_select,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_tag,
@@ -74,16 +73,12 @@ module procyon_lsu_ad #(
 
     // Send read/write request to Dcache
     output logic                            o_dc_wr_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_dc_addr,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_dc_data,
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_dc_lsu_func,
-    output logic                            o_dc_valid,
     output logic                            o_dc_dirty,
     output logic                            o_dc_fill,
     output logic [DC_LINE_WIDTH-1:0]        o_dc_fill_data,
 
     // Enqueue newly issued load/store ops in the load/store queues
-    output logic [`PCYN_LSU_FUNC_WIDTH-1:0] o_alloc_lsu_func,
+    output logic [`PCYN_OP_WIDTH-1:0] o_alloc_op,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_alloc_tag,
     output logic [OPTN_DATA_WIDTH-1:0]      o_alloc_data,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_alloc_addr,
@@ -104,52 +99,27 @@ module procyon_lsu_ad #(
     logic n_rs_stall;
     assign n_rs_stall = ~rs_stall;
 
-    // Determine if op is load or store
-    logic load_or_store;
-    assign load_or_store = i_opcode == `PCYN_OPCODE_STORE;
-
     logic n_flush;
     assign n_flush = ~i_flush;
 
     // Allocate op in load queue or store queue
     logic alloc_sq_en;
-    assign alloc_sq_en = n_flush & load_or_store & i_valid & n_rs_stall;
+    assign alloc_sq_en = n_flush & i_op_is[`PCYN_OP_IS_ST_IDX] & i_valid & n_rs_stall;
     procyon_srff #(1) o_alloc_sq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_sq_en), .i_reset(1'b0), .o_q(o_alloc_sq_en));
 
     logic alloc_lq_en;
-    assign alloc_lq_en = n_flush & ~load_or_store & i_valid & n_rs_stall;
+    assign alloc_lq_en = n_flush & i_op_is[`PCYN_OP_IS_LD_IDX] & i_valid & n_rs_stall;
     procyon_srff #(1) o_alloc_lq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_lq_en), .i_reset(1'b0), .o_q(o_alloc_lq_en));
 
-    // Decode load/store type based on funct3 field
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_func;
-
-    always_comb begin
-        case (i_insn[14:12])
-            3'b000:  lsu_func = load_or_store ? `PCYN_LSU_FUNC_SB : `PCYN_LSU_FUNC_LB;
-            3'b001:  lsu_func = load_or_store ? `PCYN_LSU_FUNC_SH : `PCYN_LSU_FUNC_LH;
-            3'b010:  lsu_func = load_or_store ? `PCYN_LSU_FUNC_SW : `PCYN_LSU_FUNC_LW;
-            3'b100:  lsu_func = `PCYN_LSU_FUNC_LBU;
-            3'b101:  lsu_func = `PCYN_LSU_FUNC_LHU;
-            default: lsu_func = load_or_store ? `PCYN_LSU_FUNC_SW : `PCYN_LSU_FUNC_LW;
-        endcase
-    end
-
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_alloc_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_func), .o_q(o_alloc_lsu_func));
-
-    // Generate immediates
-    logic [OPTN_DATA_WIDTH-1:0] imm_i;
-    logic [OPTN_DATA_WIDTH-1:0] imm_s;
-
-    assign imm_i = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[24:20]};
-    assign imm_s = {{(OPTN_DATA_WIDTH-11){i_insn[31]}}, i_insn[30:25], i_insn[11:7]};
+    procyon_ff #(`PCYN_OP_WIDTH) o_alloc_op_ff (.clk(clk), .i_en(1'b1), .i_d(i_op), .o_q(o_alloc_op));
 
     // Calculate address
     logic [OPTN_ADDR_WIDTH-1:0] addr;
-    assign addr = i_src_a + (load_or_store ? imm_s : imm_i);
+    assign addr = i_src[0] + i_imm;
     procyon_ff #(OPTN_ADDR_WIDTH) o_alloc_addr_ff (.clk(clk), .i_en(1'b1), .i_d(addr), .o_q(o_alloc_addr));
 
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_alloc_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_alloc_tag));
-    procyon_ff #(OPTN_DATA_WIDTH) o_alloc_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_src_b), .o_q(o_alloc_data));
+    procyon_ff #(OPTN_DATA_WIDTH) o_alloc_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_src[1]), .o_q(o_alloc_data));
 
     // Assign outputs to next stage in the pipeline
     // Fill requests get priority over pipeline flushes
@@ -181,61 +151,72 @@ module procyon_lsu_ad #(
     assign dc_dirty = i_mhq_fill_en ? i_mhq_fill_dirty : i_sq_retire_en;
     procyon_ff #(1) o_dc_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(dc_dirty), .o_q(o_dc_dirty));
 
-    procyon_ff #(OPTN_DATA_WIDTH) o_dc_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_retire_data), .o_q(o_dc_data));
-    procyon_ff #(1) o_dc_valid_ff (.clk(clk), .i_en(1'b1), .i_d(1'b1), .o_q(o_dc_valid));
     procyon_ff #(1) o_dc_fill_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_fill_en), .o_q(o_dc_fill));
     procyon_ff #(DC_LINE_WIDTH) o_dc_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_fill_data), .o_q(o_dc_fill_data));
 
-    // Mux AD outputs to next stage depending on replay_en/retire_en
-    logic [1:0] lsu_ad_mux_sel;
-    assign lsu_ad_mux_sel = {i_lq_replay_en, i_sq_retire_en};
+    // Mux AM outputs to next stage depending on replay_en/retire_en
+    logic [1:0] lsu_am_mux_sel;
+    assign lsu_am_mux_sel = {i_lq_replay_en, i_sq_retire_en};
 
-    logic [OPTN_ADDR_WIDTH-1:0] lsu_ad_addr_mux;
-
-    always_comb begin
-        case (lsu_ad_mux_sel)
-            2'b00: lsu_ad_addr_mux = addr;
-            2'b01: lsu_ad_addr_mux = i_sq_retire_addr;
-            2'b10: lsu_ad_addr_mux = i_lq_replay_addr;
-            2'b11: lsu_ad_addr_mux = i_sq_retire_addr;
-        endcase
-
-        lsu_ad_addr_mux = i_mhq_fill_en ? i_mhq_fill_addr : lsu_ad_addr_mux;
-    end
-
-    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_addr_mux), .o_q(o_addr));
-    procyon_ff #(OPTN_ADDR_WIDTH) o_dc_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_addr_mux), .o_q(o_dc_addr));
-
-    logic [`PCYN_LSU_FUNC_WIDTH-1:0] lsu_ad_lsu_func_mux;
+    logic [OPTN_ADDR_WIDTH-1:0] lsu_am_addr_mux;
 
     always_comb begin
-        case (lsu_ad_mux_sel)
-            2'b00: lsu_ad_lsu_func_mux = lsu_func;
-            2'b01: lsu_ad_lsu_func_mux = i_sq_retire_lsu_func;
-            2'b10: lsu_ad_lsu_func_mux = i_lq_replay_lsu_func;
-            2'b11: lsu_ad_lsu_func_mux = i_sq_retire_lsu_func;
+        case (lsu_am_mux_sel)
+            2'b00: lsu_am_addr_mux = addr;
+            2'b01: lsu_am_addr_mux = i_sq_retire_addr;
+            2'b10: lsu_am_addr_mux = i_lq_replay_addr;
+            2'b11: lsu_am_addr_mux = i_sq_retire_addr;
         endcase
 
-        lsu_ad_lsu_func_mux = i_mhq_fill_en ? `PCYN_LSU_FUNC_FILL : lsu_ad_lsu_func_mux;
+        lsu_am_addr_mux = i_mhq_fill_en ? i_mhq_fill_addr : lsu_am_addr_mux;
     end
 
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_lsu_func_mux), .o_q(o_lsu_func));
-    procyon_ff #(`PCYN_LSU_FUNC_WIDTH) o_dc_lsu_func_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_lsu_func_mux), .o_q(o_dc_lsu_func));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_addr_mux), .o_q(o_addr));
 
-    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_ad_tag_mux;
+    logic [`PCYN_OP_WIDTH-1:0] lsu_am_op_mux;
 
     always_comb begin
-        case (lsu_ad_mux_sel)
-            2'b00: lsu_ad_tag_mux = i_tag;
-            2'b01: lsu_ad_tag_mux = i_sq_retire_tag;
-            2'b10: lsu_ad_tag_mux = i_lq_replay_tag;
-            2'b11: lsu_ad_tag_mux = i_sq_retire_tag;
+        case (lsu_am_mux_sel)
+            2'b00: lsu_am_op_mux = i_op;
+            2'b01: lsu_am_op_mux = i_sq_retire_op;
+            2'b10: lsu_am_op_mux = i_lq_replay_op;
+            2'b11: lsu_am_op_mux = i_sq_retire_op;
         endcase
 
-        lsu_ad_tag_mux = i_mhq_fill_en ? '0 : lsu_ad_tag_mux;
+        lsu_am_op_mux = i_mhq_fill_en ? `PCYN_OP_FILL : lsu_am_op_mux;
     end
 
-    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_ad_tag_mux), .o_q(o_tag));
+    procyon_ff #(`PCYN_OP_WIDTH) o_op_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_mux), .o_q(o_op));
+
+    logic [`PCYN_OP_IS_WIDTH-1:0] lsu_am_op_is_mux;
+
+    always_comb begin
+        case (lsu_am_mux_sel)
+            2'b00: lsu_am_op_is_mux = i_op_is;
+            2'b01: lsu_am_op_is_mux = `PCYN_OP_IS_ST;
+            2'b10: lsu_am_op_is_mux = `PCYN_OP_IS_LD;
+            2'b11: lsu_am_op_is_mux = `PCYN_OP_IS_ST;
+        endcase
+
+        lsu_am_op_is_mux = i_mhq_fill_en ? `PCYN_OP_IS_OP : lsu_am_op_is_mux;
+    end
+
+    procyon_ff #(`PCYN_OP_IS_WIDTH) o_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_is_mux), .o_q(o_op_is));
+
+    logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_am_tag_mux;
+
+    always_comb begin
+        case (lsu_am_mux_sel)
+            2'b00: lsu_am_tag_mux = i_tag;
+            2'b01: lsu_am_tag_mux = i_sq_retire_tag;
+            2'b10: lsu_am_tag_mux = i_lq_replay_tag;
+            2'b11: lsu_am_tag_mux = i_sq_retire_tag;
+        endcase
+
+        lsu_am_tag_mux = i_mhq_fill_en ? '0 : lsu_am_tag_mux;
+    end
+
+    procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_tag_mux), .o_q(o_tag));
 
     assign o_sq_retire_stall = i_flush | i_mhq_fill_en;
     assign o_lq_replay_stall = i_sq_retire_en | i_mhq_fill_en;
