@@ -137,7 +137,7 @@ module procyon_mhq_lu #(
             `PCYN_OP_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
             `PCYN_OP_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
             `PCYN_OP_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
-            default:           mhq_update_byte_select = '0;
+            default:     mhq_update_byte_select = '0;
         endcase
 
         mhq_update_byte_select = mhq_update_byte_select << mhq_lookup_offset;
