@@ -31,7 +31,6 @@ module procyon_mhq #(
     input  logic                            n_rst,
 
     // Interface to LSU to match lookup address to valid entries and return enqueue tag
-    // FIXME What if there is a fill for the given lookup address on the same cycle?
     input  logic                            i_mhq_lookup_valid,
     input  logic                            i_mhq_lookup_dc_hit,
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_lookup_addr,
