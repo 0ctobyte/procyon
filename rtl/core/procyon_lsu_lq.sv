@@ -66,7 +66,7 @@ module procyon_lsu_lq #(
     output logic                            o_rob_retire_misspeculated
 );
 
-    localparam LQ_IDX_WIDTH = $clog2(OPTN_LQ_DEPTH);
+    localparam LQ_IDX_WIDTH = OPTN_LQ_DEPTH == 1 ? 1 : $clog2(OPTN_LQ_DEPTH);
 
     // Calculate ending address for the retiring store
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;

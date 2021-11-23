@@ -12,7 +12,7 @@ module procyon_ram_dp_test #(
     parameter  OPTN_BASE_ADDR  = 0,
     parameter  OPTN_RAM_FILE   = "",
 
-    parameter RAM_IDX_WIDTH    = $clog2(OPTN_RAM_DEPTH),
+    parameter RAM_IDX_WIDTH    = OPTN_RAM_DEPTH == 1 ? 1 : $clog2(OPTN_RAM_DEPTH),
     parameter DATA_SIZE        = OPTN_DATA_WIDTH / 8
 )(
     input  logic                       clk,

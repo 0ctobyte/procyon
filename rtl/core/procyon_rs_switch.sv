@@ -42,7 +42,7 @@ module procyon_rs_switch #(
     output logic                              o_rs_stall
 );
 
-    localparam CDB_IDX_WIDTH = $clog2(OPTN_CDB_DEPTH);
+    localparam CDB_IDX_WIDTH = OPTN_CDB_DEPTH == 1 ? 1 : $clog2(OPTN_CDB_DEPTH);
 
     // Transpose the i_rs_fu_type array to allow indexing the array by FU type rather then RS #. This way we'll
     // get a sequence of bits, one for each RS, indicating if that FU type is attached to that RS.

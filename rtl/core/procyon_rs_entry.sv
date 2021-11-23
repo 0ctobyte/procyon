@@ -13,7 +13,7 @@ module procyon_rs_entry #(
     parameter OPTN_CDB_DEPTH     = 2,
     parameter OPTN_RS_DEPTH      = 16,
 
-    parameter RS_IDX_WIDTH       = $clog2(OPTN_RS_DEPTH)
+    parameter RS_IDX_WIDTH       = OPTN_RS_DEPTH == 1 ? 1 : $clog2(OPTN_RS_DEPTH)
 )(
     input  logic                          clk,
     input  logic                          n_rst,

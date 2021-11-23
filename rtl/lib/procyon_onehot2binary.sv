@@ -9,7 +9,7 @@
 module procyon_onehot2binary #(
     parameter OPTN_ONEHOT_WIDTH = 8,
 
-    parameter BINARY_WIDTH      = $clog2(OPTN_ONEHOT_WIDTH)
+    parameter BINARY_WIDTH      = OPTN_ONEHOT_WIDTH == 1 ? 1 : $clog2(OPTN_ONEHOT_WIDTH)
 )(
     input  logic [OPTN_ONEHOT_WIDTH-1:0] i_onehot,
     output logic [BINARY_WIDTH-1:0]      o_binary

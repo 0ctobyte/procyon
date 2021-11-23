@@ -26,7 +26,7 @@ module procyon_sync_fifo #(
     output logic                       o_fifo_full
 );
 
-    localparam FIFO_IDX_WIDTH = $clog2(OPTN_FIFO_DEPTH);
+    localparam FIFO_IDX_WIDTH = OPTN_FIFO_DEPTH == 1 ? 1 : $clog2(OPTN_FIFO_DEPTH);
 
     logic [FIFO_IDX_WIDTH-1:0] fifo_queue_head;
     logic [FIFO_IDX_WIDTH-1:0] fifo_queue_tail;

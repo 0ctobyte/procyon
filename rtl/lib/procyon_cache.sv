@@ -13,7 +13,7 @@ module procyon_cache #(
     parameter OPTN_CACHE_LINE_SIZE = 32,
 
     parameter CACHE_INDEX_COUNT    = OPTN_CACHE_SIZE / OPTN_CACHE_LINE_SIZE,
-    parameter CACHE_INDEX_WIDTH    = $clog2(CACHE_INDEX_COUNT),
+    parameter CACHE_INDEX_WIDTH    = CACHE_INDEX_COUNT == 1 ? 1 : $clog2(CACHE_INDEX_COUNT),
     parameter CACHE_TAG_WIDTH      = OPTN_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
     parameter CACHE_LINE_WIDTH     = OPTN_CACHE_LINE_SIZE * 8
 )(

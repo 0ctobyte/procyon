@@ -18,7 +18,7 @@ module procyon_rob #(
     parameter OPTN_ROB_DEPTH        = 32,
     parameter OPTN_RAT_IDX_WIDTH    = 5,
 
-    parameter ROB_IDX_WIDTH         = $clog2(OPTN_ROB_DEPTH)
+    parameter ROB_IDX_WIDTH         = OPTN_ROB_DEPTH == 1 ? 1 : $clog2(OPTN_ROB_DEPTH)
 )(
     input  logic                              clk,
     input  logic                              n_rst,

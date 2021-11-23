@@ -11,7 +11,7 @@ module procyon_ram_dp #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8,
 
-    parameter RAM_IDX_WIDTH   = $clog2(OPTN_RAM_DEPTH)
+    parameter RAM_IDX_WIDTH   = OPTN_RAM_DEPTH == 1 ? 1 : $clog2(OPTN_RAM_DEPTH)
 )(
     input  logic                       clk,
     input  logic                       n_rst,

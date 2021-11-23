@@ -9,7 +9,7 @@
 module procyon_queue_ctrl #(
     parameter OPTN_QUEUE_DEPTH = 8,
 
-    parameter QUEUE_IDX_WIDTH  = $clog2(OPTN_QUEUE_DEPTH)
+    parameter QUEUE_IDX_WIDTH  = OPTN_QUEUE_DEPTH == 1 ? 1 : $clog2(OPTN_QUEUE_DEPTH)
 )(
     input  logic                 clk,
     input  logic                 n_rst,

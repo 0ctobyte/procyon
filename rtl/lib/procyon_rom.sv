@@ -12,7 +12,7 @@ module procyon_rom #(
     parameter OPTN_BASE_ADDR  = 0,
     parameter OPTN_ROM_FILE   = "",
 
-    parameter ROM_IDX_WIDTH   = $clog2(OPTN_ROM_DEPTH)
+    parameter ROM_IDX_WIDTH   = OPTN_ROM_DEPTH == 1 ? 1 : $clog2(OPTN_ROM_DEPTH)
 )(
     // ROM interface
     input  logic [ROM_IDX_WIDTH-1:0]   i_rom_rd_addr,

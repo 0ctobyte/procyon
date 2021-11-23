@@ -83,7 +83,7 @@ module procyon_lsu_dw #(
 
     // The MHQ should not lookup and enqueue/allocate if the op is marked as needing to replay due to a conflicting fill
     logic mhq_lookup_valid;
-    assign mhq_lookup_valid = n_flush & i_valid & ~fill_replay;
+    assign mhq_lookup_valid = valid & ~fill_replay;
     procyon_srff #(1) o_mhq_lookup_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(mhq_lookup_valid), .i_reset(1'b0), .o_q(o_mhq_lookup_valid));
 
 endmodule

@@ -58,7 +58,7 @@ module procyon_lsu_sq #(
     output logic                            o_rob_retire_ack
 );
 
-    localparam SQ_IDX_WIDTH = $clog2(OPTN_SQ_DEPTH);
+    localparam SQ_IDX_WIDTH = OPTN_SQ_DEPTH == 1 ? 1 : $clog2(OPTN_SQ_DEPTH);
 
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_empty;
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_retirable;

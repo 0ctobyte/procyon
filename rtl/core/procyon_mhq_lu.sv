@@ -15,7 +15,7 @@ module procyon_mhq_lu #(
     parameter OPTN_MHQ_DEPTH    = 4,
     parameter OPTN_DC_LINE_SIZE = 32,
 
-    parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
+    parameter MHQ_IDX_WIDTH     = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
     parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE)
 )(
@@ -50,7 +50,7 @@ module procyon_mhq_lu #(
     output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_update_addr,
 
     // MHQ interface to check for fill conflicts
-    input  logic                                     i_biu_done,
+    input  logic                                     i_ccu_done,
     input  logic                                     i_mhq_completing,
     input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_completing_addr,
     input  logic                                     i_mhq_filling,
@@ -68,7 +68,7 @@ module procyon_mhq_lu #(
     assign mhq_lookup_entry_hit = (i_mhq_lookup_entry_hit_select != 0);
     assign mhq_update_bypass_hit = (i_mhq_update_bypass_select != 0) & (i_mhq_update_bypass_addr == mhq_lookup_addr);
 
-    // Find an MHQ entry (i.e. mhq_lookup_tag) with a matching address to the i_mhq_lookup_tag from the LSU
+    // Find an MHQ entry (i.e. mhq_lookup_tag) with a matching address to the i_mhq_lookup_addr from the LSU
     // Check the bypassed address as well for the currently updating entry. If none can be found, then use the tail
     // entry of the MHQ to allocate a new entry
     logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_select_mux;
@@ -102,15 +102,15 @@ module procyon_mhq_lu #(
     assign mhq_lookup_retry = i_mhq_full & n_mhq_lookup_hit;
     procyon_ff #(1) o_mhq_lookup_retry_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_retry), .o_q(o_mhq_lookup_retry));
 
-    // mhq_lookup_replay is asserted if the BIU signals it is done on the same cycle with the same address as the
+    // mhq_lookup_replay is asserted if the CCU signals it is done on the same cycle with the same address as the
     // lookup OR if the MHQ signals that it is about to launch a fill to the LSU on the same cycle with the same
     // address as the lookup OR if the MHQ has launched the fill to the LSU on the same cycle as this lookup with the 
-    // same address (fill data is propagated through three cycles, the first coming from the BIU and the second
+    // same address (fill data is propagated through three cycles, the first coming from the CCU and the second
     // from the MHQ head entry and then to the LSU on the 3rd cycle). The same cycle fill case causes a fill
     // conflict where the lookup will return an MHQ tag and enqueue on that entry when it should be invalidated by the
     // current fill
     logic mhq_lookup_replay;
-    assign mhq_lookup_replay = ((i_biu_done | i_mhq_completing) & (i_mhq_completing_addr == mhq_lookup_addr)) | (i_mhq_filling & (i_mhq_filling_addr == mhq_lookup_addr));
+    assign mhq_lookup_replay = ((i_ccu_done | i_mhq_completing) & (i_mhq_completing_addr == mhq_lookup_addr)) | (i_mhq_filling & (i_mhq_filling_addr == mhq_lookup_addr));
     procyon_ff #(1) o_mhq_lookup_replay_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_replay), .o_q(o_mhq_lookup_replay));
 
     // Determine if an entry needs to be updated/allocated

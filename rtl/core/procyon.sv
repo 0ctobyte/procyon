@@ -64,8 +64,8 @@ module procyon #(
 );
 
     localparam CDB_DEPTH     = 1 + OPTN_NUM_IEU;
-    localparam ROB_IDX_WIDTH = $clog2(OPTN_ROB_DEPTH);
-    localparam MHQ_IDX_WIDTH = $clog2(OPTN_MHQ_DEPTH);
+    localparam ROB_IDX_WIDTH = OPTN_ROB_DEPTH == 1 ? 1 : $clog2(OPTN_ROB_DEPTH);
+    localparam MHQ_IDX_WIDTH = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH);
     localparam DC_LINE_WIDTH = OPTN_DC_LINE_SIZE * 8;
 
     // Module signals

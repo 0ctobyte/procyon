@@ -24,7 +24,7 @@ module procyon_mhq #(
     parameter OPTN_MHQ_DEPTH    = 4,
     parameter OPTN_DC_LINE_SIZE = 1024,
 
-    parameter MHQ_IDX_WIDTH     = $clog2(OPTN_MHQ_DEPTH),
+    parameter MHQ_IDX_WIDTH     = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
 )(
     input  logic                            clk,
@@ -48,11 +48,11 @@ module procyon_mhq #(
     output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
     output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
 
-    // BIU interface
-    input  logic                            i_biu_done,
-    input  logic [DC_LINE_WIDTH-1:0]        i_biu_data,
-    output logic                            o_biu_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_biu_addr
+    // CCU interface
+    input  logic                            i_ccu_done,
+    input  logic [DC_LINE_WIDTH-1:0]        i_ccu_data,
+    output logic                            o_ccu_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
 );
 
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
@@ -79,12 +79,12 @@ module procyon_mhq #(
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_update_addr;
 
-    logic [OPTN_MHQ_DEPTH-1:0] biu_done;
+    logic [OPTN_MHQ_DEPTH-1:0] ccu_done;
     logic [OPTN_MHQ_DEPTH-1:0] mhq_fill_launched;
 
     always_comb begin
-        biu_done = '0;
-        biu_done[mhq_queue_head] = i_biu_done;
+        ccu_done = '0;
+        ccu_done[mhq_queue_head] = i_ccu_done;
 
         mhq_fill_launched = '0;
         mhq_fill_launched[mhq_queue_head] = mhq_entry_complete[mhq_queue_head];
@@ -111,8 +111,8 @@ module procyon_mhq #(
             .i_update_wr_data(mhq_update_wr_data),
             .i_update_byte_select(mhq_update_byte_select),
             .i_update_addr(mhq_update_addr),
-            .i_biu_done(biu_done[inst]),
-            .i_biu_data(i_biu_data),
+            .i_ccu_done(ccu_done[inst]),
+            .i_ccu_data(i_ccu_data),
             .i_fill_launched(mhq_fill_launched[inst])
         );
     end
@@ -161,7 +161,7 @@ module procyon_mhq #(
         .o_mhq_update_wr_data(mhq_update_wr_data),
         .o_mhq_update_byte_select(mhq_update_byte_select),
         .o_mhq_update_addr(mhq_update_addr),
-        .i_biu_done(i_biu_done),
+        .i_ccu_done(i_ccu_done),
         .i_mhq_completing(mhq_completing),
         .i_mhq_completing_addr(mhq_completing_addr),
         .i_mhq_filling(mhq_fill_en_r),
@@ -196,8 +196,8 @@ module procyon_mhq #(
 
     procyon_ff #(DC_LINE_WIDTH) o_mhq_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_data[mhq_queue_head]), .o_q(o_mhq_fill_data));
 
-    // Signal to BIU to fetch data from memory
-    assign o_biu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
-    assign o_biu_en = mhq_entry_valid[mhq_queue_head] & ~mhq_entry_complete[mhq_queue_head];
+    // Signal to CCU to fetch data from memory
+    assign o_ccu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
+    assign o_ccu_en = mhq_entry_valid[mhq_queue_head] & ~mhq_entry_complete[mhq_queue_head];
 
 endmodule

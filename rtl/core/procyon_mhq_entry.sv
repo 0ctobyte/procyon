@@ -31,9 +31,9 @@ module procyon_mhq_entry #(
     input  logic [OPTN_DC_LINE_SIZE-1:0]             i_update_byte_select,
     input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_update_addr,
 
-    // BIU interface
-    input  logic                                     i_biu_done,
-    input  logic [DC_LINE_WIDTH-1:0]                 i_biu_data,
+    // CCU interface
+    input  logic                                     i_ccu_done,
+    input  logic [DC_LINE_WIDTH-1:0]                 i_ccu_data,
 
     // Indicates that this entry has been sent to LSU to fill the DCache
     input  logic                                     i_fill_launched
@@ -42,7 +42,7 @@ module procyon_mhq_entry #(
     // Each entry in the MHQ can be in one of the following states
     // INVALID:       Entry is empty
     // VALID:         Entry is occupied
-    // COMPLETE:      Entry is finished being serviced by BIU and is ready to be sent to the LSU to fill the cache
+    // COMPLETE:      Entry is finished being serviced by CCU and is ready to be sent to the LSU to fill the cache
     localparam MHQ_STATE_WIDTH    = 2;
     localparam MHQ_STATE_INVALID  = 2'b00;
     localparam MHQ_STATE_VALID    = 2'b01;
@@ -69,7 +69,7 @@ module procyon_mhq_entry #(
 
         case (mhq_entry_state_next)
             MHQ_STATE_INVALID:  mhq_entry_state_next = i_update_en ? MHQ_STATE_VALID : mhq_entry_state_next;
-            MHQ_STATE_VALID:    mhq_entry_state_next = i_biu_done ? MHQ_STATE_COMPLETE : mhq_entry_state_next;
+            MHQ_STATE_VALID:    mhq_entry_state_next = i_ccu_done ? MHQ_STATE_COMPLETE : mhq_entry_state_next;
             MHQ_STATE_COMPLETE: mhq_entry_state_next = i_fill_launched ? MHQ_STATE_INVALID : mhq_entry_state_next;
             default:            mhq_entry_state_next = MHQ_STATE_INVALID;
         endcase
@@ -88,7 +88,7 @@ module procyon_mhq_entry #(
 
     procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) mhq_entry_addr_r_ff (.clk(clk), .i_en(allocating), .i_d(i_update_addr), .o_q(mhq_entry_addr_r));
 
-    // Update data and byte_updated merging data from a store or from the BIU or both
+    // Update data and byte_updated merging data from a store or from the CCU or both
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data_mux;
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_entry_byte_updated_mux;
 
@@ -104,9 +104,9 @@ module procyon_mhq_entry #(
             mhq_entry_data_mux[i*8 +: 8] = update_byte ? i_update_wr_data[i*8 +: 8] : mhq_entry_data_mux[i*8 +: 8];
             mhq_entry_byte_updated_mux[i]  = update_byte | mhq_entry_byte_updated_mux[i];
 
-            // If the BIU is finished receiving data on the same cycle as a store, then merge all the bytes from the BIU
+            // If the CCU is finished receiving data on the same cycle as a store, then merge all the bytes from the CCU
             // Don't overwrite bytes that have been updated by stores to this entry
-            mhq_entry_data_mux[i*8 +: 8] = (~i_biu_done | mhq_entry_byte_updated_mux[i]) ? mhq_entry_data_mux[i*8 +: 8] : i_biu_data[i*8 +: 8];
+            mhq_entry_data_mux[i*8 +: 8] = (~i_ccu_done | mhq_entry_byte_updated_mux[i]) ? mhq_entry_data_mux[i*8 +: 8] : i_ccu_data[i*8 +: 8];
         end
     end
 

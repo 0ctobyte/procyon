@@ -54,7 +54,7 @@ module procyon_rs #(
     output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_fu_tag
 );
 
-    localparam RS_IDX_WIDTH = $clog2(OPTN_RS_DEPTH);
+    localparam RS_IDX_WIDTH = OPTN_RS_DEPTH == 1 ? 1 : $clog2(OPTN_RS_DEPTH);
 
     assign o_rs_fu_type = OPTN_RS_FU_TYPE;
 

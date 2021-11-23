@@ -17,7 +17,7 @@ module procyon_ccu #(
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
 
-    parameter MHQ_IDX_WIDTH      = $clog2(OPTN_MHQ_DEPTH),
+    parameter MHQ_IDX_WIDTH      = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
     parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
@@ -57,6 +57,17 @@ module procyon_ccu #(
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
+    localparam CCU_ARB_DEPTH = 1;
+
+    logic [CCU_ARB_DEPTH-1:0] ccu_arb_valid;
+    logic [OPTN_ADDR_WIDTH-1:0] ccu_arb_addr [0:CCU_ARB_DEPTH-1];
+    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_w [0:CCU_ARB_DEPTH-1];
+    logic [CCU_ARB_DEPTH-1:0] ccu_arb_we;
+    logic [CCU_ARB_DEPTH-1:0] ccu_arb_done;
+    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_r;
+/* verilator lint_off UNUSED */
+    logic [CCU_ARB_DEPTH-1:0] ccu_arb_grant;
+/* verilator lint_on  UNUSED */
     logic biu_en;
     logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
     logic [`PCYN_BIU_LEN_WIDTH-1:0] biu_len;
@@ -67,10 +78,10 @@ module procyon_ccu #(
     logic [DC_LINE_WIDTH-1:0] biu_data_r;
 
     // FIXME for now just drive these signals
-    assign biu_func = `PCYN_BIU_FUNC_READ;
+    assign ccu_arb_data_w = '{default: '0};
+    assign ccu_arb_we = '{default: 1'b0};
     assign biu_len = `PCYN_BIU_LEN_32B;
     assign biu_sel = '1;
-    assign biu_data_w = '0;
 
     procyon_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -94,10 +105,32 @@ module procyon_ccu #(
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
+        .i_ccu_done(ccu_arb_done[0]),
+        .i_ccu_data(ccu_arb_data_r),
+        .o_ccu_en(ccu_arb_valid[0]),
+        .o_ccu_addr(ccu_arb_addr[0])
+    );
+
+    procyon_ccu_arb #(
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_CCU_ARB_DEPTH(CCU_ARB_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) procyon_ccu_arb_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .i_ccu_arb_valid(ccu_arb_valid),
+        .i_ccu_arb_we(ccu_arb_we),
+        .i_ccu_arb_addr(ccu_arb_addr),
+        .i_ccu_arb_data(ccu_arb_data_w),
+        .o_ccu_arb_done(ccu_arb_done),
+        .o_ccu_arb_grant(ccu_arb_grant),
+        .o_ccu_arb_data(ccu_arb_data_r),
         .i_biu_done(biu_done),
         .i_biu_data(biu_data_r),
         .o_biu_en(biu_en),
-        .o_biu_addr(biu_addr)
+        .o_biu_func(biu_func),
+        .o_biu_addr(biu_addr),
+        .o_biu_data(biu_data_w)
     );
 
     procyon_biu_wb #(
