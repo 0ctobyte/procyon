@@ -26,7 +26,7 @@ all: $(OBJ_DIR)/$(VDUT)
 
 sim: $(OBJ_DIR)/$(VDUT)
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
-	$(TESTS_RUN_SCRIPT) $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
+	$(TESTS_RUN_SCRIPT) -i "32ui-px-" -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)

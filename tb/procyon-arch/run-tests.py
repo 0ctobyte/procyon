@@ -11,17 +11,22 @@ parser = argparse.ArgumentParser()
 parser.add_argument("sim_bin", help="Path to systemc simulation executable to run")
 parser.add_argument("tests_dir", help="Path to simulation test directory containing binaries of architectural tests to run")
 parser.add_argument("--timeout", default=3, help="Specify a timeout in seconds to allow an architectural test to run for before it is killed and considered a failed test")
+parser.add_argument("-i", "--include", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be included in the test")
+parser.add_argument("-e", "--exclude", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be excluded in the test")
 args = parser.parse_args()
 
 test_list = os.listdir(args.tests_dir)
 
-# filter out unsupported arch tests
-test_list = [test for test in test_list if (test.find("32ui-px-") >= 0 and test.find(".dump") == -1)]
-# test_list = [test for test in test_list if test.find("fence") == -1]
+# filter out arch tests
+if args.include != None:
+    test_list = [test for test in test_list for include in args.include if include in test]
+
+if args.exclude != None:
+    test_list = [test for test in test_list for exclude in args.exclude if exclude not in test]
 
 test_passes = 0
 
-print("RUNNING PROCYON ARCH TESTS", end="", flush=True)
+print("RUNNING TESTS", end="", flush=True)
 
 test_results = []
 
@@ -60,4 +65,4 @@ for test in test_list:
 
 print()
 print(tabulate(test_results, headers=["NAME", "RESULT", "#INSTRUCTIONS", "#CYCLES", "CPI"]))
-print("PROCYON ARCH TESTS: " + str(test_passes) + "/" + str(len(test_list)) + " PASSED")
+print(str(test_passes) + "/" + str(len(test_list)) + " PASSED")
