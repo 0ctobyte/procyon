@@ -25,7 +25,8 @@ module procyon_dcache #(
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_DC_WAY_COUNT  = 1,
 
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,
@@ -39,6 +40,7 @@ module procyon_dcache #(
     input  logic                            i_dc_fill,
     input  logic [DC_LINE_WIDTH-1:0]        i_dc_fill_data,
 
+    output logic [DATA_SIZE-1:0]            o_dc_dt_byte_sel,
     output logic                            o_dc_hit,
     output logic [OPTN_DATA_WIDTH-1:0]      o_dc_data,
     output logic                            o_dc_victim_valid,
@@ -49,7 +51,6 @@ module procyon_dcache #(
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
     localparam DC_INDEX_WIDTH  = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT);
     localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH;
-    localparam DATA_SIZE       = OPTN_DATA_WIDTH / 8;
 
     // Crack open address into tag, index & offset
     logic [DC_TAG_WIDTH-1:0] dc_tag;
@@ -84,6 +85,9 @@ module procyon_dcache #(
     logic cache_wr_dirty;
     logic [DC_TAG_WIDTH-1:0] cache_wr_tag;
     logic [DC_LINE_WIDTH-1:0] cache_wr_data;
+
+    // Output byte select from DT stage
+    assign o_dc_dt_byte_sel = dcache_dt_byte_sel;
 
     procyon_dcache_dt #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),

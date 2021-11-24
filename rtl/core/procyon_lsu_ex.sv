@@ -39,6 +39,10 @@ module procyon_lsu_ex #(
     input  logic                            i_dc_hit,
     input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
 
+    // Inputs from the victim queue
+    input  logic                            i_vq_hit,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_vq_data,
+
     // Broadcast CDB results
     output logic                            o_valid,
     output logic [OPTN_DATA_WIDTH-1:0]      o_data,
@@ -65,9 +69,9 @@ module procyon_lsu_ex #(
     assign n_flush = ~i_flush;
 
     // Stores always complete successfully and the "result" is broadcast over the CDB (except when it's a retiring store)
-    // Loads only complete successfully if it hit in the cache (ditto for replaying loads)
+    // Loads only complete successfully if it hit in the cache or victim queue (ditto for replaying loads)
     logic valid;
-    assign valid = n_flush & i_valid & is_not_fill & ~i_retire & (i_dc_hit | is_store);
+    assign valid = n_flush & i_valid & is_not_fill & ~i_retire & (i_vq_hit | i_dc_hit | is_store);
     procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
 
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
@@ -76,10 +80,13 @@ module procyon_lsu_ex #(
     logic [OPTN_DATA_WIDTH-1:0] load_data;
 
     always_comb begin
+        // Bypass data from the victim queue if there was a hit
+        load_data = i_vq_hit ? i_vq_data : i_dc_data;
+
         case (i_op)
-            `PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){i_dc_data[7]}}, i_dc_data[7:0]};
-            `PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){i_dc_data[OPTN_DATA_WIDTH/2-1]}}, i_dc_data[OPTN_DATA_WIDTH/2-1:0]};
-            default:     load_data = i_dc_data;
+            `PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){load_data[7]}}, load_data[7:0]};
+            `PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){load_data[OPTN_DATA_WIDTH/2-1]}}, load_data[OPTN_DATA_WIDTH/2-1:0]};
+            default:     load_data = load_data;
         endcase
     end
 
@@ -94,9 +101,9 @@ module procyon_lsu_ex #(
     assign update_sq_en = n_flush & i_valid & i_retire;
     procyon_srff #(1) o_update_sq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(update_sq_en), .i_reset(1'b0), .o_q(o_update_sq_en));
 
-    logic n_dc_hit;
-    assign n_dc_hit = ~i_dc_hit;
-    procyon_ff #(1) o_update_retry_ff (.clk(clk), .i_en(1'b1), .i_d(n_dc_hit), .o_q(o_update_retry));
+    logic n_hit;
+    assign n_hit = ~i_dc_hit & ~i_vq_hit;
+    procyon_ff #(1) o_update_retry_ff (.clk(clk), .i_en(1'b1), .i_d(n_hit), .o_q(o_update_retry));
 
     procyon_ff #(OPTN_LQ_DEPTH) o_update_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_lq_select), .o_q(o_update_lq_select));
     procyon_ff #(OPTN_SQ_DEPTH) o_update_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_select), .o_q(o_update_sq_select));

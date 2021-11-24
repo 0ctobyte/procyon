@@ -132,6 +132,7 @@ module procyon_lsu #(
     logic lsu_dw_retire;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] lsu_mhq_fill_addr;
     logic dc_wr_en;
+    logic [DATA_SIZE-1:0] dc_dt_byte_sel;
     logic dc_dirty;
     logic dc_fill;
     logic [DC_LINE_WIDTH-1:0] dc_fill_data;
@@ -159,6 +160,11 @@ module procyon_lsu #(
     assign o_cdb_redirect = 1'b0;
 
     assign lsu_mhq_fill_addr = i_mhq_fill_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+
+    // Output to the VQ lookup interface
+    assign o_vq_lookup_valid = lsu_dt_valid & (lsu_dt_op_is == `PCYN_OP_IS_LD);
+    assign o_vq_lookup_addr = lsu_dt_addr;
+    assign o_vq_lookup_byte_sel = dc_dt_byte_sel;
 
     // Outputs to the MHQ lookup interface
     assign o_mhq_lookup_valid = lsu_dw_mhq_lookup_valid;
@@ -322,6 +328,8 @@ module procyon_lsu #(
         .i_retire(lsu_dw_retire),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_rd_data),
+        .i_vq_hit(i_vq_lookup_hit),
+        .i_vq_data(i_vq_lookup_data),
         .o_valid(o_cdb_en),
         .o_data(o_cdb_data),
         .o_tag(o_cdb_tag),
@@ -424,6 +432,7 @@ module procyon_lsu #(
         .i_dc_dirty(dc_dirty),
         .i_dc_fill(dc_fill),
         .i_dc_fill_data(dc_fill_data),
+        .o_dc_dt_byte_sel(dc_dt_byte_sel),
         .o_dc_hit(dc_hit),
         .o_dc_data(dc_rd_data),
         .o_dc_victim_valid(o_victim_valid),
