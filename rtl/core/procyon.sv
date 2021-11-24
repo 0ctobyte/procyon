@@ -19,6 +19,7 @@ module procyon #(
     parameter OPTN_RS_LSU_DEPTH     = 16,
     parameter OPTN_LQ_DEPTH         = 8,
     parameter OPTN_SQ_DEPTH         = 8,
+    parameter OPTN_VQ_DEPTH         = 4,
     parameter OPTN_MHQ_DEPTH        = 4,
     parameter OPTN_DC_CACHE_SIZE    = 1024,
     parameter OPTN_DC_LINE_SIZE     = 32,
@@ -67,6 +68,7 @@ module procyon #(
     localparam ROB_IDX_WIDTH = OPTN_ROB_DEPTH == 1 ? 1 : $clog2(OPTN_ROB_DEPTH);
     localparam MHQ_IDX_WIDTH = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH);
     localparam DC_LINE_WIDTH = OPTN_DC_LINE_SIZE * 8;
+    localparam DATA_SIZE     = OPTN_DATA_WIDTH / 8;
 
     // Module signals
     logic fetch_valid;
@@ -131,6 +133,15 @@ module procyon #(
     logic lsu_retire_sq_ack;
     logic lsu_retire_misspeculated;
     logic [ROB_IDX_WIDTH-1:0] lsu_retire_tag;
+
+    logic vq_lookup_valid;
+    logic [OPTN_ADDR_WIDTH-1:0] vq_lookup_addr;
+    logic [DATA_SIZE-1:0] vq_lookup_byte_sel;
+    logic vq_lookup_hit;
+    logic [OPTN_DATA_WIDTH-1:0] vq_lookup_data;
+    logic victim_valid;
+    logic [OPTN_ADDR_WIDTH-1:0] victim_addr;
+    logic [DC_LINE_WIDTH-1:0] victim_data;
 
     logic mhq_lookup_valid;
     logic mhq_lookup_dc_hit;
@@ -360,6 +371,14 @@ module procyon #(
         .o_rob_retire_lq_ack(lsu_retire_lq_ack),
         .o_rob_retire_sq_ack(lsu_retire_sq_ack),
         .o_rob_retire_misspeculated(lsu_retire_misspeculated),
+        .o_vq_lookup_valid(vq_lookup_valid),
+        .o_vq_lookup_addr(vq_lookup_addr),
+        .o_vq_lookup_byte_sel(vq_lookup_byte_sel),
+        .i_vq_lookup_hit(vq_lookup_hit),
+        .i_vq_lookup_data(vq_lookup_data),
+        .o_victim_valid(victim_valid),
+        .o_victim_addr(victim_addr),
+        .o_victim_data(victim_data),
         .i_mhq_lookup_retry(mhq_lookup_retry),
         .i_mhq_lookup_replay(mhq_lookup_replay),
         .i_mhq_lookup_tag(mhq_lookup_tag),
@@ -438,6 +457,7 @@ module procyon #(
     procyon_ccu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
@@ -445,6 +465,14 @@ module procyon #(
     ) procyon_ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .i_vq_lookup_valid(vq_lookup_valid),
+        .i_vq_lookup_addr(vq_lookup_addr),
+        .i_vq_lookup_byte_sel(vq_lookup_byte_sel),
+        .o_vq_lookup_hit(vq_lookup_hit),
+        .o_vq_lookup_data(vq_lookup_data),
+        .i_victim_valid(victim_valid),
+        .i_victim_addr(victim_addr),
+        .i_victim_data(victim_data),
         .i_mhq_lookup_valid(mhq_lookup_valid),
         .i_mhq_lookup_dc_hit(mhq_lookup_dc_hit),
         .i_mhq_lookup_addr(mhq_lookup_addr),

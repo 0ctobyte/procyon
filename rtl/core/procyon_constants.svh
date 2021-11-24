@@ -86,6 +86,19 @@
 `define PCYN_BIU_LEN_MAX      (`PCYN_BIU_LEN_128B)
 `define PCYN_BIU_LEN_MAX_SIZE 128
 
+// CCU burst lengths
+`define PCYN_CCU_LEN_WIDTH    `PCYN_BIU_LEN_WIDTH
+`define PCYN_CCU_LEN_1B       `PCYN_BIU_LEN_1B
+`define PCYN_CCU_LEN_2B       `PCYN_BIU_LEN_2B
+`define PCYN_CCU_LEN_4B       `PCYN_BIU_LEN_4B
+`define PCYN_CCU_LEN_8B       `PCYN_BIU_LEN_8B
+`define PCYN_CCU_LEN_16B      `PCYN_BIU_LEN_16B
+`define PCYN_CCU_LEN_32B      `PCYN_BIU_LEN_32B
+`define PCYN_CCU_LEN_64B      `PCYN_BIU_LEN_64B
+`define PCYN_CCU_LEN_128B     `PCYN_BIU_LEN_128B
+`define PCYN_CCU_LEN_MAX      `PCYN_BIU_LEN_MAX
+`define PCYN_CCU_LEN_MAX_SIZE `PCYN_BIU_LEN_MAX_SIZE
+
 // Wishbone bus Cycle Type Identifiers
 `define WB_CTI_WIDTH        3
 `define WB_CTI_CLASSIC      (`WB_CTI_WIDTH'b000)

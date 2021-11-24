@@ -69,7 +69,7 @@ module procyon_biu_wb #(
 );
 
     localparam BIU_COUNTER_WIDTH    = $clog2(`PCYN_BIU_LEN_MAX_SIZE / WB_DATA_SIZE);
-    localparam BIU_IDX_WIDTH        = $clog2(BIU_DATA_WIDTH / OPTN_WB_DATA_WIDTH);
+    localparam BIU_IDX_WIDTH        = BIU_DATA_WIDTH == OPTN_WB_DATA_WIDTH ? 1 : $clog2(BIU_DATA_WIDTH / OPTN_WB_DATA_WIDTH);
     localparam BIU_STATE_WIDTH      = 3;
     localparam BIU_STATE_IDLE       = 3'b000;
     localparam BIU_STATE_SEND_REQ   = 3'b001;

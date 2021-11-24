@@ -38,10 +38,6 @@ module procyon_lsu_ex #(
     // Inputs from dcache
     input  logic                            i_dc_hit,
     input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
-    input  logic                            i_dc_victim_valid,
-    input  logic                            i_dc_victim_dirty,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_dc_victim_addr,
-    input  logic [DC_LINE_WIDTH-1:0]        i_dc_victim_data,
 
     // Broadcast CDB results
     output logic                            o_valid,
@@ -54,12 +50,7 @@ module procyon_lsu_ex #(
     output logic                            o_update_sq_en,
     output logic [OPTN_SQ_DEPTH-1:0]        o_update_sq_select,
     output logic                            o_update_retry,
-    output logic                            o_update_replay,
-
-    // Enqueue victim data
-    output logic                            o_victim_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_victim_addr,
-    output logic [DC_LINE_WIDTH-1:0]        o_victim_data
+    output logic                            o_update_replay
 );
 
     logic is_fill;
@@ -110,13 +101,5 @@ module procyon_lsu_ex #(
     procyon_ff #(OPTN_LQ_DEPTH) o_update_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_lq_select), .o_q(o_update_lq_select));
     procyon_ff #(OPTN_SQ_DEPTH) o_update_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_select), .o_q(o_update_sq_select));
     procyon_ff #(1) o_update_replay_ff (.clk(clk), .i_en(1'b1), .i_d(i_fill_replay), .o_q(o_update_replay));
-
-    // Send victim data to the Victim Buffer
-    logic victim_en;
-    assign victim_en = i_valid & is_fill & i_dc_victim_valid & i_dc_victim_dirty;
-    procyon_srff #(1) o_victim_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(victim_en), .i_reset(1'b0), .o_q(o_victim_en));
-
-    procyon_ff #(OPTN_ADDR_WIDTH) o_victim_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_dc_victim_addr), .o_q(o_victim_addr));
-    procyon_ff #(DC_LINE_WIDTH) o_victim_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_dc_victim_data), .o_q(o_victim_data));
 
 endmodule

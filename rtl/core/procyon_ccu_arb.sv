@@ -20,6 +20,7 @@ module procyon_ccu_arb #(
     // CCU request handshake signals
     input  logic [OPTN_CCU_ARB_DEPTH-1:0]   i_ccu_arb_valid,
     input  logic [OPTN_CCU_ARB_DEPTH-1:0]   i_ccu_arb_we,
+    input  logic [`PCYN_CCU_LEN_WIDTH-1:0]  i_ccu_arb_len [0:OPTN_CCU_ARB_DEPTH-1],
     input  logic [OPTN_ADDR_WIDTH-1:0]      i_ccu_arb_addr [0:OPTN_CCU_ARB_DEPTH-1],
     input  logic [DC_LINE_WIDTH-1:0]        i_ccu_arb_data [0:OPTN_CCU_ARB_DEPTH-1],
     output logic [OPTN_CCU_ARB_DEPTH-1:0]   o_ccu_arb_done,
@@ -31,6 +32,7 @@ module procyon_ccu_arb #(
     input  logic [DC_LINE_WIDTH-1:0]        i_biu_data,
     output logic                            o_biu_en,
     output logic [`PCYN_BIU_FUNC_WIDTH-1:0] o_biu_func,
+    output logic [`PCYN_BIU_LEN_WIDTH-1:0]  o_biu_len,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_biu_addr,
     output logic [DC_LINE_WIDTH-1:0]        o_biu_data
 );
@@ -82,7 +84,7 @@ module procyon_ccu_arb #(
             CCU_ARB_STATE_BUSY: begin
                 ccu_arb_done[ccu_arb_idx_r] = i_biu_done;
                 ccu_arb_grant = '0;
-                biu_en = i_ccu_arb_valid[ccu_arb_idx_r];
+                biu_en = i_biu_done ? 1'b0 : i_ccu_arb_valid[ccu_arb_idx_r];
                 ccu_arb_state_next = i_biu_done ? CCU_ARB_STATE_DONE : ccu_arb_state_r;
             end
             CCU_ARB_STATE_DONE: begin
@@ -109,12 +111,14 @@ module procyon_ccu_arb #(
     procyon_ff #(DC_LINE_WIDTH) o_ccu_arb_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_biu_data), .o_q(o_ccu_arb_data));
 
     // Output to BIU
+    procyon_srff #(1) o_biu_en_ff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(biu_en), .i_reset(1'b0), .o_q(o_biu_en));
+    procyon_ff #(`PCYN_BIU_LEN_WIDTH) o_biu_len_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_len[ccu_arb_idx_r]), .o_q(o_biu_len));
+    procyon_ff #(OPTN_ADDR_WIDTH) o_biu_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_addr[ccu_arb_idx_r]), .o_q(o_biu_addr));
+    procyon_ff #(DC_LINE_WIDTH) o_biu_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_data[ccu_arb_idx_r]), .o_q(o_biu_data));
+
     logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
     assign biu_func = i_ccu_arb_we[ccu_arb_idx_r] ? `PCYN_BIU_FUNC_WRITE : `PCYN_BIU_FUNC_READ;
 
-    procyon_srff #(1) o_biu_en_ff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(biu_en), .i_reset(1'b0), .o_q(o_biu_en));
     procyon_ff #(`PCYN_BIU_FUNC_WIDTH) o_biu_func_ff (.clk(clk), .i_en(1'b1), .i_d(biu_func), .o_q(o_biu_func));
-    procyon_ff #(OPTN_ADDR_WIDTH) o_biu_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_addr[ccu_arb_idx_r]), .o_q(o_biu_addr));
-    procyon_ff #(DC_LINE_WIDTH) o_biu_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_data[ccu_arb_idx_r]), .o_q(o_biu_data));
 
 endmodule

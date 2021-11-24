@@ -20,7 +20,8 @@ module procyon_lsu #(
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_MHQ_IDX_WIDTH = 2,
 
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
+    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,
@@ -48,6 +49,18 @@ module procyon_lsu #(
     output logic                            o_rob_retire_lq_ack,
     output logic                            o_rob_retire_sq_ack,
     output logic                            o_rob_retire_misspeculated,
+
+    // VQ lookup interface
+    input  logic                            i_vq_lookup_hit,
+    input  logic [OPTN_DATA_WIDTH-1:0]      i_vq_lookup_data,
+    output logic                            o_vq_lookup_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_vq_lookup_addr,
+    output logic [DATA_SIZE-1:0]            o_vq_lookup_byte_sel,
+
+    // Victim cacheline interface
+    output logic                            o_victim_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_victim_addr,
+    output logic [DC_LINE_WIDTH-1:0]        o_victim_data,
 
     // MHQ address/tag lookup interface
     input  logic                            i_mhq_lookup_retry,
@@ -124,10 +137,6 @@ module procyon_lsu #(
     logic [DC_LINE_WIDTH-1:0] dc_fill_data;
     logic dc_hit;
     logic [OPTN_DATA_WIDTH-1:0] dc_rd_data;
-    logic dc_victim_valid;
-    logic dc_victim_dirty;
-    logic [OPTN_ADDR_WIDTH-1:0] dc_victim_addr;
-    logic [DC_LINE_WIDTH-1:0] dc_victim_data;
     logic alloc_sq_en;
     logic alloc_lq_en;
     logic [`PCYN_OP_WIDTH-1:0] alloc_op;
@@ -313,10 +322,6 @@ module procyon_lsu #(
         .i_retire(lsu_dw_retire),
         .i_dc_hit(dc_hit),
         .i_dc_data(dc_rd_data),
-        .i_dc_victim_valid(dc_victim_valid),
-        .i_dc_victim_dirty(dc_victim_dirty),
-        .i_dc_victim_addr(dc_victim_addr),
-        .i_dc_victim_data(dc_victim_data),
         .o_valid(o_cdb_en),
         .o_data(o_cdb_data),
         .o_tag(o_cdb_tag),
@@ -325,10 +330,7 @@ module procyon_lsu #(
         .o_update_sq_en(update_sq_en),
         .o_update_sq_select(update_sq_select),
         .o_update_retry(update_retry),
-        .o_update_replay(update_replay),
-        .o_victim_en(victim_en),
-        .o_victim_addr(victim_addr),
-        .o_victim_data(victim_data)
+        .o_update_replay(update_replay)
     );
 
     procyon_lsu_lq #(
@@ -424,10 +426,9 @@ module procyon_lsu #(
         .i_dc_fill_data(dc_fill_data),
         .o_dc_hit(dc_hit),
         .o_dc_data(dc_rd_data),
-        .o_dc_victim_valid(dc_victim_valid),
-        .o_dc_victim_dirty(dc_victim_dirty),
-        .o_dc_victim_addr(dc_victim_addr),
-        .o_dc_victim_data(dc_victim_data)
+        .o_dc_victim_valid(o_victim_valid),
+        .o_dc_victim_addr(o_victim_addr),
+        .o_dc_victim_data(o_victim_data)
     );
 
 endmodule

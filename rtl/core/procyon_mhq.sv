@@ -30,6 +30,9 @@ module procyon_mhq #(
     input  logic                            clk,
     input  logic                            n_rst,
 
+    // Signal from VQ that it is full; prevent fills until VQ is not full
+    input  logic                            i_vq_full,
+
     // Interface to LSU to match lookup address to valid entries and return enqueue tag
     input  logic                            i_mhq_lookup_valid,
     input  logic                            i_mhq_lookup_dc_hit,
@@ -52,6 +55,8 @@ module procyon_mhq #(
     input  logic                            i_ccu_done,
     input  logic [DC_LINE_WIDTH-1:0]        i_ccu_data,
     output logic                            o_ccu_en,
+    output logic                            o_ccu_we,
+    output logic [`PCYN_CCU_LEN_WIDTH-1:0]  o_ccu_len,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
 );
 
@@ -184,9 +189,10 @@ module procyon_mhq #(
         .o_queue_empty(mhq_queue_empty)
     );
 
-    // Fill request signals sent to LSU
+    // Fill request signals sent to LSU. Only send the fill if the VQ is not full otherwise the fill may victimize
+    // another cacheline that will have no place to go.
     procyon_ff #(1) mhq_fill_en_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_completing), .o_q(mhq_fill_en_r));
-    assign o_mhq_fill_en = mhq_fill_en_r;
+    assign o_mhq_fill_en = ~i_vq_full & mhq_fill_en_r;
 
     procyon_ff #(MHQ_IDX_WIDTH) o_mhq_fill_tag_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_queue_head), .o_q(o_mhq_fill_tag));
     procyon_ff #(1) o_mhq_fill_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_dirty[mhq_queue_head]), .o_q(o_mhq_fill_dirty));
@@ -197,7 +203,20 @@ module procyon_mhq #(
     procyon_ff #(DC_LINE_WIDTH) o_mhq_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_data[mhq_queue_head]), .o_q(o_mhq_fill_data));
 
     // Signal to CCU to fetch data from memory
-    assign o_ccu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
     assign o_ccu_en = mhq_entry_valid[mhq_queue_head] & ~mhq_entry_complete[mhq_queue_head];
+    assign o_ccu_we = 1'b0;
+    assign o_ccu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
+
+    generate
+    case (OPTN_DC_LINE_SIZE)
+        4:       assign o_ccu_len = `PCYN_CCU_LEN_4B;
+        8:       assign o_ccu_len = `PCYN_CCU_LEN_8B;
+        16:      assign o_ccu_len = `PCYN_CCU_LEN_16B;
+        32:      assign o_ccu_len = `PCYN_CCU_LEN_32B;
+        64:      assign o_ccu_len = `PCYN_CCU_LEN_64B;
+        128:     assign o_ccu_len = `PCYN_CCU_LEN_128B;
+        default: assign o_ccu_len = `PCYN_CCU_LEN_4B;
+    endcase
+    endgenerate
 
 endmodule

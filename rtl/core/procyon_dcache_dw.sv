@@ -55,7 +55,6 @@ module procyon_dcache_dw #(
     output logic                       o_hit,
     output logic [OPTN_DATA_WIDTH-1:0] o_data,
     output logic                       o_victim_valid,
-    output logic                       o_victim_dirty,
     output logic [OPTN_ADDR_WIDTH-1:0] o_victim_addr,
     output logic [DC_LINE_WIDTH-1:0]   o_victim_data
 );
@@ -167,7 +166,9 @@ module procyon_dcache_dw #(
     assign victim_data = bypass ? i_bypass_cache_wr_data : i_cache_rd_data;
     procyon_ff #(DC_LINE_WIDTH) o_victim_data_ff (.clk(clk), .i_en(1'b1), .i_d(victim_data), .o_q(o_victim_data));
 
-    procyon_ff #(1) o_victim_valid_ff (.clk(clk), .i_en(1'b1), .i_d(bypass_cache_wr_valid), .o_q(o_victim_valid));
-    procyon_ff #(1) o_victim_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(bypass_cache_wr_dirty), .o_q(o_victim_dirty));
+    // Drop clean victims; no need to send them to the victim queue since we don't need to write them back to memory
+    logic victim_valid;
+    assign victim_valid = i_fill & bypass_cache_wr_valid & bypass_cache_wr_dirty;
+    procyon_ff #(1) o_victim_valid_ff (.clk(clk), .i_en(1'b1), .i_d(victim_valid), .o_q(o_victim_valid));
 
 endmodule

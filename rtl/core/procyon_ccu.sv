@@ -12,6 +12,7 @@
 module procyon_ccu #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
+    parameter OPTN_VQ_DEPTH      = 4,
     parameter OPTN_MHQ_DEPTH     = 4,
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_WB_ADDR_WIDTH = 32,
@@ -19,10 +20,23 @@ module procyon_ccu #(
 
     parameter MHQ_IDX_WIDTH      = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8,
     parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,
+
+    // VQ lookup interface
+    input  logic                            i_vq_lookup_valid,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_vq_lookup_addr,
+    input  logic [DATA_SIZE-1:0]            i_vq_lookup_byte_sel,
+    output logic                            o_vq_lookup_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_vq_lookup_data,
+
+    // Victim cacheline
+    input  logic                            i_victim_valid,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_victim_addr,
+    input  logic [DC_LINE_WIDTH-1:0]        i_victim_data,
 
     // MHQ address/tag lookup interface
     input  logic                            i_mhq_lookup_valid,
@@ -57,12 +71,16 @@ module procyon_ccu #(
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    localparam CCU_ARB_DEPTH = 1;
+    localparam CCU_ARB_DEPTH = 2;
+    localparam CCU_VQ_PRIORITY = 0;
+    localparam CCU_MHQ_PRIORITY = 1;
 
+    logic vq_full;
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_valid;
     logic [OPTN_ADDR_WIDTH-1:0] ccu_arb_addr [0:CCU_ARB_DEPTH-1];
     logic [DC_LINE_WIDTH-1:0] ccu_arb_data_w [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_we;
+    logic [`PCYN_CCU_LEN_WIDTH-1:0] ccu_arb_len [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_done;
     logic [DC_LINE_WIDTH-1:0] ccu_arb_data_r;
 /* verilator lint_off UNUSED */
@@ -78,10 +96,33 @@ module procyon_ccu #(
     logic [DC_LINE_WIDTH-1:0] biu_data_r;
 
     // FIXME for now just drive these signals
-    assign ccu_arb_data_w = '{default: '0};
-    assign ccu_arb_we = '{default: 1'b0};
-    assign biu_len = `PCYN_BIU_LEN_32B;
+    assign ccu_arb_data_w[CCU_MHQ_PRIORITY] = '0;
     assign biu_sel = '1;
+
+    procyon_vq #(
+        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
+        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+    ) procyon_vq_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .o_vq_full(vq_full),
+        .i_vq_lookup_valid(i_vq_lookup_valid),
+        .i_vq_lookup_addr(i_vq_lookup_addr),
+        .i_vq_lookup_byte_sel(i_vq_lookup_byte_sel),
+        .o_vq_lookup_hit(o_vq_lookup_hit),
+        .o_vq_lookup_data(o_vq_lookup_data),
+        .i_vq_victim_valid(i_victim_valid),
+        .i_vq_victim_addr(i_victim_addr),
+        .i_vq_victim_data(i_victim_data),
+        .i_ccu_grant(ccu_arb_grant[CCU_VQ_PRIORITY]),
+        .o_ccu_en(ccu_arb_valid[CCU_VQ_PRIORITY]),
+        .o_ccu_we(ccu_arb_we[CCU_VQ_PRIORITY]),
+        .o_ccu_len(ccu_arb_len[CCU_VQ_PRIORITY]),
+        .o_ccu_addr(ccu_arb_addr[CCU_VQ_PRIORITY]),
+        .o_ccu_data(ccu_arb_data_w[CCU_VQ_PRIORITY])
+    );
 
     procyon_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
@@ -91,6 +132,7 @@ module procyon_ccu #(
     ) procyon_mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .i_vq_full(vq_full),
         .i_mhq_lookup_valid(i_mhq_lookup_valid),
         .i_mhq_lookup_dc_hit(i_mhq_lookup_dc_hit),
         .i_mhq_lookup_addr(i_mhq_lookup_addr),
@@ -105,10 +147,12 @@ module procyon_ccu #(
         .o_mhq_fill_dirty(o_mhq_fill_dirty),
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
-        .i_ccu_done(ccu_arb_done[0]),
+        .i_ccu_done(ccu_arb_done[CCU_MHQ_PRIORITY]),
         .i_ccu_data(ccu_arb_data_r),
-        .o_ccu_en(ccu_arb_valid[0]),
-        .o_ccu_addr(ccu_arb_addr[0])
+        .o_ccu_en(ccu_arb_valid[CCU_MHQ_PRIORITY]),
+        .o_ccu_we(ccu_arb_we[CCU_MHQ_PRIORITY]),
+        .o_ccu_len(ccu_arb_len[CCU_MHQ_PRIORITY]),
+        .o_ccu_addr(ccu_arb_addr[CCU_MHQ_PRIORITY])
     );
 
     procyon_ccu_arb #(
@@ -120,6 +164,7 @@ module procyon_ccu #(
         .n_rst(n_rst),
         .i_ccu_arb_valid(ccu_arb_valid),
         .i_ccu_arb_we(ccu_arb_we),
+        .i_ccu_arb_len(ccu_arb_len),
         .i_ccu_arb_addr(ccu_arb_addr),
         .i_ccu_arb_data(ccu_arb_data_w),
         .o_ccu_arb_done(ccu_arb_done),
@@ -129,6 +174,7 @@ module procyon_ccu #(
         .i_biu_data(biu_data_r),
         .o_biu_en(biu_en),
         .o_biu_func(biu_func),
+        .o_biu_len(biu_len),
         .o_biu_addr(biu_addr),
         .o_biu_data(biu_data_w)
     );

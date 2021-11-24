@@ -42,7 +42,6 @@ module procyon_dcache #(
     output logic                            o_dc_hit,
     output logic [OPTN_DATA_WIDTH-1:0]      o_dc_data,
     output logic                            o_dc_victim_valid,
-    output logic                            o_dc_victim_dirty,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_dc_victim_addr,
     output logic [DC_LINE_WIDTH-1:0]        o_dc_victim_data
 );
@@ -151,7 +150,6 @@ module procyon_dcache #(
         .o_hit(o_dc_hit),
         .o_data(o_dc_data),
         .o_victim_valid(o_dc_victim_valid),
-        .o_victim_dirty(o_dc_victim_dirty),
         .o_victim_addr(o_dc_victim_addr),
         .o_victim_data(o_dc_victim_data)
     );
