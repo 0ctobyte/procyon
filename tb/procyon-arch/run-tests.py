@@ -5,6 +5,7 @@ import sys
 import subprocess
 import argparse
 import tempfile
+from tabulate import tabulate
 
 parser = argparse.ArgumentParser()
 parser.add_argument("sim_bin", help="Path to systemc simulation executable to run")
@@ -20,7 +21,9 @@ test_list = [test for test in test_list if (test.find("32ui-px-") >= 0 and test.
 
 test_passes = 0
 
-print("PROCYON ARCH TESTS")
+print("RUNNING PROCYON ARCH TESTS", end="", flush=True)
+
+test_results = []
 
 for test in test_list:
     test_path = args.tests_dir + "/" + test
@@ -34,19 +37,27 @@ for test in test_list:
             exit(result.returncode)
         test_path = test_bin
 
-    print(test, end="\t")
-    sys.stdout.flush()
+    test_result = [test]
 
     try:
-        result = subprocess.run([args.sim_bin, test_path], capture_output=True, timeout=args.timeout)
+        result = subprocess.run([args.sim_bin, test_path], capture_output=True, text=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        print("HANG")
+        test_results += [test_result + ["HANG", "--", "--", "--"]]
+        print(".", end="", flush=True)
         continue
 
     if result.returncode != 0:
-        print("PASS")
+        test_result += ["PASS"]
         test_passes = test_passes + 1
     else:
-        print("FAIL")
+        test_result += ["FAIL"]
 
+    test_details = result.stdout.split("\n")[3].split(" ")
+    test_result += [test_details[1], test_details[3], test_details[5]]
+
+    test_results += [test_result]
+    print(".", end="", flush=True)
+
+print()
+print(tabulate(test_results, headers=["NAME", "RESULT", "#INSTRUCTIONS", "#CYCLES", "CPI"]))
 print("PROCYON ARCH TESTS: " + str(test_passes) + "/" + str(len(test_list)) + " PASSED")
