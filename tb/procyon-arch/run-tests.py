@@ -10,7 +10,7 @@ from tabulate import tabulate
 parser = argparse.ArgumentParser()
 parser.add_argument("sim_bin", help="Path to systemc simulation executable to run")
 parser.add_argument("tests_dir", help="Path to simulation test directory containing binaries of architectural tests to run")
-parser.add_argument("--timeout", default=3, help="Specify a timeout in seconds to allow an architectural test to run for before it is killed and considered a failed test")
+parser.add_argument("--timeout", default=3, type=int, help="Specify a timeout in seconds to allow an architectural test to run for before it is killed and considered a failed test")
 parser.add_argument("-i", "--include", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be included in the test")
 parser.add_argument("-e", "--exclude", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be excluded in the test")
 args = parser.parse_args()
