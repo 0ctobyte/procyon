@@ -48,7 +48,7 @@ module procyon_dcache #(
 
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
     localparam DC_INDEX_WIDTH  = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT);
-    localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH;
+    localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH;
     localparam DATA_SIZE       = OPTN_DATA_WIDTH / 8;
 
     // Crack open address into tag, index & offset
@@ -57,8 +57,12 @@ module procyon_dcache #(
     logic [DC_OFFSET_WIDTH-1:0] dc_offset;
 
     assign dc_tag = i_dc_addr[OPTN_ADDR_WIDTH-1:OPTN_ADDR_WIDTH-DC_TAG_WIDTH];
-    assign dc_index = i_dc_addr[DC_INDEX_WIDTH+DC_OFFSET_WIDTH-1:DC_OFFSET_WIDTH];
     assign dc_offset = i_dc_addr[DC_OFFSET_WIDTH-1:0];
+
+    generate
+    if (DC_INDEX_WIDTH == 1) assign dc_index = '0;
+    else                     assign dc_index = i_dc_addr[DC_INDEX_WIDTH+DC_OFFSET_WIDTH-1:DC_OFFSET_WIDTH];
+    endgenerate
 
     logic dcache_dt_wr_en;
     logic [DC_TAG_WIDTH-1:0] dcache_dt_tag;

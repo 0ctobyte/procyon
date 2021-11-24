@@ -28,7 +28,7 @@ module procyon_vq_entry #(
     input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH]  i_alloc_addr,
 
     // CCU interface
-    input  logic                                      i_ccu_grant
+    input  logic                                      i_ccu_done
 );
 
     // Each entry in the VQ can be in one of the following states
@@ -54,7 +54,7 @@ module procyon_vq_entry #(
 
         case (vq_entry_state_next)
             VQ_STATE_INVALID: vq_entry_state_next = i_alloc_en ? VQ_STATE_VALID : vq_entry_state_next;
-            VQ_STATE_VALID:   vq_entry_state_next = i_ccu_grant ? VQ_STATE_INVALID : vq_entry_state_next;
+            VQ_STATE_VALID:   vq_entry_state_next = i_ccu_done ? VQ_STATE_INVALID : vq_entry_state_next;
             default:          vq_entry_state_next = VQ_STATE_INVALID;
         endcase
     end

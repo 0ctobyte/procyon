@@ -45,7 +45,7 @@ module procyon_vq #(
     input  logic [DC_LINE_WIDTH-1:0]        i_vq_victim_data,
 
     // CCU interface
-    input  logic                            i_ccu_grant,
+    input  logic                            i_ccu_done,
     output logic                            o_ccu_en,
     output logic                            o_ccu_we,
     output logic [`PCYN_CCU_LEN_WIDTH-1:0]  o_ccu_len,
@@ -76,11 +76,11 @@ module procyon_vq #(
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_entry_addr [0:OPTN_VQ_DEPTH-1];
     logic [DC_LINE_WIDTH-1:0] vq_entry_data [0:OPTN_VQ_DEPTH-1];
 
-    logic [OPTN_VQ_DEPTH-1:0] ccu_grant;
+    logic [OPTN_VQ_DEPTH-1:0] ccu_done;
 
     always_comb begin
-        ccu_grant = '0;
-        ccu_grant[vq_queue_head] = i_ccu_grant;
+        ccu_done = '0;
+        ccu_done[vq_queue_head] = i_ccu_done;
     end
 
     // Convert tail pointer to one-hot allocation select vector
@@ -109,7 +109,7 @@ module procyon_vq #(
             .i_alloc_en(vq_alloc_en[inst]),
             .i_alloc_data(i_vq_victim_data),
             .i_alloc_addr(vq_victim_addr),
-            .i_ccu_grant(ccu_grant[inst])
+            .i_ccu_done(ccu_done[inst])
         );
     end
     endgenerate
@@ -129,7 +129,7 @@ module procyon_vq #(
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(1'b0),
-        .i_incr_head(i_ccu_grant),
+        .i_incr_head(i_ccu_done),
         .i_incr_tail(vq_allocating),
         .o_queue_head(vq_queue_head),
         .o_queue_tail(vq_queue_tail),

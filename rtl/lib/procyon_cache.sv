@@ -14,7 +14,7 @@ module procyon_cache #(
 
     parameter CACHE_INDEX_COUNT    = OPTN_CACHE_SIZE / OPTN_CACHE_LINE_SIZE,
     parameter CACHE_INDEX_WIDTH    = CACHE_INDEX_COUNT == 1 ? 1 : $clog2(CACHE_INDEX_COUNT),
-    parameter CACHE_TAG_WIDTH      = OPTN_ADDR_WIDTH - CACHE_INDEX_WIDTH - $clog2(OPTN_CACHE_LINE_SIZE),
+    parameter CACHE_TAG_WIDTH      = OPTN_ADDR_WIDTH - (CACHE_INDEX_WIDTH == 1 ? 0 : CACHE_INDEX_WIDTH) - $clog2(OPTN_CACHE_LINE_SIZE),
     parameter CACHE_LINE_WIDTH     = OPTN_CACHE_LINE_SIZE * 8
 )(
     input  logic                                clk,
@@ -52,10 +52,10 @@ module procyon_cache #(
     logic cache_rd_valid;
     logic cache_rd_dirty;
 
-    assign cache_rd_valid = (i_cache_rd_index == i_cache_wr_index) && i_cache_wr_en ? i_cache_wr_valid : cache_state_valid_r[i_cache_rd_index];
+    assign cache_rd_valid = ((i_cache_rd_index == i_cache_wr_index) & i_cache_wr_en) ? i_cache_wr_valid : cache_state_valid_r[i_cache_rd_index];
     procyon_srff #(1) o_cache_rd_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cache_rd_valid), .i_reset(1'b0), .o_q(o_cache_rd_valid));
 
-    assign cache_rd_dirty = (i_cache_rd_index == i_cache_wr_index) && i_cache_wr_en ? i_cache_wr_dirty : cache_state_dirty_r[i_cache_rd_index];
+    assign cache_rd_dirty = ((i_cache_rd_index == i_cache_wr_index) & i_cache_wr_en) ? i_cache_wr_dirty : cache_state_dirty_r[i_cache_rd_index];
     procyon_srff #(1) o_cache_rd_dirty_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cache_rd_dirty), .i_reset(1'b0), .o_q(o_cache_rd_dirty));
 
     genvar cache_state_idx;

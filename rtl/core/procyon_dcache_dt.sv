@@ -18,7 +18,7 @@ module procyon_dcache_dt #(
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
     parameter DC_OFFSET_WIDTH    = $clog2(OPTN_DC_LINE_SIZE),
     parameter DC_INDEX_WIDTH     = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
-    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
+    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH,
     parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                            clk,

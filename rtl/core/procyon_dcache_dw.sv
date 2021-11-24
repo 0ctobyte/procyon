@@ -16,7 +16,7 @@ module procyon_dcache_dw #(
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
     parameter DC_OFFSET_WIDTH    = $clog2(OPTN_DC_LINE_SIZE),
     parameter DC_INDEX_WIDTH     = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
-    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - DC_INDEX_WIDTH - DC_OFFSET_WIDTH,
+    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH,
     parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
 )(
     input  logic                       clk,
@@ -158,7 +158,12 @@ module procyon_dcache_dw #(
 
     // Generate victim address from tag & index
     logic [OPTN_ADDR_WIDTH-1:0] victim_addr;
-    assign victim_addr = {bypass_cache_wr_tag, i_index, {(DC_OFFSET_WIDTH){1'b0}}};
+
+    generate
+    if (DC_INDEX_WIDTH == 1) assign victim_addr = {bypass_cache_wr_tag, {(DC_OFFSET_WIDTH){1'b0}}};
+    else                     assign victim_addr = {bypass_cache_wr_tag, i_index, {(DC_OFFSET_WIDTH){1'b0}}};
+    endgenerate
+
     procyon_ff #(OPTN_ADDR_WIDTH) o_victim_addr_ff (.clk(clk), .i_en(1'b1), .i_d(victim_addr), .o_q(o_victim_addr));
 
     // Bypass the write data that is currently being written into the cache

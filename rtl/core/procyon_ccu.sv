@@ -116,7 +116,7 @@ module procyon_ccu #(
         .i_vq_victim_valid(i_victim_valid),
         .i_vq_victim_addr(i_victim_addr),
         .i_vq_victim_data(i_victim_data),
-        .i_ccu_grant(ccu_arb_grant[CCU_VQ_PRIORITY]),
+        .i_ccu_done(ccu_arb_done[CCU_VQ_PRIORITY]),
         .o_ccu_en(ccu_arb_valid[CCU_VQ_PRIORITY]),
         .o_ccu_we(ccu_arb_we[CCU_VQ_PRIORITY]),
         .o_ccu_len(ccu_arb_len[CCU_VQ_PRIORITY]),
