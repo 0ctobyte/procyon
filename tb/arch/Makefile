@@ -19,7 +19,7 @@ VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp
 
 TESTS_RUN_DIR := $(RISCV_ARCH_TESTS)
-TESTS_RUN_SCRIPT := ./run-tests.py
+TESTS_RUN_SCRIPT := ../run-tests.py
 
 .PHONY: all sim clean
 all: $(OBJ_DIR)/$(VDUT)
