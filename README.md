@@ -17,13 +17,16 @@ The hardware is implemented in SystemVerilog and simulated in SystemC using Veri
 
 In the `tb` directory there are some tests:
 
-* `procyon-arch`: RISCV CPU architectural tests
+* `arch`: RISCV CPU architectural tests
+* `lsu`: Tests that stress the LSU in various ways
 
-Running `make sim` in each directory will build and run the simulation. For `procyon-arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set to the directory containing the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests). This repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `procyon-arch` directory:
+Running `make sim` in each directory will build and run the simulation. For `arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set to the directory containing the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests). This repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `arch` directory:
 
 `make`
 
 `obj_dir/Vdut <binary>`
+
+The above will also work from any of the other directories in the `tb` directory.
 
 # FPGA Build
 
