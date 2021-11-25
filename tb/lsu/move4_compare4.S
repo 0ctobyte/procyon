@@ -50,6 +50,10 @@ move_loop:
     addi x3, x3, -MOVE_LOOP_COUNT
     bne x3, x0, move_loop
 
+    la x1, src
+    la x2, dst
+    li x3, TOTAL_COUNT
+
 compare_loop:
     lw x4, 0x0(x1)
     lw x5, 0x4(x1)
@@ -60,14 +64,14 @@ compare_loop:
     lw x10, 0x18(x1)
     lw x11, 0x1c(x1)
 
-    lb x12, 0x0(x2)
-    lb x13, 0x4(x2)
-    lb x14, 0x8(x2)
-    lb x15, 0xc(x2)
-    lb x16, 0x10(x2)
-    lb x17, 0x14(x2)
-    lb x18, 0x18(x2)
-    lb x19, 0x1c(x2)
+    lw x12, 0x0(x2)
+    lw x13, 0x4(x2)
+    lw x14, 0x8(x2)
+    lw x15, 0xc(x2)
+    lw x16, 0x10(x2)
+    lw x17, 0x14(x2)
+    lw x18, 0x18(x2)
+    lw x19, 0x1c(x2)
 
     bne x4, x12, fail
     bne x5, x13, fail

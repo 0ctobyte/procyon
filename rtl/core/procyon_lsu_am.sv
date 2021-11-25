@@ -86,14 +86,20 @@ module procyon_lsu_am #(
     output logic                            o_alloc_lq_en
 );
 
+    logic lq_full;
+    assign lq_full = i_lq_full & i_op_is[`PCYN_OP_IS_LD_IDX];
+
+    logic sq_full;
+    assign sq_full = i_sq_full & i_op_is[`PCYN_OP_IS_ST_IDX];
+
     // Stall the LSU RS if either of these conditions apply:
     // 1. There is a cache fill in progress
-    // 2. Load queue is full
-    // 3. Store queue is full
+    // 2. Load queue is full and the incoming OP is a load
+    // 3. Store queue is full and the incoming OP is a store
     // 4. A store needs to be retired
     // 5. A load needs to be replayed
     logic rs_stall;
-    assign rs_stall = i_lq_full | i_sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
+    assign rs_stall = lq_full | sq_full | i_lq_replay_en | i_sq_retire_en | i_mhq_fill_en;
     assign o_stall = rs_stall;
 
     logic n_rs_stall;
@@ -124,7 +130,7 @@ module procyon_lsu_am #(
     // Assign outputs to next stage in the pipeline
     // Fill requests get priority over pipeline flushes
     logic valid;
-    assign valid = i_mhq_fill_en | (n_flush & ((i_valid & ~i_lq_full & ~i_sq_full) | i_lq_replay_en | i_sq_retire_en));
+    assign valid = i_mhq_fill_en | (n_flush & ((i_valid & ~lq_full & ~sq_full) | i_lq_replay_en | i_sq_retire_en));
     procyon_srff #(1) o_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(valid), .i_reset(1'b0), .o_q(o_valid));
 
     logic n_mhq_fill_en;

@@ -50,6 +50,10 @@ move_loop:
     addi x3, x3, -MOVE_LOOP_COUNT
     bne x3, x0, move_loop
 
+    la x1, src
+    la x2, dst
+    li x3, TOTAL_COUNT
+
 compare_loop:
     lh x4, 0x0(x1)
     lh x5, 0x2(x1)

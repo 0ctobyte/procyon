@@ -162,7 +162,7 @@ module procyon_lsu #(
     assign lsu_mhq_fill_addr = i_mhq_fill_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
 
     // Output to the VQ lookup interface
-    assign o_vq_lookup_valid = lsu_dt_valid & (lsu_dt_op_is == `PCYN_OP_IS_LD);
+    assign o_vq_lookup_valid = lsu_dt_valid & lsu_dt_op_is[`PCYN_OP_IS_LD_IDX];
     assign o_vq_lookup_addr = lsu_dt_addr;
     assign o_vq_lookup_byte_sel = dc_dt_byte_sel;
 
