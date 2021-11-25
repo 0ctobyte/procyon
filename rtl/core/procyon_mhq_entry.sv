@@ -98,7 +98,7 @@ module procyon_mhq_entry #(
 
         for (int i = 0; i < OPTN_DC_LINE_SIZE; i++) begin
             logic update_byte;
-            update_byte = i_update_we & i_update_byte_select[i];
+            update_byte = i_update_en & i_update_we & i_update_byte_select[i];
 
             // Merge store data into miss queue entry and update the byte_updated field
             mhq_entry_data_mux[i*8 +: 8] = update_byte ? i_update_wr_data[i*8 +: 8] : mhq_entry_data_mux[i*8 +: 8];

@@ -145,11 +145,33 @@ module procyon_mhq_lu #(
 
     procyon_ff #(OPTN_DC_LINE_SIZE) o_mhq_update_byte_select_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_byte_select), .o_q(o_mhq_update_byte_select));
 
-    // Align store data to it's position in a full cacheline
+    // Shift write data to correct offset in cacheline masking off writes to certain bytes according to the byte select
     logic [DC_LINE_WIDTH-1:0] mhq_update_wr_data;
-    assign mhq_update_wr_data = DC_LINE_WIDTH'(i_mhq_lookup_data) << mhq_lookup_offset;
-    procyon_ff #(DC_LINE_WIDTH) o_mhq_update_wr_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_wr_data), .o_q(o_mhq_update_wr_data));
 
+    always_comb begin
+        mhq_update_wr_data = '0;
+
+        for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
+            if (DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
+                for (int j = 0; j < DATA_SIZE; j++) begin
+                    mhq_update_wr_data[(i+j)*8 +: 8] = i_mhq_lookup_data[j*8 +: 8];
+                end
+            end
+        end
+
+        // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
+        // So special case the writes to the last DATA_SIZE portion of the line by only writing to the number of bytes
+        // remaining in the line rather than the whole DATA_SIZE data
+        for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
+            if (DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
+                for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
+                    mhq_update_wr_data[(i+j)*8 +: 8] = i_mhq_lookup_data[j*8 +: 8];
+                end
+            end
+        end
+    end
+
+    procyon_ff #(DC_LINE_WIDTH) o_mhq_update_wr_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_wr_data), .o_q(o_mhq_update_wr_data));
     procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) o_mhq_update_addr_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_addr), .o_q(o_mhq_update_addr));
 
 endmodule
