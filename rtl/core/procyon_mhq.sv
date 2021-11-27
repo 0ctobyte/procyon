@@ -84,6 +84,15 @@ module procyon_mhq #(
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_update_addr;
 
+    // Send to the MHQ_LU stage to compare against current lookup address and signal immediate replay
+    // However, don't mark MHQ entries as "completed" if the VQ is full since there will be no place to put potential
+    // victimized cachelines.
+    logic mhq_completing;
+    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_completing_addr;
+
+    assign mhq_completing = ~i_vq_full & mhq_entry_complete[mhq_queue_head];
+    assign mhq_completing_addr = mhq_entry_addr[mhq_queue_head];
+
     logic [OPTN_MHQ_DEPTH-1:0] ccu_done;
     logic [OPTN_MHQ_DEPTH-1:0] mhq_fill_launched;
 
@@ -92,7 +101,7 @@ module procyon_mhq #(
         ccu_done[mhq_queue_head] = i_ccu_done;
 
         mhq_fill_launched = '0;
-        mhq_fill_launched[mhq_queue_head] = mhq_entry_complete[mhq_queue_head];
+        mhq_fill_launched[mhq_queue_head] = mhq_completing;
     end
 
     genvar inst;
@@ -126,13 +135,6 @@ module procyon_mhq #(
     // Convert tail pointer to one-hot allocation select vector
     logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_entry_alloc_select;
     procyon_binary2onehot #(OPTN_MHQ_DEPTH) mhq_lookup_entry_alloc_select_binary2onehot (.i_binary(mhq_queue_tail), .o_onehot(mhq_lookup_entry_alloc_select));
-
-    // Send to the MHQ_LU stage to compare against current lookup address and signal immediate replay
-    logic mhq_completing;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_completing_addr;
-
-    assign mhq_completing = mhq_entry_complete[mhq_queue_head];
-    assign mhq_completing_addr = mhq_entry_addr[mhq_queue_head];
 
     logic mhq_fill_en_r;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_fill_addr_r;
@@ -189,10 +191,9 @@ module procyon_mhq #(
         .o_queue_empty(mhq_queue_empty)
     );
 
-    // Fill request signals sent to LSU. Only send the fill if the VQ is not full otherwise the fill may victimize
-    // another cacheline that will have no place to go.
+    // Fill request signals sent to LSU
     procyon_ff #(1) mhq_fill_en_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_completing), .o_q(mhq_fill_en_r));
-    assign o_mhq_fill_en = ~i_vq_full & mhq_fill_en_r;
+    assign o_mhq_fill_en = mhq_fill_en_r;
 
     procyon_ff #(MHQ_IDX_WIDTH) o_mhq_fill_tag_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_queue_head), .o_q(o_mhq_fill_tag));
     procyon_ff #(1) o_mhq_fill_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_dirty[mhq_queue_head]), .o_q(o_mhq_fill_dirty));

@@ -5,6 +5,7 @@ import sys
 import subprocess
 import argparse
 import tempfile
+import timeit
 from tabulate import tabulate
 
 parser = argparse.ArgumentParser()
@@ -33,6 +34,7 @@ test_results = []
 for test in test_list:
     test_path = args.tests_dir + "/" + test
 
+    t0 = timeit.default_timer()
     # Convert to binary
     if test.find(".bin") == -1:
         test = test + ".bin"
@@ -47,10 +49,12 @@ for test in test_list:
     try:
         result = subprocess.run([args.sim_bin, test_path], capture_output=True, text=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        test_results += [test_result + ["HANG", "--", "--", "--"]]
+        t1 = timeit.default_timer()
+        test_results += [test_result + ["HANG", "--", "--", "--", str(t1 - t0)]]
         print(".", end="", flush=True)
         continue
 
+    t1 = timeit.default_timer()
     if result.returncode != 0:
         test_result += ["PASS"]
         test_passes = test_passes + 1
@@ -58,11 +62,11 @@ for test in test_list:
         test_result += ["FAIL"]
 
     test_details = result.stdout.split("\n")[3].split(" ")
-    test_result += [test_details[1], test_details[3], test_details[5]]
+    test_result += [test_details[1], test_details[3], test_details[5], str(t1 - t0)]
 
     test_results += [test_result]
     print(".", end="", flush=True)
 
 print()
-print(tabulate(test_results, headers=["NAME", "RESULT", "#INSTRUCTIONS", "#CYCLES", "CPI"]))
+print(tabulate(test_results, headers=["NAME", "RESULT", "#INSTRUCTIONS", "#CYCLES", "CPI", "SIM TIME"]))
 print(str(test_passes) + "/" + str(len(test_list)) + " PASSED")

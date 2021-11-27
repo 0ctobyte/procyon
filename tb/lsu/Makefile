@@ -5,6 +5,8 @@ MKDIR := mkdir
 OBJCOPY := riscv64-unknown-elf-objcopy
 OBJDUMP := riscv64-unknown-elf-objdump
 
+THREADS ?= 4
+
 OBJ_DIR := obj_dir
 DUT := dut
 SYSC_CFLAGS := -I../../common
@@ -37,9 +39,9 @@ $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
 $(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(DUT).sv
-	$(VERILATOR) -CFLAGS $(SYSC_CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SYSC_SRCS) --prefix $(VDUT)
+	$(VERILATOR) --threads $(THREADS) -CFLAGS $(SYSC_CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SYSC_SRCS) --prefix $(VDUT)
 
 $(TESTS_DIR)/%: %.S
 	$(MKDIR) -p $(TESTS_DIR)
 	$(CC) $(CFLAGS) $< -o $@
-	$(OBJDUMP) -b binary -m riscv:rv32 -EL -D $@ > $@.dump
+	$(OBJDUMP) -m riscv:rv32 -EL -D $@ > $@.dump
