@@ -14,23 +14,25 @@ module procyon_ram_sdpb #(
 )(
     input  logic                       clk,
 
-    // RAM interface
-    input  logic                       i_ram_we,
-    input  logic                       i_ram_re,
-    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_addr_r,
-    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_addr_w,
-    input  logic [OPTN_DATA_WIDTH-1:0] i_ram_data,
-    output logic [OPTN_DATA_WIDTH-1:0] o_ram_data
+    // RAM read interface
+    input  logic                       i_ram_rd_en,
+    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_rd_addr,
+    output logic [OPTN_DATA_WIDTH-1:0] o_ram_rd_data,
+
+    // RAM write interface
+    input  logic                       i_ram_wr_en,
+    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_wr_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0] i_ram_wr_data
 );
 
     logic [OPTN_DATA_WIDTH-1:0] ram [0:OPTN_RAM_DEPTH-1];
 
     // Synchronous write
-    always_ff @(posedge clk) if (i_ram_we) ram[i_ram_addr_w] <= i_ram_data;
+    always_ff @(posedge clk) if (i_ram_wr_en) ram[i_ram_wr_addr] <= i_ram_wr_data;
 
     // Synchronous read; bypass write data on same cycle to the same address
     logic ram_rd_bypass_sel;
-    assign ram_rd_bypass_sel = (i_ram_addr_r == i_ram_addr_w) && i_ram_we;
-    always_ff @(posedge clk) if (i_ram_re) o_ram_data <= ram_rd_bypass_sel ? i_ram_data : ram[i_ram_addr_r];
+    assign ram_rd_bypass_sel = (i_ram_rd_addr == i_ram_wr_addr) && i_ram_wr_en;
+    always_ff @(posedge clk) if (i_ram_rd_en) o_ram_rd_data <= ram_rd_bypass_sel ? i_ram_wr_data : ram[i_ram_rd_addr];
 
 endmodule

@@ -78,12 +78,12 @@ module procyon_cache #(
         .OPTN_RAM_DEPTH(CACHE_INDEX_COUNT)
     ) data_ram (
         .clk(clk),
-        .i_ram_re(i_cache_rd_en),
-        .i_ram_addr_r(i_cache_rd_index),
-        .o_ram_data(o_cache_rd_data),
-        .i_ram_we(i_cache_wr_en),
-        .i_ram_addr_w(i_cache_wr_index),
-        .i_ram_data(i_cache_wr_data)
+        .i_ram_rd_en(i_cache_rd_en),
+        .i_ram_rd_addr(i_cache_rd_index),
+        .o_ram_rd_data(o_cache_rd_data),
+        .i_ram_wr_en(i_cache_wr_en),
+        .i_ram_wr_addr(i_cache_wr_index),
+        .i_ram_wr_data(i_cache_wr_data)
     );
 
     procyon_ram_sdpb #(
@@ -91,12 +91,12 @@ module procyon_cache #(
         .OPTN_RAM_DEPTH(CACHE_INDEX_COUNT)
     ) tag_ram (
         .clk(clk),
-        .i_ram_re(i_cache_rd_en),
-        .i_ram_addr_r(i_cache_rd_index),
-        .o_ram_data(o_cache_rd_tag),
-        .i_ram_we(i_cache_wr_en),
-        .i_ram_addr_w(i_cache_wr_index),
-        .i_ram_data(i_cache_wr_tag)
+        .i_ram_rd_en(i_cache_rd_en),
+        .i_ram_rd_addr(i_cache_rd_index),
+        .o_ram_rd_data(o_cache_rd_tag),
+        .i_ram_wr_en(i_cache_wr_en),
+        .i_ram_wr_addr(i_cache_wr_index),
+        .i_ram_wr_data(i_cache_wr_tag)
     );
 
 endmodule

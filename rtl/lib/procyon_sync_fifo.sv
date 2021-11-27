@@ -67,12 +67,12 @@ module procyon_sync_fifo #(
         .OPTN_RAM_DEPTH(OPTN_FIFO_DEPTH)
     ) fifo_mem (
         .clk(clk),
-        .i_ram_we(ram_we),
-        .i_ram_re(fifo_ack),
-        .i_ram_addr_r(fifo_queue_head),
-        .i_ram_addr_w(fifo_queue_tail),
-        .i_ram_data(i_fifo_data),
-        .o_ram_data(o_fifo_data)
+        .i_ram_rd_en(fifo_ack),
+        .i_ram_rd_addr(fifo_queue_head),
+        .o_ram_rd_data(o_fifo_data),
+        .i_ram_wr_en(ram_we),
+        .i_ram_wr_addr(fifo_queue_tail),
+        .i_ram_wr_data(i_fifo_data)
     );
 
 endmodule
