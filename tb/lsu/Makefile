@@ -28,7 +28,7 @@ all: $(TESTS_OUT) $(OBJ_DIR)/$(VDUT)
 
 sim: $(TESTS_OUT) $(OBJ_DIR)/$(VDUT)
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
-	$(TESTS_RUN_SCRIPT) --timeout 30 -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
+	$(TESTS_RUN_SCRIPT) --timeout 120 -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 
 clean:
 	rm -rf $(OBJ_DIR) $(TESTS_DIR) *.vcd

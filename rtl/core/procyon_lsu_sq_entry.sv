@@ -112,7 +112,7 @@ module procyon_lsu_sq_entry #(
             SQ_STATE_VALID:          sq_entry_state_next = i_flush ? SQ_STATE_INVALID : (rob_retire_en ? SQ_STATE_NONSPECULATIVE : sq_entry_state_next);
             SQ_STATE_MHQ_FILL_WAIT:  sq_entry_state_next = i_mhq_fill_en ? SQ_STATE_NONSPECULATIVE : sq_entry_state_next;
             SQ_STATE_NONSPECULATIVE: sq_entry_state_next = i_retire_en ? SQ_STATE_LAUNCHED : sq_entry_state_next;
-            SQ_STATE_LAUNCHED:       sq_entry_state_next = i_update_en ? sq_update_state_mux : sq_entry_state_next;
+            SQ_STATE_LAUNCHED:       sq_entry_state_next = i_flush ? SQ_STATE_NONSPECULATIVE : (i_update_en ? sq_update_state_mux : sq_entry_state_next);
             default:                 sq_entry_state_next = SQ_STATE_INVALID;
         endcase
     end
