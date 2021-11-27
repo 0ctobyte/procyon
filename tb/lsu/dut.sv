@@ -23,7 +23,7 @@ module dut #(
     parameter OPTN_SQ_DEPTH           = 16,
     parameter OPTN_VQ_DEPTH           = 16,
     parameter OPTN_MHQ_DEPTH          = 16,
-    parameter OPTN_DC_CACHE_SIZE      = 32,
+    parameter OPTN_DC_CACHE_SIZE      = 1024,
     parameter OPTN_DC_LINE_SIZE       = 32,
     parameter OPTN_DC_WAY_COUNT       = 1,
     parameter OPTN_WB_DATA_WIDTH      = 32,
