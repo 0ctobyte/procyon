@@ -24,6 +24,7 @@ module procyon_lsu_lq #(
     input  logic                            n_rst,
 
     input  logic                            i_flush,
+    input  logic                            i_sq_nonspeculative_pending,
     output logic                            o_full,
 
     // Signals from LSU_ID to allocate new load op
@@ -67,6 +68,11 @@ module procyon_lsu_lq #(
 );
 
     localparam LQ_IDX_WIDTH = OPTN_LQ_DEPTH == 1 ? 1 : $clog2(OPTN_LQ_DEPTH);
+
+    // Override the rob_retire_en signal if there are pending nonspeculative stores (i.e. stores that have not been
+    // written to the cache yet)
+    logic rob_retire_en;
+    assign rob_retire_en = i_rob_retire_en & ~i_sq_nonspeculative_pending;
 
     // Calculate ending address for the retiring store
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;
@@ -124,7 +130,7 @@ module procyon_lsu_lq #(
             .i_sq_retire_en(i_sq_retire_en),
             .i_sq_retire_addr(i_sq_retire_addr),
             .i_sq_retire_addr_end(sq_retire_addr_end),
-            .i_rob_retire_en(i_rob_retire_en),
+            .i_rob_retire_en(rob_retire_en),
             .i_rob_retire_tag(i_rob_retire_tag),
             .o_rob_retire_ack(lq_rob_retire_ack[inst]),
             .o_rob_retire_misspeculated(lq_rob_retire_misspeculated[inst])

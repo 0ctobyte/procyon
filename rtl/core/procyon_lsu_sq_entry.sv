@@ -18,6 +18,7 @@ module procyon_lsu_sq_entry #(
 
     output logic                            o_empty,
     output logic                            o_retirable,
+    output logic                            o_nonspeculative,
 
     // Signals from LSU_ID to allocate new store op in SQ
     input  logic                            i_alloc_en,
@@ -59,9 +60,9 @@ module procyon_lsu_sq_entry #(
     localparam SQ_STATE_WIDTH          = 3;
     localparam SQ_STATE_INVALID        = 3'b000;
     localparam SQ_STATE_VALID          = 3'b001;
-    localparam SQ_STATE_MHQ_FILL_WAIT  = 3'b010;
-    localparam SQ_STATE_NONSPECULATIVE = 3'b011;
-    localparam SQ_STATE_LAUNCHED       = 3'b100;
+    localparam SQ_STATE_MHQ_FILL_WAIT  = 3'b100;
+    localparam SQ_STATE_NONSPECULATIVE = 3'b101;
+    localparam SQ_STATE_LAUNCHED       = 3'b110;
 
     // Each SQ entry contains:
     // op:              Indicates type of store op (SB, SH, SW)
@@ -127,8 +128,11 @@ module procyon_lsu_sq_entry #(
     // Output empty status for this entry
     assign o_empty = (sq_entry_state_r == SQ_STATE_INVALID);
 
-    // The entry is ready to be retired if it is non-speculative
+    // The entry is ready to be retired if it is in the nonspeculative state
     assign o_retirable = (sq_entry_state_r == SQ_STATE_NONSPECULATIVE);
+
+    // The entry is nonspeculative if it is in the nonspeculative, mhq_fill_wait or launched states
+    assign o_nonspeculative = sq_entry_state_r[SQ_STATE_WIDTH-1];
 
     // Output signals for retiring the store
     assign o_retire_op = sq_entry_op_r;

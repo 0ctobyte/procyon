@@ -23,6 +23,7 @@ module procyon_lsu_sq #(
 
     input  logic                            i_flush,
     output logic                            o_full,
+    output logic                            o_nonspeculative_pending,
 
     // Signals from LSU_ID to allocate new store op in SQ
     input  logic                            i_alloc_en,
@@ -62,6 +63,7 @@ module procyon_lsu_sq #(
 
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_empty;
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_retirable;
+    logic [OPTN_SQ_DEPTH-1:0] sq_entry_nonspeculative;
     logic [OPTN_SQ_DEPTH-1:0] sq_allocate_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_update_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
@@ -84,6 +86,7 @@ module procyon_lsu_sq #(
             .i_flush(i_flush),
             .o_empty(sq_entry_empty[inst]),
             .o_retirable(sq_entry_retirable[inst]),
+            .o_nonspeculative(sq_entry_nonspeculative[inst]),
             .i_alloc_en(sq_allocate_select[inst]),
             .i_alloc_op(i_alloc_op),
             .i_alloc_tag(i_alloc_tag),
@@ -117,6 +120,10 @@ module procyon_lsu_sq #(
 
     // Output full signal
     assign o_full = ((sq_entry_empty & ~sq_allocate_select) == 0);
+
+    // Output nonspeculative signal indicating that there are nonspeculative stores pending (i.e. waiting to be written
+    // to the cache)
+    assign o_nonspeculative_pending = (sq_entry_nonspeculative != 0);
 
     logic n_sq_retire_stall;
     assign n_sq_retire_stall = ~i_sq_retire_stall;

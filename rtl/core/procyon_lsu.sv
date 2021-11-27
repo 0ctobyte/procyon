@@ -84,6 +84,7 @@ module procyon_lsu #(
     localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
 
     logic sq_full;
+    logic sq_nonspeculative_pending;
     logic sq_retire_en;
     logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag;
     logic [OPTN_DATA_WIDTH-1:0] sq_retire_data;
@@ -351,6 +352,7 @@ module procyon_lsu #(
         .clk(clk),
         .n_rst(n_rst),
         .i_flush(i_flush),
+        .i_sq_nonspeculative_pending(sq_nonspeculative_pending),
         .o_full(lq_full),
         .i_alloc_en(alloc_lq_en),
         .i_alloc_op(alloc_op),
@@ -391,6 +393,7 @@ module procyon_lsu #(
         .n_rst(n_rst),
         .i_flush(i_flush),
         .o_full(sq_full),
+        .o_nonspeculative_pending(sq_nonspeculative_pending),
         .i_alloc_en(alloc_sq_en),
         .i_alloc_op(alloc_op),
         .i_alloc_tag(alloc_tag),
