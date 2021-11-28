@@ -1,13 +1,7 @@
 VERILATOR = verilator
 MAKE := make
 
-RISCV_ARCH_TESTS := $(shell echo $(RISCV_ARCH_TESTS))
-
-ifndef TESTS_RUN_DIR
-ifeq ($(RISCV_ARCH_TESTS),)
-    $(error RISCV_ARCH_TESTS not set)
-endif
-endif
+RISCV_ARCH_TESTS := ../../riscv-tests
 
 OBJ_DIR := obj_dir
 DUT := dut
@@ -18,15 +12,26 @@ VDUT := V$(DUT)
 VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp
 
-TESTS_RUN_DIR := $(RISCV_ARCH_TESTS)
+TESTS_DIR := tests
+TESTS_RUN_DIR := $(TESTS_DIR)/isa
 TESTS_RUN_SCRIPT := ../run-tests.py
 
-.PHONY: all sim clean
-all: $(OBJ_DIR)/$(VDUT)
+.PHONY: all sim clean distclean
+all: $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 
-sim: $(OBJ_DIR)/$(VDUT)
+sim: $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 	$(TESTS_RUN_SCRIPT) -i "32ui-px-" -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
+
+$(TESTS_RUN_DIR): $(TESTS_DIR)/Makefile
+	$(MAKE) -C $(TESTS_DIR)
+
+$(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
+	mkdir -p $(TESTS_DIR)
+	cd $(TESTS_DIR) ; ../$(RISCV_ARCH_TESTS)/configure --prefix=$(shell pwd)/$(TESTS_DIR) ; cd ..
+
+$(RISCV_ARCH_TESTS)/configure:
+	git submodule update --init --recursive
 
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
@@ -36,3 +41,6 @@ $(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(DUT).sv
 
 clean:
 	rm -rf $(OBJ_DIR) *.vcd
+
+distclean: clean
+	rm -rf $(TESTS_DIR)
