@@ -20,7 +20,7 @@ In the `tb` directory there are some tests:
 * `arch`: RISCV CPU architectural tests
 * `lsu`: Tests that stress the LSU in various ways
 
-Running `make sim` in each directory will build and run the simulation. For `arch` this will run a suite of rv32ui architectural tests. The environment variable `RISCV_ARCH_TESTS` must be set to the directory containing the compiled test binaries produced from this repo: [riscv-tests](https://github.com/0ctobyte/riscv-tests). This repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `arch` directory:
+Running `make sim` in each directory will build and run the simulation. For `arch` this will run a suite of rv32ui architectural tests. The architectural tests' source code can be found at [riscv-tests](https://github.com/0ctobyte/riscv-tests) which is a submodule in this repo. The `riscv-tests` repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `arch` directory:
 
 `make`
 
