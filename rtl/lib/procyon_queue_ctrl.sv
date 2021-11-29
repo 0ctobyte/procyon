@@ -86,7 +86,7 @@ module procyon_queue_ctrl #(
     // Queue empty signal
     logic queue_empty;
     assign queue_empty = i_flush | (queue_entry_counter_next == (QUEUE_COUNTER_WIDTH)'(OPTN_QUEUE_DEPTH));
-    procyon_srff #(1) queue_empty_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(queue_empty), .i_reset(1'b0), .o_q(queue_empty_r));
+    procyon_srff #(1) queue_empty_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(queue_empty), .i_reset(1'b1), .o_q(queue_empty_r));
 
     assign o_queue_empty = queue_empty_r;
 

@@ -7,7 +7,7 @@
 #include "Vdut.h"
 #include "verilated_vcd_sc.h"
 
-#include "BootRom.h"
+#include "InstructionFetchQueue.h"
 #include "Sram.h"
 
 #define SRAM_DATA_WIDTH    (16)
@@ -40,10 +40,12 @@ int sc_main(int argc, char** argv) {
 
     sc_signal<uint32_t> sim_tp;
     sc_signal<bool> sim_retire;
-    sc_signal<uint32_t> ic_insn;
-    sc_signal<bool> ic_valid;
-    sc_signal<uint32_t> ic_pc;
-    sc_signal<bool> ic_en;
+    sc_signal<bool> ifq_full;
+    sc_signal<bool> ifq_fill_en;
+    sc_signal<uint32_t> ifq_fill_addr;
+    sc_signal<sc_bv<256>> ifq_fill_data;
+    sc_signal<bool> ifq_alloc_en;
+    sc_signal<uint32_t> ifq_alloc_addr;
 
     sc_signal<uint32_t> sram_addr;
     sc_signal<uint32_t> sram_dq_i;
@@ -65,13 +67,22 @@ int sc_main(int argc, char** argv) {
     sram.i_sram_ub_n(sram_ub_n);
     sram.i_sram_lb_n(sram_lb_n);
 
-    BootRom bootrom("bootrom");
-    bootrom.trace_all(tf, top_name);
-    bootrom.clk(clk);
-    bootrom.i_ic_en(ic_en);
-    bootrom.i_ic_pc(ic_pc);
-    bootrom.o_ic_valid(ic_valid);
-    bootrom.o_ic_insn(ic_insn);
+    InstructionFetchQueue ifq("ifq");
+    ifq.trace_all(tf, top_name);
+    ifq.clk(clk);
+    ifq.n_rst(n_rst);
+    ifq.o_full(ifq_full);
+    ifq.i_alloc_en(ifq_alloc_en);
+    ifq.i_alloc_addr(ifq_alloc_addr);
+    ifq.o_fill_en(ifq_fill_en);
+    ifq.o_fill_addr(ifq_fill_addr);
+    ifq.o_fill_data(ifq_fill_data);
+    //ifq.i_ccu_done(ccu_done);
+    //ifq.i_ccu_data(ccu_data);
+    //ifq.o_ccu_en(ccu_en);
+    //ifq.o_ccu_we(ccu_we);
+    //ifq.o_ccu_len(ccu_len);
+    //ifq.o_ccu_addr(ccu_addr);
 
     Vdut dut("dut");
     dut.clk(clk);
@@ -86,18 +97,25 @@ int sc_main(int argc, char** argv) {
     dut.o_sram_lb_n(sram_lb_n);
     dut.o_sim_tp(sim_tp);
     dut.o_sim_retire(sim_retire);
-    dut.i_ic_insn(ic_insn);
-    dut.i_ic_valid(ic_valid);
-    dut.o_ic_pc(ic_pc);
-    dut.o_ic_en(ic_en);
+    dut.i_ifq_fill_en(ifq_fill_en);
+    dut.i_ifq_fill_addr(ifq_fill_addr);
+    dut.i_ifq_fill_data(ifq_fill_data);
+    dut.o_ifq_alloc_en(ifq_alloc_en);
+    dut.o_ifq_alloc_addr(ifq_alloc_addr);
+    //dut.i_ifq_ccu_en(ccu_en);
+    //dut.i_ifq_ccu_we(ccu_we);
+    //dut.i_ifq_ccu_len(ccu_len);
+    //dut.i_ifq_ccu_addr(ccu_addr);
+    //dut.o_ifq_ccu_done(ccu_done);
+    //dut.o_ifq_ccu_data(ccu_data);
 
     std::string rom_file(argv[1]);
     std::string suffix_str("hex");
     if (ends_with(rom_file, suffix_str)) {
-        bootrom.load_hex(rom_file);
+        ifq.load_hex(rom_file);
         sram.load_hex(rom_file);
     } else {
-        bootrom.load_bin(rom_file);
+        ifq.load_bin(rom_file);
         sram.load_bin(rom_file);
     }
 

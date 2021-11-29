@@ -12,6 +12,7 @@
 
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
+    parameter OPTN_INSN_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_NUM_IEU            = 1,
@@ -23,6 +24,9 @@ module dut #(
     parameter OPTN_SQ_DEPTH           = 16,
     parameter OPTN_VQ_DEPTH           = 16,
     parameter OPTN_MHQ_DEPTH          = 16,
+    parameter OPTN_IC_CACHE_SIZE      = 1024,
+    parameter OPTN_IC_LINE_SIZE       = 32,
+    parameter OPTN_IC_WAY_COUNT       = 1,
     parameter OPTN_DC_CACHE_SIZE      = 1024,
     parameter OPTN_DC_LINE_SIZE       = 32,
     parameter OPTN_DC_WAY_COUNT       = 1,
@@ -30,28 +34,29 @@ module dut #(
     parameter OPTN_WB_ADDR_WIDTH      = 32,
     parameter OPTN_WB_SRAM_BASE_ADDR  = 0
 )(
-    input  logic                        clk,
-    input  logic                        n_rst,
+    input  logic                            clk,
+    input  logic                            n_rst,
 
     // SRAM interface
-    output logic [`SRAM_ADDR_WIDTH-1:0] o_sram_addr,
-    input  logic [`SRAM_DATA_WIDTH-1:0] i_sram_dq,
-    output logic [`SRAM_DATA_WIDTH-1:0] o_sram_dq,
-    output logic                        o_sram_ce_n,
-    output logic                        o_sram_we_n,
-    output logic                        o_sram_oe_n,
-    output logic                        o_sram_ub_n,
-    output logic                        o_sram_lb_n,
+    output logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
+    input  logic [`SRAM_DATA_WIDTH-1:0]     i_sram_dq,
+    output logic [`SRAM_DATA_WIDTH-1:0]     o_sram_dq,
+    output logic                            o_sram_ce_n,
+    output logic                            o_sram_we_n,
+    output logic                            o_sram_oe_n,
+    output logic                            o_sram_ub_n,
+    output logic                            o_sram_lb_n,
 
     // FIXME: To test if simulations pass/fail
-    output logic [OPTN_DATA_WIDTH-1:0]  o_sim_tp,
-    output logic                        o_sim_retire,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_sim_tp,
+    output logic                            o_sim_retire,
 
-    // FIXME: Temporary instruction cache interface
-    input  logic [OPTN_DATA_WIDTH-1:0]  i_ic_insn,
-    input  logic                        i_ic_valid,
-    output logic [OPTN_ADDR_WIDTH-1:0]  o_ic_pc,
-    output logic                        o_ic_en
+    // FIXME: Temporary instruction fetch queue interface
+    input  logic                            i_ifq_fill_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_fill_addr,
+    input  logic [OPTN_IC_LINE_SIZE*8-1:0]  i_ifq_fill_data,
+    output logic                            o_ifq_alloc_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_alloc_addr
 );
 
     timeunit 1ns;
@@ -98,6 +103,7 @@ module dut #(
 
     procyon #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_INSN_WIDTH(OPTN_INSN_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_RAT_DEPTH(OPTN_RAT_DEPTH),
         .OPTN_NUM_IEU(OPTN_NUM_IEU),
@@ -109,6 +115,9 @@ module dut #(
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_IC_CACHE_SIZE(OPTN_IC_CACHE_SIZE),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
+        .OPTN_IC_WAY_COUNT(OPTN_IC_WAY_COUNT),
         .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT),
@@ -123,10 +132,12 @@ module dut #(
         .o_rat_retire_en(rat_retire_en),
         .o_rat_retire_rdst(rat_retire_rdst),
         .o_rat_retire_data(rat_retire_data),
-        .i_ic_insn(i_ic_insn),
-        .i_ic_valid(i_ic_valid),
-        .o_ic_pc(o_ic_pc),
-        .o_ic_en(o_ic_en),
+        .i_ifq_full('0),
+        .i_ifq_fill_en(i_ifq_fill_en),
+        .i_ifq_fill_addr(i_ifq_fill_addr),
+        .i_ifq_fill_data(i_ifq_fill_data),
+        .o_ifq_alloc_en(o_ifq_alloc_en),
+        .o_ifq_alloc_addr(o_ifq_alloc_addr),
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),

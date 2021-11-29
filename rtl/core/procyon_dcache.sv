@@ -163,7 +163,6 @@ module procyon_dcache #(
     );
 
     procyon_cache #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_CACHE_LINE_SIZE(OPTN_DC_LINE_SIZE)

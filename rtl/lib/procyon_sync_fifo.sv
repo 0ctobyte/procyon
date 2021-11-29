@@ -18,7 +18,7 @@ module procyon_sync_fifo #(
     // FIFO read interface
     input  logic                       i_fifo_ack,
     output logic [OPTN_DATA_WIDTH-1:0] o_fifo_data,
-    output logic                       o_fifo_valid,
+    output logic                       o_fifo_empty,
 
     // FIFO write interface
     input  logic                       i_fifo_we,
@@ -55,12 +55,8 @@ module procyon_sync_fifo #(
         .o_queue_empty(fifo_queue_empty)
     );
 
-    // fifo output is valid if it is not empty
     assign o_fifo_full = fifo_queue_full;
-
-    logic fifo_valid;
-    assign fifo_valid = ~i_flush & ~fifo_queue_empty;
-    procyon_srff #(1) o_fifo_valid_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fifo_valid), .i_reset(1'b0), .o_q(o_fifo_valid));
+    assign o_fifo_empty = fifo_queue_empty;
 
     procyon_ram_sdpb #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),

@@ -10,6 +10,7 @@
 
 module procyon #(
     parameter OPTN_DATA_WIDTH       = 32,
+    parameter OPTN_INSN_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_RAT_DEPTH        = 32,
     parameter OPTN_NUM_IEU          = 1,
@@ -21,6 +22,9 @@ module procyon #(
     parameter OPTN_SQ_DEPTH         = 8,
     parameter OPTN_VQ_DEPTH         = 4,
     parameter OPTN_MHQ_DEPTH        = 4,
+    parameter OPTN_IC_CACHE_SIZE    = 1024,
+    parameter OPTN_IC_LINE_SIZE     = 32,
+    parameter OPTN_IC_WAY_COUNT     = 1,
     parameter OPTN_DC_CACHE_SIZE    = 1024,
     parameter OPTN_DC_LINE_SIZE     = 32,
     parameter OPTN_DC_WAY_COUNT     = 1,
@@ -30,38 +34,40 @@ module procyon #(
     parameter RAT_IDX_WIDTH         = $clog2(OPTN_RAT_DEPTH),
     parameter WB_DATA_SIZE          = OPTN_WB_DATA_WIDTH / 8
 )(
-    input  logic                          clk,
-    input  logic                          n_rst,
+    input  logic                            clk,
+    input  logic                            n_rst,
 
     // FIXME: To test if simulations pass/fail
-    output logic [OPTN_DATA_WIDTH-1:0]    o_sim_tp,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_sim_tp,
 
     // FIXME: FPGA debugging output
-    output logic                          o_rob_redirect,
-    output logic [OPTN_ADDR_WIDTH-1:0]    o_rob_redirect_addr,
-    output logic                          o_rat_retire_en,
-    output logic [RAT_IDX_WIDTH-1:0]      o_rat_retire_rdst,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_rat_retire_data,
+    output logic                            o_rob_redirect,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_rob_redirect_addr,
+    output logic                            o_rat_retire_en,
+    output logic [RAT_IDX_WIDTH-1:0]        o_rat_retire_rdst,
+    output logic [OPTN_DATA_WIDTH-1:0]      o_rat_retire_data,
 
-    // FIXME: Temporary instruction cache interface
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_ic_insn,
-    input  logic                          i_ic_valid,
-    output logic [OPTN_ADDR_WIDTH-1:0]    o_ic_pc,
-    output logic                          o_ic_en,
+    // FIXME: Temporary instruction fetch queue interface
+    input  logic                            i_ifq_full,
+    input  logic                            i_ifq_fill_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_fill_addr,
+    input  logic [OPTN_IC_LINE_SIZE*8-1:0]  i_ifq_fill_data,
+    output logic                            o_ifq_alloc_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_alloc_addr,
 
     // Wishbone bus interface
-    input  logic                          i_wb_clk,
-    input  logic                          i_wb_rst,
-    input  logic                          i_wb_ack,
-    input  logic [OPTN_WB_DATA_WIDTH-1:0] i_wb_data,
-    output logic                          o_wb_cyc,
-    output logic                          o_wb_stb,
-    output logic                          o_wb_we,
-    output logic [`WB_CTI_WIDTH-1:0]      o_wb_cti,
-    output logic [`WB_BTE_WIDTH-1:0]      o_wb_bte,
-    output logic [WB_DATA_SIZE-1:0]       o_wb_sel,
-    output logic [OPTN_WB_ADDR_WIDTH-1:0] o_wb_addr,
-    output logic [OPTN_WB_DATA_WIDTH-1:0] o_wb_data
+    input  logic                            i_wb_clk,
+    input  logic                            i_wb_rst,
+    input  logic                            i_wb_ack,
+    input  logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
+    output logic                            o_wb_cyc,
+    output logic                            o_wb_stb,
+    output logic                            o_wb_we,
+    output logic [`WB_CTI_WIDTH-1:0]        o_wb_cti,
+    output logic [`WB_BTE_WIDTH-1:0]        o_wb_bte,
+    output logic [WB_DATA_SIZE-1:0]         o_wb_sel,
+    output logic [OPTN_WB_ADDR_WIDTH-1:0]   o_wb_addr,
+    output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
     localparam CDB_DEPTH     = 1 + OPTN_NUM_IEU;
@@ -73,7 +79,7 @@ module procyon #(
     // Module signals
     logic fetch_valid;
     logic [OPTN_ADDR_WIDTH-1:0] fetch_pc;
-    logic [OPTN_DATA_WIDTH-1:0] fetch_insn;
+    logic [OPTN_INSN_WIDTH-1:0] fetch_insn;
     logic decode_stall;
 
     logic rob_reserve_en;
@@ -170,18 +176,23 @@ module procyon #(
 
     // Module Instances
     procyon_fetch #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_INSN_WIDTH(OPTN_INSN_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH)
+        .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
+        .OPTN_IC_CACHE_SIZE(OPTN_IC_CACHE_SIZE),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
+        .OPTN_IC_WAY_COUNT(OPTN_IC_WAY_COUNT)
     ) procyon_fetch_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_redirect(rob_redirect),
         .i_redirect_addr(rob_redirect_addr),
-        .i_insn(i_ic_insn),
-        .i_data_valid(i_ic_valid),
-        .o_pc(o_ic_pc),
-        .o_en(o_ic_en),
+        .i_ifq_full(i_ifq_full),
+        .o_ifq_alloc_en(o_ifq_alloc_en),
+        .o_ifq_alloc_addr(o_ifq_alloc_addr),
+        .i_ifq_fill_en(i_ifq_fill_en),
+        .i_ifq_fill_addr(i_ifq_fill_addr),
+        .i_ifq_fill_data(i_ifq_fill_data),
         .i_decode_stall(decode_stall),
         .o_fetch_pc(fetch_pc),
         .o_fetch_insn(fetch_insn),

@@ -7,7 +7,6 @@
 // Basic direct-mapped cache
 
 module procyon_cache #(
-    parameter OPTN_DATA_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_CACHE_SIZE      = 1024,
     parameter OPTN_CACHE_LINE_SIZE = 32,
