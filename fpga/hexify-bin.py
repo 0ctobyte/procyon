@@ -25,25 +25,24 @@ if os.path.isdir(args.dir):
     if args.exclude != None:
         excluded_programs = [test for test in rv_programs for exclude in args.exclude if exclude in test]
         rv_programs = list(set(rv_programs) - set(excluded_programs))
-    rv_programs = [args.dir + "/" + program for program in rv_programs]
 else:
-    rv_programs = [args.dir]
+    rv_programs = [os.path.basename(args.dir)]
 
-print(rv_programs)
 for program in rv_programs:
-    filename, ext = os.path.splitext(os.path.basename(program))
+    program_path = args.dir + "/" + program if os.path.isdir(args.dir) else args.dir
+
     print("Convert " + program, end=" -> ")
 
     # Convert to binary
-    bin_file = tempfile.gettempdir() + "/" + filename + ".bin"
+    bin_file = program_path
+    if program.find(".bin") == -1:
+        bin_file = tempfile.gettempdir() + "/" + program + ".bin"
+        print(bin_file, end=" -> ")
+        result = subprocess.run(["riscv64-unknown-elf-objcopy", "-O", "binary", program_path, bin_file])
+        if result.returncode != 0:
+            exit(result.returncode)
 
-    print(bin_file, end=" -> ")
-
-    result = subprocess.call(["riscv64-unknown-elf-objcopy", "-O", "binary", program, bin_file])
-    if result != 0:
-        sys.exit(-1)
-
-    hex_file = filename + ".hex"
+    hex_file = program + ".hex"
 
     print(hex_file)
     with open(args.hex_dir + "/" + hex_file, "w") as d:
