@@ -12,7 +12,7 @@ DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 
 # Directory where source files are located
-SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
+SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv fake_ifq.sv procyon_arch_test.sv)
 
 RISCV_ARCH_TESTS := ../../riscv-tests
 
@@ -38,7 +38,7 @@ clean:
 	-rm $(HEX_DIR)/*.hex
 
 $(HEX_FILE): $(HEX_DIR)
-	./hexify-bin.py -e ".dump" $(HEX_DIR) $(HEX_DIR)
+	./hexify-bin.py -e ".dump" -w 32 $(HEX_DIR) $(HEX_DIR)
 
 $(HEX_DIR): $(TESTS_DIR)/Makefile
 	$(MAKE) -C $(TESTS_DIR)

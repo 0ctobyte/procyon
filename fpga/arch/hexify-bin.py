@@ -10,6 +10,7 @@ import binascii
 parser = argparse.ArgumentParser()
 parser.add_argument("dir", help="Path to RISCV elf/binary file or a directory containing elf/binary files")
 parser.add_argument("hex_dir", help="Path to place hex files")
+parser.add_argument("-w", "--hexwidth", default=1, type=int, help="Specify the width of each hex string per line")
 parser.add_argument("-i", "--include", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be included in the test")
 parser.add_argument("-e", "--exclude", action="append", help="Specify a filename filter. Filenames that contain the corresponding text will be excluded in the test")
 args = parser.parse_args()
@@ -48,4 +49,10 @@ for program in rv_programs:
     print(hex_file)
     with open(args.hex_dir + "/" + hex_file, "w") as d:
         with open(bin_file, "rb") as f:
-            d.write(f.read().hex(sep='\n', bytes_per_sep=1))
+            b = f.read()
+            l = len(b)
+
+            aligned_l = (l + (args.hexwidth - 1)) & ~(args.hexwidth - 1)
+            aligned_b = b + bytes((aligned_l - l) * [0])
+
+            d.write(aligned_b.hex(sep='\n', bytes_per_sep=args.hexwidth))

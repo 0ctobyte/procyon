@@ -4,6 +4,7 @@ tb/arch/tests/
 tb/lsu/tests/
 fpga/arch/tests/
 fpga/arch/db/
+fpga/arch/incremental_db/
 fpga/arch/procyon_arch_test.flow.rpt
 fpga/arch/procyon_arch_test.map.rpt
 fpga/arch/procyon_arch_test.map.summary

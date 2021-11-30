@@ -12,16 +12,21 @@
 
 module procyon_arch_test #(
     parameter OPTN_DATA_WIDTH         = 32,
+    parameter OPTN_INSN_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_RAT_DEPTH          = 32,
-    parameter OPTN_INSN_FIFO_DEPTH    = 8,
-    parameter OPTN_ROB_DEPTH          = 32,
-    parameter OPTN_RS_IEU_DEPTH       = 16,
-    parameter OPTN_RS_LSU_DEPTH       = 16,
-    parameter OPTN_LQ_DEPTH           = 8,
-    parameter OPTN_SQ_DEPTH           = 8,
-    parameter OPTN_VQ_DEPTH           = 4,
-    parameter OPTN_MHQ_DEPTH          = 4,
+    parameter OPTN_NUM_IEU            = 1,
+    parameter OPTN_INSN_FIFO_DEPTH    = 32,
+    parameter OPTN_ROB_DEPTH          = 128,
+    parameter OPTN_RS_IEU_DEPTH       = 32,
+    parameter OPTN_RS_LSU_DEPTH       = 32,
+    parameter OPTN_LQ_DEPTH           = 16,
+    parameter OPTN_SQ_DEPTH           = 16,
+    parameter OPTN_VQ_DEPTH           = 16,
+    parameter OPTN_MHQ_DEPTH          = 16,
+    parameter OPTN_IC_CACHE_SIZE      = 1024,
+    parameter OPTN_IC_LINE_SIZE       = 32,
+    parameter OPTN_IC_WAY_COUNT       = 1,
     parameter OPTN_DC_CACHE_SIZE      = 1024,
     parameter OPTN_DC_LINE_SIZE       = 32,
     parameter OPTN_DC_WAY_COUNT       = 1,
@@ -57,6 +62,7 @@ module procyon_arch_test #(
     output logic [6:0]                  HEX7
 );
 
+    localparam IC_LINE_WIDTH    = OPTN_IC_LINE_SIZE * 8;
     localparam RAT_IDX_WIDTH    = $clog2(OPTN_RAT_DEPTH);
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
     localparam TEST_STATE_WIDTH = 1;
@@ -79,10 +85,12 @@ module procyon_arch_test #(
     logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
 
     // FIXME: Temporary instruction cache interface
-    logic [OPTN_DATA_WIDTH-1:0] ic_insn;
-    logic ic_valid;
-    logic [OPTN_ADDR_WIDTH-1:0] ic_pc;
-    logic ic_en;
+    logic ifq_full;
+    logic ifq_alloc_en;
+    logic [OPTN_ADDR_WIDTH-1:0] ifq_alloc_addr;
+    logic ifq_fill_en;
+    logic [OPTN_ADDR_WIDTH-1:0] ifq_fill_addr;
+    logic [IC_LINE_WIDTH-1:0] ifq_fill_data;
 
     // Wishbone interface
     logic wb_rst;
@@ -154,22 +162,27 @@ module procyon_arch_test #(
         .o_pulse(key_pulse)
     );
 
-    boot_rom #(
-        .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+    fake_ifq #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
         .OPTN_HEX_FILE(OPTN_HEX_FILE),
         .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
-    ) boot_rom_inst (
-        .o_ic_insn(ic_insn),
-        .o_ic_valid(ic_valid),
-        .i_ic_pc(ic_pc),
-        .i_ic_en(ic_en)
+    ) fake_ifq_inst (
+        .clk(clk),
+        .i_alloc_en(ifq_alloc_en),
+        .i_alloc_addr(ifq_alloc_addr),
+        .o_full(ifq_full),
+        .o_fill_en(ifq_fill_en),
+        .o_fill_addr(ifq_fill_addr),
+        .o_fill_data(ifq_fill_data)
     );
 
     procyon #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
+        .OPTN_INSN_WIDTH(OPTN_INSN_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_RAT_DEPTH(OPTN_RAT_DEPTH),
+        .OPTN_NUM_IEU(OPTN_NUM_IEU),
         .OPTN_INSN_FIFO_DEPTH(OPTN_INSN_FIFO_DEPTH),
         .OPTN_ROB_DEPTH(OPTN_ROB_DEPTH),
         .OPTN_RS_IEU_DEPTH(OPTN_RS_IEU_DEPTH),
@@ -178,6 +191,9 @@ module procyon_arch_test #(
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_IC_CACHE_SIZE(OPTN_IC_CACHE_SIZE),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
+        .OPTN_IC_WAY_COUNT(OPTN_IC_WAY_COUNT),
         .OPTN_DC_CACHE_SIZE(OPTN_DC_CACHE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_DC_WAY_COUNT(OPTN_DC_WAY_COUNT),
@@ -192,10 +208,12 @@ module procyon_arch_test #(
         .o_rat_retire_en(rat_retire_en),
         .o_rat_retire_rdst(rat_retire_rdst),
         .o_rat_retire_data(rat_retire_data),
-        .i_ic_insn(ic_insn),
-        .i_ic_valid(ic_valid),
-        .o_ic_pc(ic_pc),
-        .o_ic_en(ic_en),
+        .i_ifq_full(ifq_full),
+        .i_ifq_fill_en(ifq_fill_en),
+        .i_ifq_fill_addr(ifq_fill_addr),
+        .i_ifq_fill_data(ifq_fill_data),
+        .o_ifq_alloc_en(ifq_alloc_en),
+        .o_ifq_alloc_addr(ifq_alloc_addr),
         .i_wb_clk(clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),
