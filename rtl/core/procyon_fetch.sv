@@ -64,23 +64,15 @@ module procyon_fetch #(
     logic [OPTN_ADDR_WIDTH+OPTN_INSN_WIDTH-1:0] insn_fifo_data_o;
     logic [OPTN_ADDR_WIDTH+OPTN_INSN_WIDTH-1:0] insn_fifo_data_i;
 
-    logic n_insn_fifo_full;
-    assign n_insn_fifo_full = ~insn_fifo_full;
-
-    logic hit;
-    assign hit = ic_hit & fetch_ir_valid_r;
-
-    logic n_hit;
-    assign n_hit = ~ic_hit & fetch_ir_valid_r;
-
-    logic n_redirect;
-    assign n_redirect = ~i_redirect;
-
-    logic n_decode_stall;
-    assign n_decode_stall = ~i_decode_stall;
-
     logic fetch_state_is_next_fetch;
+    logic n_redirect;
+    logic n_insn_fifo_full;
+    logic n_decode_stall;
+
     assign fetch_state_is_next_fetch = (fetch_state_r == FETCH_STATE_NEXT_FETCH);
+    assign n_redirect = ~i_redirect;
+    assign n_insn_fifo_full = ~insn_fifo_full;
+    assign n_decode_stall = ~i_decode_stall;
 
     // Save fetch valid signal through IT and IR pipeline stages
     logic fetch_it_valid;
@@ -104,6 +96,14 @@ module procyon_fetch #(
 
     procyon_srff #(1) fetch_ifq_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fetch_ifq_valid), .i_reset('0), .o_q(fetch_ifq_valid_r));
     procyon_ff #(OPTN_INSN_WIDTH) fetch_ifq_addr_r_ff (.clk(clk), .i_en(fetch_state_is_next_fetch), .i_d(fetch_ir_addr_r), .o_q(fetch_ifq_addr_r));
+
+    logic fetch_valid;
+    logic hit;
+    logic n_hit;
+
+    assign fetch_valid = fetch_ir_valid_r & fetch_state_is_next_fetch;
+    assign hit = ic_hit & fetch_valid;
+    assign n_hit = ~ic_hit & fetch_valid;
 
     // FSM
     logic [FETCH_STATE_WIDTH-1:0] fetch_state_next;
