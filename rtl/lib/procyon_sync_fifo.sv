@@ -37,8 +37,8 @@ module procyon_sync_fifo #(
     logic fifo_ack;
     logic ram_we;
 
-    assign fifo_ack = ~fifo_queue_empty && i_fifo_ack;
-    assign ram_we = ~fifo_queue_full && i_fifo_we;
+    assign fifo_ack = ~fifo_queue_empty & i_fifo_ack;
+    assign ram_we = ~fifo_queue_full & i_fifo_we;
 
     // Determine next cycle head and tail pointers and register head/tail pointers
     procyon_queue_ctrl #(

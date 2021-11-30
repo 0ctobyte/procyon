@@ -76,29 +76,33 @@ module procyon_fetch #(
     logic n_redirect;
     assign n_redirect = ~i_redirect;
 
+    logic n_decode_stall;
+    assign n_decode_stall = ~i_decode_stall;
+
     logic fetch_state_is_next_fetch;
     assign fetch_state_is_next_fetch = (fetch_state_r == FETCH_STATE_NEXT_FETCH);
 
     // Save fetch valid signal through IT and IR pipeline stages
     logic fetch_it_valid;
-    assign fetch_it_valid = fetch_state_is_next_fetch & n_insn_fifo_full & n_redirect;
+    assign fetch_it_valid = fetch_state_is_next_fetch & n_redirect;
 
     procyon_srff #(1) fetch_it_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fetch_it_valid), .i_reset('0), .o_q(fetch_it_valid_r));
 
     logic fetch_ir_valid;
-    assign fetch_ir_valid = fetch_it_valid_r & n_redirect;
+    assign fetch_ir_valid = fetch_it_valid_r & fetch_state_is_next_fetch & n_redirect;
 
     procyon_srff #(1) fetch_ir_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fetch_ir_valid), .i_reset('0), .o_q(fetch_ir_valid_r));
-
-    logic fetch_ifq_valid;
-    assign fetch_ifq_valid = fetch_ir_valid_r & n_hit & (fetch_state_next == FETCH_STATE_IFQ_ENQUEUE) & n_redirect;
-
-    procyon_srff #(1) fetch_ifq_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fetch_ifq_valid), .i_reset('0), .o_q(fetch_ifq_valid_r));
 
     // Save fetch addr signal through IT and IR pipeline stages. Also save the PC sent to the IFQ to restart the
     // pipeline when the fill arrives
     procyon_ff #(OPTN_INSN_WIDTH) fetch_it_addr_r_ff (.clk(clk), .i_en(1'b1), .i_d(pc_r), .o_q(fetch_it_addr_r));
     procyon_ff #(OPTN_INSN_WIDTH) fetch_ir_addr_r_ff (.clk(clk), .i_en(1'b1), .i_d(fetch_it_addr_r), .o_q(fetch_ir_addr_r));
+
+    // IFQ valid and address
+    logic fetch_ifq_valid;
+    assign fetch_ifq_valid = (fetch_state_next == FETCH_STATE_IFQ_ENQUEUE) & n_redirect;
+
+    procyon_srff #(1) fetch_ifq_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(fetch_ifq_valid), .i_reset('0), .o_q(fetch_ifq_valid_r));
     procyon_ff #(OPTN_INSN_WIDTH) fetch_ifq_addr_r_ff (.clk(clk), .i_en(fetch_state_is_next_fetch), .i_d(fetch_ir_addr_r), .o_q(fetch_ifq_addr_r));
 
     // FSM
@@ -108,7 +112,7 @@ module procyon_fetch #(
         fetch_state_next = fetch_state_r;
 
         case (fetch_state_next)
-            FETCH_STATE_NEXT_FETCH:  fetch_state_next = insn_fifo_full ? FETCH_STATE_FIFO_STALL : (n_hit ? FETCH_STATE_IFQ_ENQUEUE : FETCH_STATE_NEXT_FETCH);
+            FETCH_STATE_NEXT_FETCH:  fetch_state_next = n_hit ? FETCH_STATE_IFQ_ENQUEUE : (insn_fifo_full ? FETCH_STATE_FIFO_STALL : FETCH_STATE_NEXT_FETCH);
             FETCH_STATE_IFQ_ENQUEUE: fetch_state_next = ~i_ifq_full ? FETCH_STATE_IFQ_STALL : FETCH_STATE_IFQ_ENQUEUE;
             FETCH_STATE_IFQ_STALL:   fetch_state_next = i_ifq_fill_en ? FETCH_STATE_NEXT_FETCH : FETCH_STATE_IFQ_STALL;
             FETCH_STATE_FIFO_STALL:  fetch_state_next = n_insn_fifo_full ? FETCH_STATE_NEXT_FETCH : FETCH_STATE_FIFO_STALL;
@@ -175,10 +179,10 @@ module procyon_fetch #(
     );
 
     assign insn_fifo_data_i = {fetch_ir_addr_r, ic_data};
-    assign insn_fifo_ack = ~insn_fifo_empty & ~i_decode_stall & n_redirect;
+    assign insn_fifo_ack = ~insn_fifo_empty & n_decode_stall & n_redirect;
 
     logic insn_fifo_ack_r;
-    procyon_srff #(1) insn_fifo_ack_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(insn_fifo_ack), .i_reset('0), .o_q(insn_fifo_ack_r));
+    procyon_srff #(1) insn_fifo_ack_r_srff (.clk(clk), .n_rst(n_rst), .i_en(n_decode_stall), .i_set(insn_fifo_ack), .i_reset('0), .o_q(insn_fifo_ack_r));
 
     // Pop FIFO data and send to dispatch stage. Ack the FIFO to allow it to remove the head entry
     assign o_fetch_pc = insn_fifo_data_o[OPTN_ADDR_WIDTH+OPTN_INSN_WIDTH-1:OPTN_INSN_WIDTH];

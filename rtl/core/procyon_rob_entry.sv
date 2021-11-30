@@ -70,10 +70,14 @@ module procyon_rob_entry #(
     // An ROB entry holding a LD/ST op can only move on to the retired state if it's in the lsu_pending state and the
     // LSU sends back an ack
     logic rob_entry_lsu_pending;
+    logic lsu_retired_lq_ack;
+    logic lsu_retired_sq_ack;
     logic lsu_retired_ack;
 
     assign rob_entry_lsu_pending = (rob_entry_state_r == ROB_STATE_LSU_PENDING);
-    assign lsu_retired_ack = rob_entry_lsu_pending & ((rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] & i_lsu_retire_lq_ack) | (rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX] & i_lsu_retire_sq_ack));
+    assign lsu_retired_lq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] & i_lsu_retire_lq_ack;
+    assign lsu_retired_sq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX] & i_lsu_retire_sq_ack;
+    assign lsu_retired_ack = lsu_retired_lq_ack | lsu_retired_sq_ack;
 
     // Check CDB inputs for matching tags and determine which entry can be marked as retirable
     // Also mux in address, data and redirect information from CDB
@@ -83,7 +87,7 @@ module procyon_rob_entry #(
     logic rob_entry_retirable;
 
     always_comb begin
-        rob_entry_redirect_mux = lsu_retired_ack ? i_lsu_retire_misspeculated : rob_entry_redirect_r;
+        rob_entry_redirect_mux = lsu_retired_lq_ack ? i_lsu_retire_misspeculated : rob_entry_redirect_r;
         rob_entry_retirable = 1'b0;
         rob_entry_data_mux = rob_entry_data_r;
         rob_entry_pc_mux = rob_entry_pc_r;
