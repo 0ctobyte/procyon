@@ -26,9 +26,9 @@ TESTS_RUN_SCRIPT := ../run-tests.py
 
 
 .PHONY: all sim clean
-all: $(TESTS_OUT) $(OBJ_DIR)/$(VDUT)
+all: $(OBJ_DIR)/$(VDUT) $(TESTS_OUT)
 
-sim: $(TESTS_OUT) $(OBJ_DIR)/$(VDUT)
+sim: $(OBJ_DIR)/$(VDUT) $(TESTS_OUT)
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 	$(TESTS_RUN_SCRIPT) --timeout 120 -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 

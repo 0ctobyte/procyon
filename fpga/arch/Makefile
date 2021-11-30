@@ -14,31 +14,44 @@ PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 # Directory where source files are located
 SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv boot_rom.sv procyon_arch_test.sv)
 
-RISCV_ARCH_TESTS := $(shell echo $(RISCV_ARCH_TESTS))
-
-ifndef PROG_DIR
-ifeq ($(RISCV_ARCH_TESTS),)
-    $(error RISCV_ARCH_TESTS not set)
-endif
-endif
+RISCV_ARCH_TESTS := ../../riscv-tests
 
 # Load code from hex file
-PROG_DIR = $(RISCV_ARCH_TESTS)
-PROG_FILE ?= rv32ui-px-add
-HEX_FILE := $(basename $(PROG_FILE)).hex
+TESTS_DIR := tests
+HEX_DIR := $(TESTS_DIR)/isa
+PROGRAM ?= rv32ui-px-add
+HEX_FILE := $(HEX_DIR)/$(PROGRAM).hex
 
+.PHONY: all program clean distclean
 all: $(HEX_FILE) $(PROJECT).sof
 
-$(HEX_FILE): $(PROG_DIR)/$(PROG_FILE)
-	./hexify-bin.py $< ./
-
-program: $(PROJECT).sof
+program: $(HEX_FILE) $(PROJECT).sof
 	$(QUARTUS_PGM) -m JTAG -o "P;$<"
+
+distclean: clean
+	rm -rf $(TESTS_DIR)
 
 clean:
 	-$(QUARTUS_SH) --clean $(PROJECT)
 	rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
 	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
+	-rm $(HEX_DIR)/*.hex
+
+$(HEX_FILE): $(HEX_DIR)
+	./hexify-bin.py -e ".dump" $(HEX_DIR) $(HEX_DIR)
+
+$(HEX_DIR): $(TESTS_DIR)/Makefile
+	$(MAKE) -C $(TESTS_DIR)
+
+$(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
+	mkdir -p $(TESTS_DIR)
+	cd $(TESTS_DIR) ; ../$(RISCV_ARCH_TESTS)/configure --prefix=$(shell pwd)/$(TESTS_DIR) ; cd ..
+
+$(RISCV_ARCH_TESTS)/configure:
+	git submodule update --init --recursive
+
+$(PROJECT).sof: $(PROJECT).tcl
+	$(QUARTUS_SH) --64bit -t $<
 
 $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "# Load Quartus Prime Tcl project package" >> $@
@@ -71,6 +84,3 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "execute_flow -compile" >> $@
 	echo "" >> $@
 	echo "project_close" >> $@
-
-$(PROJECT).sof: $(PROJECT).tcl
-	$(QUARTUS_SH) --64bit -t $<

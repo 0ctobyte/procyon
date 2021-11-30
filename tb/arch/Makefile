@@ -16,12 +16,24 @@ TESTS_DIR := tests
 TESTS_RUN_DIR := $(TESTS_DIR)/isa
 TESTS_RUN_SCRIPT := ../run-tests.py
 
-.PHONY: all sim clean distclean
+.PHONY: all sim distclean clean
 all: $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 
 sim: $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 	$(TESTS_RUN_SCRIPT) -i "32ui-px-" -e ".dump" $(OBJ_DIR)/$(VDUT) $(TESTS_RUN_DIR)
+
+distclean: clean
+	rm -rf $(TESTS_DIR)
+
+clean:
+	rm -rf $(OBJ_DIR) *.vcd
+
+$(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
+	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
+
+$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(DUT).sv
+	$(VERILATOR) -CFLAGS $(CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
 
 $(TESTS_RUN_DIR): $(TESTS_DIR)/Makefile
 	$(MAKE) -C $(TESTS_DIR)
@@ -32,15 +44,3 @@ $(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
 
 $(RISCV_ARCH_TESTS)/configure:
 	git submodule update --init --recursive
-
-$(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
-	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
-
-$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(DUT).sv
-	$(VERILATOR) -CFLAGS $(CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
-
-clean:
-	rm -rf $(OBJ_DIR) *.vcd
-
-distclean: clean
-	rm -rf $(TESTS_DIR)

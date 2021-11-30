@@ -1,0 +1,12 @@
+*.vcd
+obj_dir/
+tb/arch/tests/
+tb/lsu/tests/
+fpga/arch/tests/
+fpga/arch/db/
+fpga/arch/procyon_arch_test.flow.rpt
+fpga/arch/procyon_arch_test.map.rpt
+fpga/arch/procyon_arch_test.map.summary
+fpga/arch/procyon_arch_test.qpf
+fpga/arch/procyon_arch_test.qsf
+fpga/arch/procyon_arch_test.tcl
