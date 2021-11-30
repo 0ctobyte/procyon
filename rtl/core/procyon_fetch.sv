@@ -114,7 +114,7 @@ module procyon_fetch #(
         case (fetch_state_next)
             FETCH_STATE_NEXT_FETCH:  fetch_state_next = n_hit ? FETCH_STATE_IFQ_ENQUEUE : (insn_fifo_full ? FETCH_STATE_FIFO_STALL : FETCH_STATE_NEXT_FETCH);
             FETCH_STATE_IFQ_ENQUEUE: fetch_state_next = ~i_ifq_full ? FETCH_STATE_IFQ_STALL : FETCH_STATE_IFQ_ENQUEUE;
-            FETCH_STATE_IFQ_STALL:   fetch_state_next = i_ifq_fill_en ? FETCH_STATE_NEXT_FETCH : FETCH_STATE_IFQ_STALL;
+            FETCH_STATE_IFQ_STALL:   fetch_state_next = i_ifq_fill_en ? (insn_fifo_full ? FETCH_STATE_FIFO_STALL : FETCH_STATE_NEXT_FETCH) : FETCH_STATE_IFQ_STALL;
             FETCH_STATE_FIFO_STALL:  fetch_state_next = n_insn_fifo_full ? FETCH_STATE_NEXT_FETCH : FETCH_STATE_FIFO_STALL;
             default:                 fetch_state_next = FETCH_STATE_NEXT_FETCH;
         endcase
