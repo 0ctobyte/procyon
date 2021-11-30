@@ -3,11 +3,13 @@ MAKE := make
 
 RISCV_ARCH_TESTS := ../../riscv-tests
 
+IC_LINE_SIZE ?= 32
+
 OBJ_DIR := obj_dir
 DUT := dut
-CFLAGS := -I../../common
+CFLAGS := -CFLAGS -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
-VFLAGS := -Wall -Wno-fatal --trace --sc --exe
+VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
 VSRCS :=
 SRCS := sc_main.cpp ../common/utils.cpp
@@ -33,7 +35,7 @@ $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
 $(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(DUT).sv
-	$(VERILATOR) -CFLAGS $(CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
+	$(VERILATOR) $(CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
 
 $(TESTS_RUN_DIR): $(TESTS_DIR)/Makefile
 	$(MAKE) -C $(TESTS_DIR)

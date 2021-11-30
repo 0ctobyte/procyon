@@ -7,7 +7,7 @@
 #include "Vdut.h"
 #include "verilated_vcd_sc.h"
 
-#include "InstructionFetchQueue.h"
+#include "InstructionFetchQueueStub.h"
 #include "Sram.h"
 
 #define SRAM_DATA_WIDTH    (16)
@@ -67,7 +67,7 @@ int sc_main(int argc, char** argv) {
     sram.i_sram_ub_n(sram_ub_n);
     sram.i_sram_lb_n(sram_lb_n);
 
-    InstructionFetchQueue ifq("ifq");
+    InstructionFetchQueueStub<IC_LINE_SIZE> ifq("ifq");
     ifq.trace_all(tf, top_name);
     ifq.clk(clk);
     ifq.n_rst(n_rst);

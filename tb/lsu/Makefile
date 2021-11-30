@@ -6,14 +6,15 @@ OBJCOPY := riscv64-unknown-elf-objcopy
 OBJDUMP := riscv64-unknown-elf-objdump
 
 THREADS ?= 4
+IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
-SYSC_CFLAGS := -I../../common
+SYSC_CFLAGS := -CFLAGS -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 SYSC_SRCS := sc_main.cpp ../common/utils.cpp
 VSRCS :=
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
-VFLAGS := -Wall -Wno-fatal --trace --sc --exe
+VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
 LINK_FILE := link.ld
 CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)
@@ -39,7 +40,7 @@ $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
 $(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(DUT).sv
-	$(VERILATOR) --threads $(THREADS) -CFLAGS $(SYSC_CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SYSC_SRCS) --prefix $(VDUT)
+	$(VERILATOR) --threads $(THREADS) $(SYSC_CFLAGS) $(VINCLUDE) $(VSRCS) $(VFLAGS) $(DUT).sv $(SYSC_SRCS) --prefix $(VDUT)
 
 $(TESTS_DIR)/%: %.S
 	$(MKDIR) -p $(TESTS_DIR)

@@ -10,7 +10,7 @@
 `define WB_CTI_WIDTH 3
 `define WB_BTE_WIDTH 2
 
-module procyon_arch_test #(
+module procyon_sys_top #(
     parameter OPTN_DATA_WIDTH         = 32,
     parameter OPTN_INSN_WIDTH         = 32,
     parameter OPTN_ADDR_WIDTH         = 32,
@@ -162,12 +162,12 @@ module procyon_arch_test #(
         .o_pulse(key_pulse)
     );
 
-    fake_ifq #(
+    ifq_stub #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
         .OPTN_HEX_FILE(OPTN_HEX_FILE),
         .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
-    ) fake_ifq_inst (
+    ) ifq_stub_inst (
         .clk(clk),
         .i_alloc_en(ifq_alloc_en),
         .i_alloc_addr(ifq_alloc_addr),

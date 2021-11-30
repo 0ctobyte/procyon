@@ -23,17 +23,16 @@ if os.path.isdir(args.dir):
     if args.include != None:
         rv_programs = [test for test in rv_programs for include in args.include if include in test]
     if args.exclude != None:
-        rv_programs = [test for test in rv_programs for exclude in args.exclude if exclude not in test]
+        excluded_programs = [test for test in rv_programs for exclude in args.exclude if exclude in test]
+        rv_programs = list(set(rv_programs) - set(excluded_programs))
     rv_programs = [args.dir + "/" + program for program in rv_programs]
 else:
     rv_programs = [args.dir]
 
+print(rv_programs)
 for program in rv_programs:
     filename, ext = os.path.splitext(os.path.basename(program))
     print("Convert " + program, end=" -> ")
-
-    if ext == ".hex":
-        continue
 
     # Convert to binary
     bin_file = tempfile.gettempdir() + "/" + filename + ".bin"

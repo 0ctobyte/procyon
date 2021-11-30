@@ -23,7 +23,8 @@ if args.include != None:
     test_list = [test for test in test_list for include in args.include if include in test]
 
 if args.exclude != None:
-    test_list = [test for test in test_list for exclude in args.exclude if exclude not in test]
+    excluded_list = [test for test in test_list for exclude in args.exclude if exclude in test]
+    test_list = list(set(test_list) - set(excluded_list))
 
 test_passes = 0
 

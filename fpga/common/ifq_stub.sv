@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-module fake_ifq #(
+module ifq_stub #(
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_IC_LINE_SIZE = 32,
     parameter OPTN_HEX_FILE     = "",
