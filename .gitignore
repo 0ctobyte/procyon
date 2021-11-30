@@ -11,3 +11,14 @@ fpga/arch/*.map.summary
 fpga/arch/*.qpf
 fpga/arch/*.qsf
 fpga/arch/*.tcl
+fpga/arch/*.asm.rpt
+fpga/arch/*.done
+fpga/arch/*.fit.rpt
+fpga/arch/*.fit.smsg
+fpga/arch/*.fit.summary
+fpga/arch/*.jdi
+fpga/arch/*.pin
+fpga/arch/*.sld
+fpga/arch/*.sof
+fpga/arch/*.sta.rpt
+fpga/arch/*.sta.summary

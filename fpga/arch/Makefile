@@ -29,7 +29,7 @@ IC_LINE_SIZE ?= 32
 all: $(HEX_FILE) $(PROJECT).sof
 
 program: $(HEX_FILE) $(PROJECT).sof
-	$(QUARTUS_PGM) -m JTAG -o "P;$<"
+	$(QUARTUS_PGM) -m JTAG -o "P;$(word 2, $^)"
 
 distclean: clean
 	rm -rf $(TESTS_DIR)
