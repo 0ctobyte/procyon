@@ -150,13 +150,14 @@ module procyon_sys_top #(
 
     logic [1:0] key;
     logic [1:0] key_pulse;
+    logic rst_sync;
     logic [6:0] o_hex [0:7];
 
-    assign n_rst = SW[17];
+    assign n_rst = rst_sync;
     assign wb_rst = ~n_rst;
 
     assign key = ~KEY;
-    assign LEDR[17] = SW[17];
+    assign LEDR[17] = rst_sync;
     assign LEDR[16] = rob_redirect_q;
     assign LEDR[15:0] = rob_redirect_addr_q[15:0];
     assign LEDG = rat_retire_rdst_q;
@@ -190,6 +191,8 @@ module procyon_sys_top #(
             endcase
         end
     end
+
+    procyon_sync #(.OPTN_DATA_WIDTH(1), .OPTN_SYNC_DEPTH(2)) rst_sync_sync (.clk(CLOCK_50), .n_rst(1'b1), .i_async_data(SW[17]), .o_sync_data(rst_sync));
 
     genvar inst;
     generate
