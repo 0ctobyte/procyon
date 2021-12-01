@@ -13,6 +13,7 @@ module ifq_stub #(
     parameter IC_LINE_WIDTH     = OPTN_IC_LINE_SIZE * 8
 )(
     input  logic                            clk,
+    input  logic                            n_rst,
 
     output logic                            o_full,
 
@@ -35,7 +36,11 @@ module ifq_stub #(
     assign cacheline = memory[addr];
 
     always_ff @(posedge clk) begin
-        o_fill_en <= i_alloc_en;
+        if (~n_rst) o_fill_en <= '0;
+        else        o_fill_en <= i_alloc_en;
+    end
+
+    always_ff @(posedge clk) begin
         o_fill_addr <= {i_alloc_addr[OPTN_ADDR_WIDTH-1:IC_OFFSET_WIDTH], {(IC_OFFSET_WIDTH){1'b0}}};
         o_fill_data <= cacheline;
     end

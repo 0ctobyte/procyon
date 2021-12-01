@@ -77,7 +77,7 @@ void InstructionFetchQueueStub<ic_line_size>::process() {
 
     sc_bv<IC_LINE_WIDTH> cacheline(bytes.to_string().c_str());
 
-    o_fill_en.write(i_alloc_en);
+    o_fill_en.write(n_rst ? i_alloc_en : 0);
     o_fill_addr.write(insn_num);
     o_fill_data.write(cacheline);
 }

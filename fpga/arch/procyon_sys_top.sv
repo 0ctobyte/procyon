@@ -153,7 +153,7 @@ module procyon_sys_top #(
     logic [6:0] o_hex [0:7];
 
     assign n_rst = SW[17];
-    assign wb_rst = n_rst;
+    assign wb_rst = ~n_rst;
 
     assign key = ~KEY;
     assign LEDR[17] = SW[17];
@@ -217,6 +217,7 @@ module procyon_sys_top #(
         .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
     ) ifq_stub_inst (
         .clk(clk),
+        .n_rst(n_rst),
         .i_alloc_en(ifq_alloc_en),
         .i_alloc_addr(ifq_alloc_addr),
         .o_full(ifq_full),

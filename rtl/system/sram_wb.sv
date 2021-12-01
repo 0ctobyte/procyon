@@ -119,7 +119,7 @@ module sram_wb #(
 
     // Increment index to get next word from the WB bus on the next cycle for unaligned accesses
     logic [GATHER_COUNT_WIDTH:0] wb_gather_idx;
-    assign wb_gather_idx = (wb_sram_state_r == SRAM_STATE_UNALIGNED && ~i_wb_we) || (wb_sram_state_r == SRAM_STATE_WRITE_ACK && unaligned) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
+    assign wb_gather_idx = (wb_sram_state_r == SRAM_STATE_UNALIGNED & ~i_wb_we) | (wb_sram_state_r == SRAM_STATE_WRITE_ACK & unaligned) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
 
     // Qualify the write enable with a valid bus cycle. Slice the select and data signals depending on which portion of the data is currently being gathered
     logic wb_en;
@@ -129,8 +129,8 @@ module sram_wb #(
     logic [`SRAM_ADDR_WIDTH-1:0] wb_addr;
     logic [`SRAM_DATA_WIDTH-1:0] wb_data_i;
 
-    assign wb_en = i_wb_cyc && i_wb_stb;
-    assign wb_we = wb_en && i_wb_we;
+    assign wb_en = i_wb_cyc & i_wb_stb & n_wb_rst;
+    assign wb_we = wb_en & i_wb_we;
     assign wb_cti_eob = i_wb_cti == `WB_CTI_END_OF_BURST;
     assign wb_sel = wb_sel_ua[wb_gather_idx*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
     assign wb_addr = i_wb_addr[`SRAM_ADDR_WIDTH:1];
@@ -243,7 +243,7 @@ module sram_wb #(
 
     // Output ack to WB bus
     logic wb_ack;
-    assign wb_ack = (wb_sram_state_next == SRAM_STATE_READ_ACK) || (wb_sram_state_next == SRAM_STATE_WRITE_ACK);
+    assign wb_ack = (wb_sram_state_next == SRAM_STATE_READ_ACK) | (wb_sram_state_next == SRAM_STATE_WRITE_ACK);
     procyon_srff #(1) o_wb_ack_srff (.clk(i_wb_clk), .n_rst(n_wb_rst), .i_en(1'b1), .i_set(wb_ack), .i_reset(1'b0), .o_q(o_wb_ack));
 
     // Internal storage for SRAM outputs while gathering data over multiple cycles
