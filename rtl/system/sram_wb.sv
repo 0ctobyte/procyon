@@ -61,31 +61,31 @@ module sram_wb #(
     parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     // Wishbone Interface
-    input  logic                           i_wb_clk,
-    input  logic                           i_wb_rst,
-    input  logic                           i_wb_cyc,
-    input  logic                           i_wb_stb,
-    input  logic                           i_wb_we,
-    input  logic [`WB_CTI_WIDTH-1:0]       i_wb_cti,
+    input       logic                            i_wb_clk,
+    input       logic                            i_wb_rst,
+    input       logic                            i_wb_cyc,
+    input       logic                            i_wb_stb,
+    input       logic                            i_wb_we,
+    input       logic [`WB_CTI_WIDTH-1:0]        i_wb_cti,
 /* verilator lint_off UNUSED */
-    input  logic [`WB_BTE_WIDTH-1:0]       i_wb_bte,
+    input       logic [`WB_BTE_WIDTH-1:0]        i_wb_bte,
 /* verilator lint_on  UNUSED */
-    input  logic [WB_DATA_SIZE-1:0]        i_wb_sel,
+    input       logic [WB_DATA_SIZE-1:0]         i_wb_sel,
 /* verilator lint_off UNUSED */
-    input  logic [OPTN_WB_ADDR_WIDTH-1:0]  i_wb_addr,
+    input       logic [OPTN_WB_ADDR_WIDTH-1:0]   i_wb_addr,
 /* verilator lint_on  UNUSED */
-    input  logic [OPTN_WB_DATA_WIDTH-1:0]  i_wb_data,
-    output logic [OPTN_WB_DATA_WIDTH-1:0]  o_wb_data,
-    output logic                           o_wb_ack,
+    input       logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
+    output      logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data,
+    output      logic                            o_wb_ack,
 
     // SRAM interface
-    output logic                           o_sram_ce_n,
-    output logic                           o_sram_oe_n,
-    output logic                           o_sram_we_n,
-    output logic                           o_sram_lb_n,
-    output logic                           o_sram_ub_n,
-    output logic [`SRAM_ADDR_WIDTH-1:0]    o_sram_addr,
-    inout  wire  [`SRAM_DATA_WIDTH-1:0]    io_sram_dq
+    output      logic                            o_sram_ce_n,
+    output      logic                            o_sram_oe_n,
+    output      logic                            o_sram_we_n,
+    output      logic                            o_sram_lb_n,
+    output      logic                            o_sram_ub_n,
+    output      logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
+    inout  wire logic [`SRAM_DATA_WIDTH-1:0]     io_sram_dq
 );
 
     localparam GATHER_COUNT	           = OPTN_WB_DATA_WIDTH / `SRAM_DATA_WIDTH;

@@ -26,10 +26,10 @@ HEXIFY_SCRIPT := ../hexify-bin.py
 IC_LINE_SIZE ?= 32
 
 .PHONY: all program clean distclean
-all: $(HEX_FILE) $(PROJECT).sof
+all: $(PROJECT).sof
 
-program: $(HEX_FILE) $(PROJECT).sof
-	$(QUARTUS_PGM) -m JTAG -o "P;$(word 2, $^)"
+program: $(PROJECT).sof
+	$(QUARTUS_PGM) -m JTAG -o "P;$<"
 
 distclean: clean
 	rm -rf $(TESTS_DIR)
@@ -40,24 +40,11 @@ clean:
 	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
 	-rm $(HEX_DIR)/*.hex
 
-$(HEX_FILE): $(HEX_DIR)
-	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $(HEX_DIR) $(HEX_DIR)
-
-$(HEX_DIR): $(TESTS_DIR)/Makefile
-	$(MAKE) -C $(TESTS_DIR)
-
-$(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
-	mkdir -p $(TESTS_DIR)
-	cd $(TESTS_DIR) ; ../$(RISCV_ARCH_TESTS)/configure --prefix=$(shell pwd)/$(TESTS_DIR) ; cd ..
-
-$(RISCV_ARCH_TESTS)/configure:
-	git submodule update --init --recursive
-
 $(PROJECT).sof: $(PROJECT).tcl
 	$(QUARTUS_SH) --64bit -t $<
 
-$(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
-	echo "# Load Quartus Prime Tcl project package" >> $@
+$(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(SRCS) $(HEX_FILE)
+	echo "# Load Quartus Prime Tcl project package" > $@
 	echo "package require ::quartus::project" >> $@
 	echo "" >> $@
 	echo "# Load flow package" >> $@
@@ -78,7 +65,7 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "" >> $@
 	echo "# Set HEX_FILE parameter for top-level entity" >> $@
 	echo "set_parameter -name OPTN_HEX_FILE \"$(HEX_FILE)\"" >> $@
-	echo "set_parameter -name OPTN_HEX_SIZE $(shell wc -l < $(HEX_FILE) | xargs expr 1 +)" >> $@
+	echo "set_parameter -name OPTN_HEX_SIZE $(shell wc -l < $(HEX_FILE))" >> $@
 	echo "set_parameter -name OPTN_IC_LINE_SIZE \"$(IC_LINE_SIZE)\"" >> $@
 	echo "" >> $@
 	echo "# Set pin assignments" >> $@
@@ -88,3 +75,16 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE)
 	echo "execute_flow -compile" >> $@
 	echo "" >> $@
 	echo "project_close" >> $@
+
+$(HEX_FILE): $(HEX_DIR)/$(PROGRAM)
+	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $(HEX_DIR) $(HEX_DIR)
+
+$(HEX_DIR)/$(PROGRAM): $(TESTS_DIR)/Makefile
+	$(MAKE) -C $(TESTS_DIR)
+
+$(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
+	mkdir -p $(TESTS_DIR)
+	cd $(TESTS_DIR) ; ../$(RISCV_ARCH_TESTS)/configure --prefix=$(shell pwd)/$(TESTS_DIR) ; cd ..
+
+$(RISCV_ARCH_TESTS)/configure:
+	git submodule update --init --recursive

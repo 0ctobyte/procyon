@@ -22,3 +22,4 @@ fpga/arch/*.sld
 fpga/arch/*.sof
 fpga/arch/*.sta.rpt
 fpga/arch/*.sta.summary
+fpga/arch/*.smsg

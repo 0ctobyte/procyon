@@ -53,4 +53,6 @@ for program in rv_programs:
             aligned_l = (l + (args.hexwidth - 1)) & ~(args.hexwidth - 1)
             aligned_b = b + bytes((aligned_l - l) * [0])
 
-            d.write(aligned_b.hex(sep='\n', bytes_per_sep=args.hexwidth))
+            hex_string = aligned_b.hex(sep='\n', bytes_per_sep=args.hexwidth)
+            for line in hex_string.splitlines():
+                d.write("".join(reversed([line[i:i+2] for i in range(0, len(line), 2)])) + "\n")

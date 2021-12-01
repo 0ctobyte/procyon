@@ -36,7 +36,7 @@ module ifq_stub #(
 
     always_ff @(posedge clk) begin
         o_fill_en <= i_alloc_en;
-        o_fill_addr <= addr;
+        o_fill_addr <= {i_alloc_addr[OPTN_ADDR_WIDTH-1:IC_OFFSET_WIDTH], {(IC_OFFSET_WIDTH){1'b0}}};
         o_fill_data <= cacheline;
     end
 
