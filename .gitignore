@@ -3,6 +3,7 @@ obj_dir/
 tb/arch/tests/
 tb/lsu/tests/
 fpga/arch/tests/
+fpga/arch/hex/
 fpga/arch/db/
 fpga/arch/incremental_db/
 fpga/arch/*.flow.rpt

@@ -18,12 +18,24 @@ RISCV_ARCH_TESTS := ../../riscv-tests
 
 # Load code from hex file
 TESTS_DIR := tests
-HEX_DIR := $(TESTS_DIR)/isa
+TESTS_ISA_DIR := tests/isa
+HEX_DIR := hex
 PROGRAM ?= rv32ui-px-add
 HEX_FILE := $(HEX_DIR)/$(PROGRAM).hex
 HEXIFY_SCRIPT := ../hexify-bin.py
 
 IC_LINE_SIZE ?= 32
+
+# Check if the tcl file contains the right hex file in case the HEX_FILE variable has been updated via a make call
+# specifying a new PROGRAM. The touch command will force make to re-write the tcl file and re-build the FPGA bitstream
+# using the new hex file
+ifneq ("$(wildcard $(PROJECT).tcl)", "")
+    ifneq ("$(wildcard $(HEX_FILE))", "")
+        ifeq ("$(shell grep $(HEX_FILE) $(PROJECT).tcl)", "")
+            $(shell touch $(HEX_FILE))
+        endif
+    endif
+endif
 
 .PHONY: all program clean distclean
 all: $(PROJECT).sof
@@ -32,13 +44,13 @@ program: $(PROJECT).sof
 	$(QUARTUS_PGM) -m JTAG -o "P;$<"
 
 distclean: clean
-	rm -rf $(TESTS_DIR)
+	-rm -rf $(TESTS_DIR)
 
 clean:
 	-$(QUARTUS_SH) --clean $(PROJECT)
-	rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
-	rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
-	-rm $(HEX_DIR)/*.hex
+	-rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
+	-rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
+	-rm -rf $(HEX_DIR)
 
 $(PROJECT).sof: $(PROJECT).tcl
 	$(QUARTUS_SH) --64bit -t $<
@@ -76,10 +88,11 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(SRCS) $(HEX_FILE)
 	echo "" >> $@
 	echo "project_close" >> $@
 
-$(HEX_FILE): $(HEX_DIR)/$(PROGRAM)
-	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $(HEX_DIR) $(HEX_DIR)
+$(HEX_FILE): $(TESTS_ISA_DIR)/$(PROGRAM)
+	mkdir -p $(HEX_DIR)
+	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $< $(HEX_DIR)
 
-$(HEX_DIR)/$(PROGRAM): $(TESTS_DIR)/Makefile
+$(TESTS_ISA_DIR)/$(PROGRAM): $(TESTS_DIR)/Makefile
 	$(MAKE) -C $(TESTS_DIR)
 
 $(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
