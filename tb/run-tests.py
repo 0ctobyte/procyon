@@ -31,6 +31,8 @@ if os.path.isdir(args.tests_dir):
 else:
     test_list = [os.path.basename(args.tests_dir)]
 
+test_list = sorted(test_list)
+
 test_passes = 0
 
 print("RUNNING TESTS", end="", flush=True)
