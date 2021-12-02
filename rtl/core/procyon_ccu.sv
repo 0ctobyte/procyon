@@ -179,12 +179,12 @@ module procyon_ccu #(
         .o_biu_data(biu_data_w)
     );
 
-    procyon_biu_wb #(
+    procyon_biu_controller_wb #(
         .OPTN_BIU_DATA_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
-    ) procyon_biu_wb_inst (
+    ) procyon_biu_controller_wb_inst (
         .i_biu_en(biu_en),
         .i_biu_func(biu_func),
         .i_biu_len(biu_len),

@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-// Wishbone Bus Interface Unit
-// This module is the interface to the Wishbone Bus
-// All transactions from the CPU will go through here
+// Wishbone Bus Interface Unit Controller
+// This module is the interface to the Wishbone Bus. It can send read/write requests but does not receive requests.
 
 // WISHBONE DATASHEET
-// Description:                     RISC-V processor core master interface to a shared wishbone bus
+// Description:                     Wishbone interface controller
 // Wishbone rev:                    B4
 // Supported Cycles:                Register feedback burst read/write, Read-Modify-Write
 // CTI support:                     Classic, Incrementing Burst, End of Burst
@@ -34,7 +33,9 @@
 // o_wb_addr  -> ADR_O()
 // o_wb_data  -> DAT_O()
 
-module procyon_biu_wb #(
+`include "procyon_biu_wb_constants.svh"
+
+module procyon_biu_controller_wb #(
     parameter OPTN_BIU_DATA_SIZE = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
