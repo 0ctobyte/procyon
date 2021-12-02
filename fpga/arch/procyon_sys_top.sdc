@@ -1,5 +1,6 @@
 create_clock -period 20 CLOCK_50
 create_clock -period 20 -name ext_clk
+derive_clocks -period 20
 derive_clock_uncertainty
 
 set_input_delay -clock ext_clk -max 0 [get_ports {SW[*]}]

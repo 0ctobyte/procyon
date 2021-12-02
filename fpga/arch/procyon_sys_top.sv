@@ -110,6 +110,11 @@ module procyon_sys_top #(
     logic test_finished;
     assign test_finished = (sim_tp == 'h4a33) | (sim_tp == 'hfae1);
 
+    logic test_finished_q;
+    always_ff @(posedge CLOCK_50) begin
+        test_finished_q <= test_finished;
+    end
+
     logic rob_redirect_q;
     logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr_q;
     logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst_q;
@@ -170,12 +175,12 @@ module procyon_sys_top #(
     assign HEX6 = o_hex[6];
     assign HEX7 = o_hex[7];
 
-    always_comb begin
+    always_ff @(posedge CLOCK_50) begin
         case (state)
-            TEST_STATE_RUN:  clk = CLOCK_50;
-            TEST_STATE_STEP: clk = CLOCK_50;
-            TEST_STATE_HALT: clk = 1'b0;
-            TEST_STATE_DONE: clk = 1'b0;
+            TEST_STATE_RUN:  clk <= ~clk;
+            TEST_STATE_STEP: clk <= ~clk;
+            TEST_STATE_HALT: clk <= 1'b0;
+            TEST_STATE_DONE: clk <= 1'b0;
         endcase
     end
 
@@ -184,7 +189,7 @@ module procyon_sys_top #(
             state <= TEST_STATE_STEP;
         end else begin
             case (state)
-                TEST_STATE_RUN:  state <= test_finished ? TEST_STATE_DONE : (key_pulse[1] ? TEST_STATE_STEP : TEST_STATE_RUN);
+                TEST_STATE_RUN:  state <= test_finished_q ? TEST_STATE_DONE : (key_pulse[1] ? TEST_STATE_STEP : TEST_STATE_RUN);
                 TEST_STATE_STEP: state <= rat_retire_en ? TEST_STATE_HALT : TEST_STATE_STEP;
                 TEST_STATE_HALT: state <= key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_HALT);
                 TEST_STATE_DONE: state <= key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_DONE);
