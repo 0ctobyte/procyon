@@ -28,7 +28,7 @@ SC_MODULE(Sram) {
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
     void load_hex(const std::string& filename);
     void load_bin(const std::string& filename);
-    void dump_mem();
+    void dump_mem(procyon::utils::dump_format_t group_fmt = procyon::utils::DUMP_FORMAT_4B, procyon::utils::dump_format_t line_fmt = procyon::utils::DUMP_FORMAT_16B);
 
     ~Sram();
 
@@ -84,6 +84,6 @@ void Sram<sram_size>::load_bin(const std::string& filename) {
 }
 
 template <int sram_size>
-void Sram<sram_size>::dump_mem() {
-    procyon::utils::dump_mem((uint8_t*)m_sram, sram_size);
+void Sram<sram_size>::dump_mem(procyon::utils::dump_format_t group_fmt, procyon::utils::dump_format_t line_fmt) {
+    procyon::utils::dump_mem((uint8_t*)m_sram, sram_size, group_fmt, line_fmt);
 }

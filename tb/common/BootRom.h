@@ -26,7 +26,7 @@ SC_MODULE(BootRom) {
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
     void load_hex(const std::string& filename);
     void load_bin(const std::string& filename);
-    void dump_mem();
+    void dump_mem(procyon::utils::dump_format_t group_fmt = procyon::utils::DUMP_FORMAT_4B, procyon::utils::dump_format_t line_fmt = procyon::utils::DUMP_FORMAT_16B);
 
     ~BootRom();
 
@@ -67,6 +67,6 @@ void BootRom::load_bin(const std::string& filename) {
     procyon::utils::load_bin(filename, m_bootrom);
 }
 
-void BootRom::dump_mem() {
-    procyon::utils::dump_mem(m_bootrom);
+void BootRom::dump_mem(procyon::utils::dump_format_t group_fmt, procyon::utils::dump_format_t line_fmt) {
+    procyon::utils::dump_mem(m_bootrom, group_fmt, line_fmt);
 }

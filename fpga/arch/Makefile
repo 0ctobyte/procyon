@@ -11,8 +11,8 @@ FAMILY := "Cyclone IV E"
 DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 
-# Directory where source files are located
-SRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv ../common/*.sv procyon_sys_top.sv)
+VERILATOR = verilator
+MAKE := make
 
 RISCV_ARCH_TESTS := ../../riscv-tests
 
@@ -25,6 +25,15 @@ HEX_FILE := $(HEX_DIR)/$(PROGRAM).hex
 HEXIFY_SCRIPT := ../hexify-bin.py
 
 IC_LINE_SIZE ?= 32
+
+OBJ_DIR := obj_dir
+DUT := dut
+CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
+VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe
+VDUT := V$(DUT)
+VSRCS := $(wildcard ../../rtl/lib/*.sv ../../rtl/system/*.sv ../../rtl/core/*.sv ../common/*.sv procyon_sys_top.sv)
+SRCS := sc_main.cpp ../../tb/common/utils.cpp
 
 # Check if the tcl file contains the right hex file in case the HEX_FILE variable has been updated via a make call
 # specifying a new PROGRAM. The touch command will force make to re-write the tcl file and re-build the FPGA bitstream
@@ -40,6 +49,10 @@ endif
 .PHONY: all program clean distclean
 all: $(PROJECT).sof
 
+sim: $(HEX_FILE) $(OBJ_DIR)/$(VDUT)
+	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
+	$(OBJ_DIR)/$(VDUT)
+
 program: $(PROJECT).sof
 	$(QUARTUS_PGM) -m JTAG -o "P;$<"
 
@@ -51,11 +64,12 @@ clean:
 	-rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
 	-rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
 	-rm -rf $(HEX_DIR)
+	-rm -rf $(OBJ_DIR) *.vcd
 
 $(PROJECT).sof: $(PROJECT).tcl
 	$(QUARTUS_SH) --64bit -t $<
 
-$(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(SRCS) $(HEX_FILE)
+$(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(VSRCS) $(HEX_FILE)
 	echo "# Load Quartus Prime Tcl project package" > $@
 	echo "package require ::quartus::project" >> $@
 	echo "" >> $@
@@ -66,7 +80,7 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(SRCS) $(HEX_FILE)
 	echo "project_new $(PROJECT) -revision $(PROJECT) -overwrite" >> $@
 	echo "" >> $@
 	echo "# Set project user libraries" >> $@
-	$(foreach SRC,$(SRCS),echo "set_global_assignment -name SYSTEMVERILOG_FILE $(SRC)" >> $@;)
+	$(foreach VSRC,$(VSRCS),echo "set_global_assignment -name SYSTEMVERILOG_FILE $(VSRC)" >> $@;)
 	echo "" >> $@
 	echo "# Set global assignments" >> $@
 	echo "set_global_assignment -name FAMILY \"$(FAMILY)\"" >> $@
@@ -101,3 +115,9 @@ $(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
 
 $(RISCV_ARCH_TESTS)/configure:
 	git submodule update --init --recursive
+
+$(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
+	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
+
+$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT).sv
+	$(VERILATOR) $(CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)

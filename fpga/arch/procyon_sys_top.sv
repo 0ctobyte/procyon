@@ -42,7 +42,7 @@ module procyon_sys_top #(
     input       logic [1:0]                  KEY,
 
     output      logic [17:0]                 LEDR,
-    output      logic [7:0]                  LEDG,
+    output      logic [4:0]                  LEDG,
 
     inout  wire logic [`SRAM_DATA_WIDTH-1:0] SRAM_DQ,
     output      logic [`SRAM_ADDR_WIDTH-1:0] SRAM_ADDR,
@@ -65,6 +65,7 @@ module procyon_sys_top #(
     localparam IC_LINE_WIDTH    = OPTN_IC_LINE_SIZE * 8;
     localparam RAT_IDX_WIDTH    = $clog2(OPTN_RAT_DEPTH);
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
+    localparam ROM_ADDR_WIDTH   = OPTN_HEX_SIZE == 1 ? 1 : $clog2(OPTN_HEX_SIZE);
     localparam TEST_STATE_WIDTH = 2;
     localparam TEST_STATE_RUN   = 2'b00;
     localparam TEST_STATE_STEP  = 2'b01;
@@ -106,6 +107,23 @@ module procyon_sys_top #(
     logic [WB_DATA_SIZE-1:0] wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
+    logic boot_wb_cyc;
+    logic boot_wb_stb;
+    logic boot_wb_we;
+    logic [`WB_CTI_WIDTH-1:0] boot_wb_cti;
+    logic [`WB_BTE_WIDTH-1:0] boot_wb_bte;
+    logic [WB_DATA_SIZE-1:0] boot_wb_sel;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] boot_wb_addr;
+    logic [OPTN_WB_DATA_WIDTH-1:0] boot_wb_data_o;
+    logic core_wb_cyc;
+    logic core_wb_stb;
+    logic core_wb_we;
+    logic [`WB_CTI_WIDTH-1:0] core_wb_cti;
+    logic [`WB_BTE_WIDTH-1:0] core_wb_bte;
+    logic [WB_DATA_SIZE-1:0] core_wb_sel;
+    logic [OPTN_WB_ADDR_WIDTH-1:0] core_wb_addr;
+    logic [OPTN_WB_DATA_WIDTH-1:0] core_wb_data_o;
+
 
     logic test_finished;
     assign test_finished = (sim_tp == 'h4a33) | (sim_tp == 'hfae1);
@@ -218,14 +236,55 @@ module procyon_sys_top #(
         end
     endgenerate
 
+    logic boot_ctrl_done;
+    logic [IC_LINE_WIDTH-1:0] rom_data;
+    logic [ROM_ADDR_WIDTH-1:0] rom_addr;
+    logic [ROM_ADDR_WIDTH-1:0] core_rom_addr;
+    logic [ROM_ADDR_WIDTH-1:0] boot_rom_addr;
+
+    assign rom_addr = boot_ctrl_done ? core_rom_addr : boot_rom_addr;
+
+    procyon_rom #(
+        .OPTN_DATA_WIDTH(IC_LINE_WIDTH),
+        .OPTN_ROM_DEPTH(OPTN_HEX_SIZE),
+        .OPTN_ROM_FILE(OPTN_HEX_FILE)
+    ) boot_rom_inst (
+        .i_rom_addr(rom_addr),
+        .o_rom_data(rom_data)
+    );
+
+    boot_ctrl #(
+        .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
+        .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
+        .OPTN_HEX_SIZE(OPTN_HEX_SIZE),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE)
+    ) boot_ctrl_inst (
+        .i_wb_clk(clk),
+        .i_wb_rst(wb_rst),
+        .i_wb_ack(wb_ack),
+        .i_wb_data(wb_data_i),
+        .o_wb_cyc(boot_wb_cyc),
+        .o_wb_stb(boot_wb_stb),
+        .o_wb_we(boot_wb_we),
+        .o_wb_cti(boot_wb_cti),
+        .o_wb_bte(boot_wb_bte),
+        .o_wb_sel(boot_wb_sel),
+        .o_wb_addr(boot_wb_addr),
+        .o_wb_data(boot_wb_data_o),
+        .i_rom_data(rom_data),
+        .o_rom_addr(boot_rom_addr),
+        .o_boot_ctrl_done(boot_ctrl_done)
+    );
+
     ifq_stub #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
-        .OPTN_HEX_FILE(OPTN_HEX_FILE),
         .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
     ) ifq_stub_inst (
         .clk(clk),
-        .n_rst(n_rst),
+        .n_rst(boot_ctrl_done),
+        .i_rom_data(rom_data),
+        .o_rom_addr(core_rom_addr),
         .i_alloc_en(ifq_alloc_en),
         .i_alloc_addr(ifq_alloc_addr),
         .o_full(ifq_full),
@@ -258,7 +317,7 @@ module procyon_sys_top #(
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)
     ) procyon_inst (
         .clk(clk),
-        .n_rst(n_rst),
+        .n_rst(boot_ctrl_done),
         .o_sim_tp(sim_tp),
         .o_rob_redirect(rob_redirect),
         .o_rob_redirect_addr(rob_redirect_addr),
@@ -275,15 +334,25 @@ module procyon_sys_top #(
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),
         .i_wb_data(wb_data_i),
-        .o_wb_cyc(wb_cyc),
-        .o_wb_stb(wb_stb),
-        .o_wb_we(wb_we),
-        .o_wb_cti(wb_cti),
-        .o_wb_bte(wb_bte),
-        .o_wb_sel(wb_sel),
-        .o_wb_addr(wb_addr),
-        .o_wb_data(wb_data_o)
+        .o_wb_cyc(core_wb_cyc),
+        .o_wb_stb(core_wb_stb),
+        .o_wb_we(core_wb_we),
+        .o_wb_cti(core_wb_cti),
+        .o_wb_bte(core_wb_bte),
+        .o_wb_sel(core_wb_sel),
+        .o_wb_addr(core_wb_addr),
+        .o_wb_data(core_wb_data_o)
     );
+
+    // Wishbone bus mux
+    assign wb_cyc = boot_ctrl_done ? core_wb_cyc : boot_wb_cyc;
+    assign wb_stb = boot_ctrl_done ? core_wb_stb : boot_wb_stb;
+    assign wb_we = boot_ctrl_done ? core_wb_we : boot_wb_we;
+    assign wb_cti = boot_ctrl_done ? core_wb_cti : boot_wb_cti;
+    assign wb_bte = boot_ctrl_done ? core_wb_bte : boot_wb_bte;
+    assign wb_sel = boot_ctrl_done ? core_wb_sel : boot_wb_sel;
+    assign wb_addr = boot_ctrl_done ? core_wb_addr : boot_wb_addr;
+    assign wb_data_o = boot_ctrl_done ? core_wb_data_o : boot_wb_data_o;
 
     sram_wb #(
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),

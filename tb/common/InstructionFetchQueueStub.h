@@ -34,7 +34,7 @@ SC_MODULE(InstructionFetchQueueStub) {
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
     void load_hex(const std::string& filename);
     void load_bin(const std::string& filename);
-    void dump_mem();
+    void dump_mem(procyon::utils::dump_format_t group_fmt = procyon::utils::DUMP_FORMAT_4B, procyon::utils::dump_format_t line_fmt = procyon::utils::DUMP_FORMAT_16B);
 
     ~InstructionFetchQueueStub();
 
@@ -93,6 +93,6 @@ void InstructionFetchQueueStub<ic_line_size>::load_bin(const std::string& filena
 }
 
 template <int ic_line_size>
-void InstructionFetchQueueStub<ic_line_size>::dump_mem() {
-    procyon::utils::dump_mem(m_rom);
+void InstructionFetchQueueStub<ic_line_size>::dump_mem(procyon::utils::dump_format_t group_fmt, procyon::utils::dump_format_t line_fmt) {
+    procyon::utils::dump_mem(m_rom, group_fmt, line_fmt);
 }
