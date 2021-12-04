@@ -63,7 +63,7 @@ for test in test_list:
         continue
 
     t1 = timeit.default_timer()
-    if result.returncode != 0:
+    if result.returncode == 0:
         test_result += ["PASS"]
         test_passes = test_passes + 1
     else:

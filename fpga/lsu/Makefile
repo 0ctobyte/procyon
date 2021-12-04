@@ -11,29 +11,36 @@ FAMILY := "Cyclone IV E"
 DEVICE := EP4CE115F29C7
 PIN_ASSIGNMENTS_FILE := ../common/de2-115.pin.tcl
 
+CC := riscv64-unknown-elf-gcc
 VERILATOR = verilator
 MAKE := make
-
-RISCV_ARCH_TESTS := ../../riscv-tests
+MKDIR := mkdir
+OBJCOPY := riscv64-unknown-elf-objcopy
+OBJDUMP := riscv64-unknown-elf-objdump
 
 # Load code from hex file
 TESTS_DIR := tests
-TESTS_ISA_DIR := tests/isa
 HEX_DIR := hex
-PROGRAM ?= rv32ui-px-add
+PROGRAM ?= fill4_move4skip32_compare4skip32
 HEX_FILE := $(HEX_DIR)/$(PROGRAM).hex
 HEXIFY_SCRIPT := ../hexify-bin.py
 
+THREADS ?= 4
 IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
-CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+SYSC_CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+SYSC_SRCS := sc_main.cpp ../../tb/common/utils.cpp
+VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv procyon_sys_top.sv)
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
-VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv procyon_sys_top.sv)
-SRCS := sc_main.cpp ../../tb/common/utils.cpp
+LINK_FILE := ../../tb/lsu/link.ld
+CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)
+TESTS_SRC_DIR := ../../tb/lsu
+TESTS_SRC := $(wildcard $(TESTS_SRC_DIR)/*.S)
+TESTS_OUT := $(patsubst $(TESTS_SRC_DIR)/%.S, $(TESTS_DIR)/%, $(TESTS_SRC))
 
 # Check if the tcl file contains the right hex file in case the HEX_FILE variable has been updated via a make call
 # specifying a new PROGRAM. The touch command will force make to re-write the tcl file and re-build the FPGA bitstream
@@ -56,14 +63,12 @@ sim: $(HEX_FILE) $(OBJ_DIR)/$(VDUT)
 program: $(PROJECT).sof
 	$(QUARTUS_PGM) -m JTAG -o "P;$<"
 
-distclean: clean
-	-rm -rf $(TESTS_DIR)
-
 clean:
 	-$(QUARTUS_SH) --clean $(PROJECT)
 	-rm -rf ${PROJECT}/ transcript modelsim.ini vsim.wlf *.hex
 	-rm -rf db/ $(PROJECT).qsf $(PROJECT).qpf $(PROJECT).tcl
 	-rm -rf $(HEX_DIR)
+	-rm -rf $(TESTS_DIR)
 	-rm -rf $(OBJ_DIR) *.vcd
 
 $(PROJECT).sof: $(PROJECT).tcl
@@ -102,22 +107,17 @@ $(PROJECT).tcl: $(PIN_ASSIGNMENTS_FILE) $(VSRCS) $(HEX_FILE)
 	echo "" >> $@
 	echo "project_close" >> $@
 
-$(HEX_FILE): $(TESTS_ISA_DIR)/$(PROGRAM)
+$(HEX_FILE): $(TESTS_OUT)
 	mkdir -p $(HEX_DIR)
-	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $< $(HEX_DIR)
+	$(HEXIFY_SCRIPT) -e ".dump" -e ".hex" -w $(IC_LINE_SIZE) $(TESTS_DIR)/$(PROGRAM) $(HEX_DIR)
 
-$(TESTS_ISA_DIR)/$(PROGRAM): $(TESTS_DIR)/Makefile
-	$(MAKE) -C $(TESTS_DIR)
-
-$(TESTS_DIR)/Makefile: $(RISCV_ARCH_TESTS)/configure
-	mkdir -p $(TESTS_DIR)
-	cd $(TESTS_DIR) ; ../$(RISCV_ARCH_TESTS)/configure --prefix=$(shell pwd)/$(TESTS_DIR) ; cd ..
-
-$(RISCV_ARCH_TESTS)/configure:
-	git submodule update --init --recursive
+$(TESTS_DIR)/%: $(TESTS_SRC_DIR)/%.S
+	$(MKDIR) -p $(TESTS_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+	$(OBJDUMP) -m riscv:rv32 -EL -D $@ > $@.dump
 
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
-$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT).sv
-	$(VERILATOR) $(CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
+$(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(VSRCS) $(DUT).sv
+	$(VERILATOR) $(SYSC_CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT).sv $(SYSC_SRCS) --prefix $(VDUT)

@@ -140,10 +140,10 @@ int sc_main(int argc, char** argv) {
     int err = 0;
     if (sim_tp == PASS && sc_get_status() != SC_STOPPED) {
         std::cout << "\n\n" << "*********************************    PASS    *********************************" << std::endl;
-        err = cpi;
+        err = 0;
     } else {
         std::cout << "\n\n" << "*********************************    FAIL    *********************************" << std::endl;
-        err = 0;
+        err = -1;
     }
 
     dut.final();

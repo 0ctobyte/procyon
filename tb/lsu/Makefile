@@ -18,13 +18,13 @@ VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --sc --ex
 VDUT := V$(DUT)
 LINK_FILE := link.ld
 CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)
-TESTS := fill4_move4skip32_compare4skip32 move4skip32_compare4skip32 move4skip32dirty_compare4skip32 move1_compare1 move2_compare2 move4_compare4 move4cross32_compare4cross32 move4unaligned1_compare4unaligned1 move4unaligned2_compare4unaligned2 move4unaligned3_compare4unaligned3 move2unaligned1_compare2unaligned1 move2unaligned3_compare2unaligned3
+TESTS_SRC := $(wildcard *.S)
+TESTS := $(patsubst %.S, %, $(TESTS_SRC))
 TESTS_DIR := tests
 TESTS_OUT := $(foreach test, $(TESTS), $(TESTS_DIR)/$(test))
 
 TESTS_RUN_DIR := $(TESTS_DIR)
 TESTS_RUN_SCRIPT := ../run-tests.py
-
 
 .PHONY: all sim clean
 all: $(OBJ_DIR)/$(VDUT) $(TESTS_OUT)
