@@ -57,7 +57,7 @@ module sram_ctrl #(
     localparam SRAM_STATE_WRITE_GATHER = 3'b100;
     localparam SRAM_STATE_UNALIGNED    = 3'b101;
 
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_r;
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_r;
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_r;
     logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_r;
 
@@ -72,46 +72,46 @@ module sram_ctrl #(
     assign data_ua = unaligned ? {8'b0, i_biu_data, 8'b0} : {{(`SRAM_DATA_WIDTH){1'b0}}, i_biu_data};
 
     // Increment index to get next word from the WB bus on the next cycle for unaligned accesses
-    logic [GATHER_COUNT_WIDTH:0] wb_gather_idx;
-    assign wb_gather_idx = (wb_sram_state_r == SRAM_STATE_UNALIGNED & ~i_biu_we) | (wb_sram_state_r == SRAM_STATE_WRITE_ACK & unaligned) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
+    logic [GATHER_COUNT_WIDTH:0] biu_gather_idx;
+    assign biu_gather_idx = (sram_ctrl_state_r == SRAM_STATE_UNALIGNED & ~i_biu_we) | (sram_ctrl_state_r == SRAM_STATE_WRITE_ACK & unaligned) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
 
     logic [`SRAM_DATA_SIZE-1:0] sel;
     logic [`SRAM_ADDR_WIDTH-1:0] addr;
     logic [`SRAM_DATA_WIDTH-1:0] data_i;
 
-    assign sel = sel_ua[wb_gather_idx*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
+    assign sel = sel_ua[biu_gather_idx*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
     assign addr = i_biu_addr[`SRAM_ADDR_WIDTH:1];
-    assign data_i = data_ua[wb_gather_idx*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
+    assign data_i = data_ua[biu_gather_idx*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
 
-    // WB SRAM FSM
-    // GATHER_COUNT refers to how many operations it takes to read/write all the data from/to the wishbone bus to/from the SRAM
-    // The SRAM can only handle 16 bit reads/writes in each cycle which means, depending on the wishbone data bus size, the read/write
-    // will take place over multiple cycles. For example, if the WB data bus is 32 bits then a read operation will take two cycles
+    // SRAM CTRL FSM
+    // GATHER_COUNT refers to how many operations it takes to read/write all the data from/to the BIU to/from the SRAM
+    // The SRAM can only handle 16 bit reads/writes in each cycle which means, depending on the BIU data bus size, the read/write
+    // will take place over multiple cycles. For example, if the BIU data bus is 32 bits then a read operation will take two cycles
     // to gather the data from the SRAM and a third cycle to ACK. A write operation will take two cycles in total since the second
     // packet of 16 bits can be written to the SRAM in the same cycle the ACK is asserted with no issues.
     // The GATHER_COUNT is statically determined at elaboration time thus the state machine below will be different depending on the
-    // GATHER_COUNT value. It is true that if the WB data bus is 16 bits (i.e the same as the SRAM data bus) then read/write operations
+    // GATHER_COUNT value. It is true that if the BIU data bus is 16 bits (i.e the same as the SRAM data bus) then read/write operations
     // can take a single cycle (+ a second cycle for the ACK) and so the READ_GATHER/WRITE_GATHER states can be completely skipped.
-    // Moreover, (as an optimization) in the case of GATHER_COUNT <= 2 (i.e. 16 bit or 32 bit WB data bus) the WRITE_GATHER state can
+    // Moreover, (as an optimization) in the case of GATHER_COUNT <= 2 (i.e. 16 bit or 32 bit BIU data bus) the WRITE_GATHER state can
     // be completely skipped for writes since the last write packet can be committed to the SRAM on the same cycle the ACK is asserted.
     // Gather count and index register FSM
-    // Tie these registers to zero if GATHER_COUNT == 1 (i.e. SRAM and WB data bus are the same widths, 16 bits)
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_next;
+    // Tie these registers to zero if GATHER_COUNT == 1 (i.e. SRAM and BIU data bus are the same widths, 16 bits)
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_next;
     logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_next;
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next;
     logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_next_idle_val;
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next_idle_val;
     logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_next_default_val;
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next_default_val;
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_next_idle_val_a;
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_next_idle_val_b;
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_next_read_ack_val;
-    logic [SRAM_STATE_WIDTH-1:0] wb_sram_state_next_write_ack_val;
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_next_idle_val_a;
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_next_idle_val_b;
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_next_read_ack_val;
+    logic [SRAM_STATE_WIDTH-1:0] sram_ctrl_state_next_write_ack_val;
 
     generate
-    if (GATHER_COUNT > 2)      assign wb_sram_state_next_idle_val_a = SRAM_STATE_WRITE_GATHER;
-    else if (GATHER_COUNT > 1) assign wb_sram_state_next_idle_val_a = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
-    else                       assign wb_sram_state_next_idle_val_a = SRAM_STATE_WRITE_ACK;
+    if (GATHER_COUNT > 2)      assign sram_ctrl_state_next_idle_val_a = SRAM_STATE_WRITE_GATHER;
+    else if (GATHER_COUNT > 1) assign sram_ctrl_state_next_idle_val_a = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
+    else                       assign sram_ctrl_state_next_idle_val_a = SRAM_STATE_WRITE_ACK;
     endgenerate
 
     generate
@@ -120,17 +120,17 @@ module sram_ctrl #(
         assign gather_idx_next_idle_val = i_biu_en ? GATHER_COUNT_WIDTH'(1) : '0;
         assign gather_cnt_next_default_val = gather_cnt_r - 1'b1;
         assign gather_idx_next_default_val = gather_idx_r + 1'b1;
-        assign wb_sram_state_next_idle_val_b = SRAM_STATE_READ_GATHER;
-        assign wb_sram_state_next_read_ack_val = SRAM_STATE_READ_GATHER;
-        assign wb_sram_state_next_write_ack_val = SRAM_STATE_WRITE_GATHER;
+        assign sram_ctrl_state_next_idle_val_b = SRAM_STATE_READ_GATHER;
+        assign sram_ctrl_state_next_read_ack_val = SRAM_STATE_READ_GATHER;
+        assign sram_ctrl_state_next_write_ack_val = SRAM_STATE_WRITE_GATHER;
     end else begin
         assign gather_cnt_next_idle_val = '0;
         assign gather_idx_next_idle_val = '0;
         assign gather_cnt_next_default_val = '0;
         assign gather_idx_next_default_val = '0;
-        assign wb_sram_state_next_idle_val_b = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
-        assign wb_sram_state_next_read_ack_val = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
-        assign wb_sram_state_next_write_ack_val = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
+        assign sram_ctrl_state_next_idle_val_b = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
+        assign sram_ctrl_state_next_read_ack_val = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK;
+        assign sram_ctrl_state_next_write_ack_val = unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK;
     end
     endgenerate
 
@@ -138,53 +138,53 @@ module sram_ctrl #(
         logic n_biu_eob;
         n_biu_eob = ~i_biu_eob;
 
-        case (wb_sram_state_r)
+        case (sram_ctrl_state_r)
             SRAM_STATE_IDLE: begin
                 gather_cnt_next = gather_cnt_next_idle_val;
                 gather_idx_next = gather_idx_next_idle_val;
 
-                wb_sram_state_next = i_biu_we ? wb_sram_state_next_idle_val_a : (i_biu_en ? wb_sram_state_next_idle_val_b : SRAM_STATE_IDLE);
+                sram_ctrl_state_next = i_biu_we ? sram_ctrl_state_next_idle_val_a : (i_biu_en ? sram_ctrl_state_next_idle_val_b : SRAM_STATE_IDLE);
             end
             SRAM_STATE_READ_ACK: begin
                 gather_cnt_next = gather_cnt_next_default_val;
                 gather_idx_next = gather_idx_next_default_val;
 
-                wb_sram_state_next = n_biu_eob ? wb_sram_state_next_read_ack_val : SRAM_STATE_IDLE;
+                sram_ctrl_state_next = n_biu_eob ? sram_ctrl_state_next_read_ack_val : SRAM_STATE_IDLE;
             end
             SRAM_STATE_WRITE_ACK: begin
                 gather_cnt_next = gather_cnt_next_default_val;
                 gather_idx_next = gather_idx_next_default_val;
 
-                wb_sram_state_next = n_biu_eob ? wb_sram_state_next_write_ack_val : SRAM_STATE_IDLE;
+                sram_ctrl_state_next = n_biu_eob ? sram_ctrl_state_next_write_ack_val : SRAM_STATE_IDLE;
             end
             SRAM_STATE_READ_GATHER: begin
                 gather_cnt_next = gather_cnt_next_default_val;
                 gather_idx_next = gather_idx_next_default_val;
 
-                wb_sram_state_next = (gather_cnt_r == 0) ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK) : SRAM_STATE_READ_GATHER;
+                sram_ctrl_state_next = (gather_cnt_r == 0) ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_READ_ACK) : SRAM_STATE_READ_GATHER;
             end
             SRAM_STATE_WRITE_GATHER: begin
                 gather_cnt_next = gather_cnt_next_default_val;
                 gather_idx_next = gather_idx_next_default_val;
 
-                wb_sram_state_next = (gather_cnt_next == 0) ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK) : SRAM_STATE_WRITE_GATHER;
+                sram_ctrl_state_next = (gather_cnt_next == 0) ? (unaligned ? SRAM_STATE_UNALIGNED : SRAM_STATE_WRITE_ACK) : SRAM_STATE_WRITE_GATHER;
             end
             SRAM_STATE_UNALIGNED: begin
                 gather_cnt_next = gather_cnt_r;
                 gather_idx_next = gather_idx_r;
 
-                wb_sram_state_next = i_biu_we ? SRAM_STATE_WRITE_ACK : SRAM_STATE_READ_ACK;
+                sram_ctrl_state_next = i_biu_we ? SRAM_STATE_WRITE_ACK : SRAM_STATE_READ_ACK;
             end
             default: begin
                 gather_cnt_next = gather_cnt_next_default_val;
                 gather_idx_next = gather_idx_next_default_val;
 
-                wb_sram_state_next = SRAM_STATE_IDLE;
+                sram_ctrl_state_next = SRAM_STATE_IDLE;
             end
         endcase
     end
 
-    procyon_srff #(SRAM_STATE_WIDTH) wb_sram_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(wb_sram_state_next), .i_reset(SRAM_STATE_IDLE), .o_q(wb_sram_state_r));
+    procyon_srff #(SRAM_STATE_WIDTH) sram_ctrl_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(sram_ctrl_state_next), .i_reset(SRAM_STATE_IDLE), .o_q(sram_ctrl_state_r));
     procyon_srff #(GATHER_COUNT_WIDTH) gather_cnt_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(gather_cnt_next), .i_reset('0), .o_q(gather_cnt_r));
     procyon_srff #(GATHER_COUNT_WIDTH) gather_idx_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(gather_idx_next), .i_reset('0), .o_q(gather_idx_r));
 
@@ -213,11 +213,11 @@ module sram_ctrl #(
     else                  assign data_b = io_sram_dq;
     endgenerate
 
-    assign data_mux = (wb_sram_state_r == SRAM_STATE_UNALIGNED) ? data_a : data_b;
+    assign data_mux = (sram_ctrl_state_r == SRAM_STATE_UNALIGNED) ? data_a : data_b;
 
     // Assign outputs to BIU
     logic done;
-    assign done = (wb_sram_state_next == SRAM_STATE_READ_ACK) | (wb_sram_state_next == SRAM_STATE_WRITE_ACK);
+    assign done = (sram_ctrl_state_next == SRAM_STATE_READ_ACK) | (sram_ctrl_state_next == SRAM_STATE_WRITE_ACK);
 
     procyon_ff #(OPTN_DATA_WIDTH) o_biu_data_ff (.clk(clk), .i_en(1'b1), .i_d(data_mux), .o_q(o_biu_data));
     procyon_srff #(1) o_biu_done_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(done), .i_reset(1'b0), .o_q(o_biu_done));
@@ -228,7 +228,7 @@ module sram_ctrl #(
     assign o_sram_we_n = ~i_biu_we;
     assign o_sram_lb_n = ~sel[0];
     assign o_sram_ub_n = ~sel[1];
-    assign o_sram_addr = addr + ((wb_sram_state_r == SRAM_STATE_READ_ACK) ? `SRAM_ADDR_WIDTH'(GATHER_COUNT) : `SRAM_ADDR_WIDTH'(wb_gather_idx));
+    assign o_sram_addr = addr + ((sram_ctrl_state_r == SRAM_STATE_READ_ACK) ? `SRAM_ADDR_WIDTH'(GATHER_COUNT) : `SRAM_ADDR_WIDTH'(biu_gather_idx));
     assign io_sram_dq = i_biu_we ? data_i : 'z;
 
 endmodule
