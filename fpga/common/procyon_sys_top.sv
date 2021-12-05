@@ -72,10 +72,30 @@ module procyon_sys_top #(
     localparam TEST_STATE_HALT  = 2'b10;
     localparam TEST_STATE_DONE  = 2'b11;
 
-    logic [TEST_STATE_WIDTH-1:0] state;
+    logic rst_sync;
+    procyon_sync #(.OPTN_DATA_WIDTH(1), .OPTN_SYNC_DEPTH(2)) rst_sync_sync (.clk(CLOCK_50), .n_rst(1'b1), .i_async_data(SW[17]), .o_sync_data(rst_sync));
 
-    logic clk;
     logic n_rst;
+    logic [1:0] key;
+    logic [1:0] key_pulse;
+
+    assign key = ~KEY;
+
+    genvar inst;
+    generate
+    for (inst = 0; inst < 2; inst++) begin : GEN_EDGE_DETECTOR_INST
+        procyon_edge_detector procyon_edge_detector_inst (
+            .clk(CLOCK_50),
+            .n_rst(n_rst),
+            .i_async(key[inst]),
+            .o_pulse(key_pulse[inst])
+        );
+    end
+    endgenerate
+
+    assign LEDR[17] = rst_sync;
+    assign n_rst = rst_sync;
+    assign wb_rst = ~n_rst;
 
     // FIXME: To test if simulations pass/fail
     logic [OPTN_DATA_WIDTH-1:0] sim_tp;
@@ -86,6 +106,74 @@ module procyon_sys_top #(
     logic rat_retire_en;
     logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst;
     logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
+
+    logic clk;
+    logic [TEST_STATE_WIDTH-1:0] test_state_next;
+    logic [TEST_STATE_WIDTH-1:0] test_state_r;
+    logic rob_redirect_r;
+/* verilator lint_off UNUSED */
+    logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr_r;
+/* verilator lint_on  UNUSED */
+    logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst_r;
+    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data_next;
+    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data_r;
+
+    logic test_finished;
+    logic test_state_done;
+
+    assign test_finished = (sim_tp == 'h4a33) | (sim_tp == 'hfae1);
+    assign test_state_done = (test_state_r == TEST_STATE_DONE);
+
+    always_comb begin
+        case (test_state_r)
+            TEST_STATE_RUN:  test_state_next = test_finished ? TEST_STATE_DONE : (key_pulse[1] ? TEST_STATE_STEP : TEST_STATE_RUN);
+            TEST_STATE_STEP: test_state_next = rat_retire_en ? TEST_STATE_HALT : TEST_STATE_STEP;
+            TEST_STATE_HALT: test_state_next = key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_HALT);
+            TEST_STATE_DONE: test_state_next = key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_DONE);
+        endcase
+
+        rat_retire_data_next = test_state_done ? sim_tp : rat_retire_data;
+
+        clk = CLOCK_50 | test_state_r[1];
+    end
+
+    logic enable;
+    assign enable = rat_retire_en & (test_state_r == TEST_STATE_STEP);
+
+    procyon_srff #(TEST_STATE_WIDTH) test_state_r_srff (.clk(CLOCK_50), .n_rst(n_rst), .i_en(1'b1), .i_set(test_state_next), .i_reset(TEST_STATE_STEP), .o_q(test_state_r));
+    procyon_ff #(1) rob_redirect_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rob_redirect), .o_q(rob_redirect_r));
+    procyon_ff #(OPTN_ADDR_WIDTH) rob_redirect_addr_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rob_redirect_addr), .o_q(rob_redirect_addr_r));
+    procyon_ff #(RAT_IDX_WIDTH) rat_retire_rdst_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rat_retire_rdst), .o_q(rat_retire_rdst_r));
+
+    logic data_enable;
+    assign data_enable = enable | test_state_done;
+
+    procyon_ff #(OPTN_DATA_WIDTH) rat_retire_data_r_ff (.clk(CLOCK_50), .i_en(data_enable), .i_d(rat_retire_data_next), .o_q(rat_retire_data_r));
+
+    assign LEDR[16] = rob_redirect_r;
+    assign LEDR[15:0] = rob_redirect_addr_r[15:0];
+    assign LEDG = rat_retire_rdst_r;
+
+    logic [6:0] o_hex [0:7];
+
+    generate
+        for (inst = 0; inst < 8; inst++) begin : GEN_SEG7_DECODER_INSTANCES
+            procyon_seg7_decoder procyon_seg7_decoder_inst (
+                .n_rst(n_rst),
+                .i_hex(rat_retire_data_r[inst*4 +: 4]),
+                .o_hex(o_hex[inst])
+            );
+        end
+    endgenerate
+
+    assign HEX0 = o_hex[0];
+    assign HEX1 = o_hex[1];
+    assign HEX2 = o_hex[2];
+    assign HEX3 = o_hex[3];
+    assign HEX4 = o_hex[4];
+    assign HEX5 = o_hex[5];
+    assign HEX6 = o_hex[6];
+    assign HEX7 = o_hex[7];
 
     // FIXME: Temporary instruction cache interface
     logic ifq_full;
@@ -123,118 +211,6 @@ module procyon_sys_top #(
     logic [WB_DATA_SIZE-1:0] core_wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] core_wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] core_wb_data_o;
-
-
-    logic test_finished;
-    assign test_finished = (sim_tp == 'h4a33) | (sim_tp == 'hfae1);
-
-    logic test_finished_q;
-    always_ff @(posedge CLOCK_50) begin
-        test_finished_q <= test_finished;
-    end
-
-    logic rob_redirect_q;
-    logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr_q;
-    logic [RAT_IDX_WIDTH-1:0] rat_retire_rdst_q;
-    logic [OPTN_DATA_WIDTH-1:0] rat_retire_data_q;
-
-    always_ff @(posedge CLOCK_50) begin
-        if (~n_rst) begin
-            rob_redirect_q <= '0;
-            rob_redirect_addr_q <= '0;
-            rat_retire_rdst_q <= '0;
-        end
-        else if (rat_retire_en) begin
-            rob_redirect_q <= rob_redirect;
-            rob_redirect_addr_q <= rob_redirect_addr;
-            rat_retire_rdst_q <= rat_retire_rdst;
-        end
-        else begin
-            rob_redirect_q <= rob_redirect_q;
-            rob_redirect_addr_q <= rob_redirect_addr_q;
-            rat_retire_rdst_q <= rat_retire_rdst_q;
-        end
-    end
-
-    always_ff @(posedge CLOCK_50) begin
-        if (~n_rst) begin
-            rat_retire_data_q <= '0;
-        end
-        else if (state == TEST_STATE_DONE) begin
-            rat_retire_data_q <= sim_tp;
-        end
-        else if (rat_retire_en) begin
-            rat_retire_data_q <= rat_retire_data;
-        end
-        else begin
-            rat_retire_data_q <= rat_retire_data_q;
-        end
-    end
-
-    logic [1:0] key;
-    logic [1:0] key_pulse;
-    logic rst_sync;
-    logic [6:0] o_hex [0:7];
-
-    assign n_rst = rst_sync;
-    assign wb_rst = ~n_rst;
-
-    assign key = ~KEY;
-    assign LEDR[17] = rst_sync;
-    assign LEDR[16] = rob_redirect_q;
-    assign LEDR[15:0] = rob_redirect_addr_q[15:0];
-    assign LEDG = rat_retire_rdst_q;
-    assign HEX0 = o_hex[0];
-    assign HEX1 = o_hex[1];
-    assign HEX2 = o_hex[2];
-    assign HEX3 = o_hex[3];
-    assign HEX4 = o_hex[4];
-    assign HEX5 = o_hex[5];
-    assign HEX6 = o_hex[6];
-    assign HEX7 = o_hex[7];
-
-    always_ff @(posedge CLOCK_50) begin
-        case (state)
-            TEST_STATE_RUN:  clk <= ~clk;
-            TEST_STATE_STEP: clk <= ~clk;
-            TEST_STATE_HALT: clk <= 1'b0;
-            TEST_STATE_DONE: clk <= 1'b0;
-        endcase
-    end
-
-    always_ff @(negedge CLOCK_50) begin
-        if (~n_rst) begin
-            state <= TEST_STATE_STEP;
-        end else begin
-            case (state)
-                TEST_STATE_RUN:  state <= test_finished_q ? TEST_STATE_DONE : (key_pulse[1] ? TEST_STATE_STEP : TEST_STATE_RUN);
-                TEST_STATE_STEP: state <= rat_retire_en ? TEST_STATE_HALT : TEST_STATE_STEP;
-                TEST_STATE_HALT: state <= key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_HALT);
-                TEST_STATE_DONE: state <= key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_DONE);
-            endcase
-        end
-    end
-
-    procyon_sync #(.OPTN_DATA_WIDTH(1), .OPTN_SYNC_DEPTH(2)) rst_sync_sync (.clk(CLOCK_50), .n_rst(1'b1), .i_async_data(SW[17]), .o_sync_data(rst_sync));
-
-    genvar inst;
-    generate
-        for (inst = 0; inst < 8; inst++) begin : GEN_SEG7_DECODER_INSTANCES
-            procyon_seg7_decoder procyon_seg7_decoder_inst (
-                .n_rst(n_rst),
-                .i_hex(rat_retire_data_q[inst*4 +: 4]),
-                .o_hex(o_hex[inst])
-            );
-        end
-        for (inst = 0; inst < 2; inst++) begin : GEN_EDGE_DETECTOR_INST
-            procyon_edge_detector procyon_edge_detector_inst (
-                .clk(CLOCK_50),
-                .n_rst(n_rst),
-                .i_async(key[inst]),
-                .o_pulse(key_pulse[inst])
-            );
-        end
-    endgenerate
 
     logic boot_ctrl_done;
     logic [IC_LINE_WIDTH-1:0] rom_data;

@@ -28,11 +28,12 @@ IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
+DUT_SRC := ../common/$(DUT).sv
 CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
-VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv procyon_sys_top.sv)
+VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv)
 SRCS := sc_main.cpp ../../tb/common/utils.cpp
 
 # Check if the tcl file contains the right hex file in case the HEX_FILE variable has been updated via a make call
@@ -119,5 +120,5 @@ $(RISCV_ARCH_TESTS)/configure:
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
-$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT).sv
-	$(VERILATOR) $(CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
+$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT_SRC)
+	$(VERILATOR) $(CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT_SRC) $(SRCS) --prefix $(VDUT)
