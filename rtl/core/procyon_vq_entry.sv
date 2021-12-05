@@ -34,38 +34,41 @@ module procyon_vq_entry #(
     // Each entry in the VQ can be in one of the following states
     // INVALID:       Entry is empty
     // VALID:         Entry is occupied
-    localparam VQ_STATE_WIDTH    = 1;
-    localparam VQ_STATE_INVALID  = 1'b0;
-    localparam VQ_STATE_VALID    = 1'b1;
+    localparam VQ_ENTRY_STATE_WIDTH = 1;
+
+    typedef enum logic [VQ_ENTRY_STATE_WIDTH-1:0] {
+        VQ_ENTRY_STATE_INVALID  = 1'b0,
+        VQ_ENTRY_STATE_VALID    = 1'b1
+    } vq_entry_state_t;
 
     // Each entry in the VQ contains the following
     // state:          State of the VQ entry
     // addr:           Address of the victimized cacheline
     // data:           The actual cacheline data
-    logic [VQ_STATE_WIDTH-1:0] vq_entry_state_r;
+    vq_entry_state_t vq_entry_state_r;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_entry_addr_r;
     logic [DC_LINE_WIDTH-1:0] vq_entry_data_r;
 
     // VQ entry FSM
-    logic [VQ_STATE_WIDTH-1:0] vq_entry_state_next;
+    vq_entry_state_t vq_entry_state_next;
 
     always_comb begin
         vq_entry_state_next = vq_entry_state_r;
 
         case (vq_entry_state_next)
-            VQ_STATE_INVALID: vq_entry_state_next = i_alloc_en ? VQ_STATE_VALID : vq_entry_state_next;
-            VQ_STATE_VALID:   vq_entry_state_next = i_ccu_done ? VQ_STATE_INVALID : vq_entry_state_next;
-            default:          vq_entry_state_next = VQ_STATE_INVALID;
+            VQ_ENTRY_STATE_INVALID: vq_entry_state_next = i_alloc_en ? VQ_ENTRY_STATE_VALID : vq_entry_state_next;
+            VQ_ENTRY_STATE_VALID:   vq_entry_state_next = i_ccu_done ? VQ_ENTRY_STATE_INVALID : vq_entry_state_next;
+            default:                vq_entry_state_next = VQ_ENTRY_STATE_INVALID;
         endcase
     end
 
-    procyon_srff #(VQ_STATE_WIDTH) vq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(vq_entry_state_next), .i_reset(VQ_STATE_INVALID), .o_q(vq_entry_state_r));
+    procyon_srff #(VQ_ENTRY_STATE_WIDTH) vq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(vq_entry_state_next), .i_reset(VQ_ENTRY_STATE_INVALID), .o_q(vq_entry_state_r));
     procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) vq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(vq_entry_addr_r));
     procyon_ff #(DC_LINE_WIDTH) vq_entry_data_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_data), .o_q(vq_entry_data_r));
 
     // Check if the lookup address matches this entry's address
     logic vq_entry_valid;
-    assign vq_entry_valid = (vq_entry_state_r != VQ_STATE_INVALID);
+    assign vq_entry_valid = (vq_entry_state_r != VQ_ENTRY_STATE_INVALID);
     assign o_lookup_hit = vq_entry_valid & (vq_entry_addr_r == i_lookup_addr);
 
     // Output entry registers

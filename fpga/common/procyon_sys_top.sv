@@ -67,10 +67,13 @@ module procyon_sys_top #(
     localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
     localparam ROM_ADDR_WIDTH   = OPTN_HEX_SIZE == 1 ? 1 : $clog2(OPTN_HEX_SIZE);
     localparam TEST_STATE_WIDTH = 2;
-    localparam TEST_STATE_RUN   = 2'b00;
-    localparam TEST_STATE_STEP  = 2'b01;
-    localparam TEST_STATE_HALT  = 2'b10;
-    localparam TEST_STATE_DONE  = 2'b11;
+
+    typedef enum logic [TEST_STATE_WIDTH-1:0] {
+        TEST_STATE_RUN   = 2'b00,
+        TEST_STATE_STEP  = 2'b01,
+        TEST_STATE_HALT  = 2'b10,
+        TEST_STATE_DONE  = 2'b11
+    } test_state_t;
 
     logic rst_sync;
     procyon_sync #(.OPTN_DATA_WIDTH(1), .OPTN_SYNC_DEPTH(2)) rst_sync_sync (.clk(CLOCK_50), .n_rst(1'b1), .i_async_data(SW[17]), .o_sync_data(rst_sync));
@@ -108,8 +111,6 @@ module procyon_sys_top #(
     logic [OPTN_DATA_WIDTH-1:0] rat_retire_data;
 
     logic clk;
-    logic [TEST_STATE_WIDTH-1:0] test_state_next;
-    logic [TEST_STATE_WIDTH-1:0] test_state_r;
     logic rob_redirect_r;
 /* verilator lint_off UNUSED */
     logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr_r;
@@ -123,6 +124,9 @@ module procyon_sys_top #(
 
     assign test_finished = (sim_tp == 'h4a33) | (sim_tp == 'hfae1);
     assign test_state_done = (test_state_r == TEST_STATE_DONE);
+
+    test_state_t test_state_next;
+    test_state_t test_state_r;
 
     always_comb begin
         case (test_state_r)

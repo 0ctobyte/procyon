@@ -43,10 +43,13 @@ module procyon_mhq_entry #(
     // INVALID:       Entry is empty
     // VALID:         Entry is occupied
     // COMPLETE:      Entry is finished being serviced by CCU and is ready to be sent to the LSU to fill the cache
-    localparam MHQ_STATE_WIDTH    = 2;
-    localparam MHQ_STATE_INVALID  = 2'b00;
-    localparam MHQ_STATE_VALID    = 2'b01;
-    localparam MHQ_STATE_COMPLETE = 2'b10;
+    localparam MHQ_ENTRY_STATE_WIDTH = 2;
+
+    typedef enum logic [MHQ_ENTRY_STATE_WIDTH-1:0] {
+        MHQ_ENTRY_STATE_INVALID  = 2'b00,
+        MHQ_ENTRY_STATE_VALID    = 2'b01,
+        MHQ_ENTRY_STATE_COMPLETE = 2'b10
+    } mhq_entry_state_t;
 
     // Each entry in the MHQ contains the following
     // state:          State of the MHQ entry
@@ -55,31 +58,31 @@ module procyon_mhq_entry #(
     // data:           The actual cacheline data
     // byte_updated:   Each bit, if set to 1, indicates that byte has been written to by a store. This is used to select
     //                 between data from memory and updated store data stored in the data register.
-    logic [MHQ_STATE_WIDTH-1:0] mhq_entry_state_r;
+    mhq_entry_state_t mhq_entry_state_r;
     logic mhq_entry_dirty_r;
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_entry_addr_r;
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data_r;
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_entry_byte_updated_r;
 
     // MHQ entry FSM
-    logic [MHQ_STATE_WIDTH-1:0] mhq_entry_state_next;
+    mhq_entry_state_t mhq_entry_state_next;
 
     always_comb begin
         mhq_entry_state_next = mhq_entry_state_r;
 
         case (mhq_entry_state_next)
-            MHQ_STATE_INVALID:  mhq_entry_state_next = i_update_en ? MHQ_STATE_VALID : mhq_entry_state_next;
-            MHQ_STATE_VALID:    mhq_entry_state_next = i_ccu_done ? MHQ_STATE_COMPLETE : mhq_entry_state_next;
-            MHQ_STATE_COMPLETE: mhq_entry_state_next = i_fill_launched ? MHQ_STATE_INVALID : mhq_entry_state_next;
-            default:            mhq_entry_state_next = MHQ_STATE_INVALID;
+            MHQ_ENTRY_STATE_INVALID:  mhq_entry_state_next = i_update_en ? MHQ_ENTRY_STATE_VALID : mhq_entry_state_next;
+            MHQ_ENTRY_STATE_VALID:    mhq_entry_state_next = i_ccu_done ? MHQ_ENTRY_STATE_COMPLETE : mhq_entry_state_next;
+            MHQ_ENTRY_STATE_COMPLETE: mhq_entry_state_next = i_fill_launched ? MHQ_ENTRY_STATE_INVALID : mhq_entry_state_next;
+            default:                  mhq_entry_state_next = MHQ_ENTRY_STATE_INVALID;
         endcase
     end
 
-    procyon_srff #(MHQ_STATE_WIDTH) mhq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(mhq_entry_state_next), .i_reset(MHQ_STATE_INVALID), .o_q(mhq_entry_state_r));
+    procyon_srff #(MHQ_ENTRY_STATE_WIDTH) mhq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(mhq_entry_state_next), .i_reset(MHQ_ENTRY_STATE_INVALID), .o_q(mhq_entry_state_r));
 
     // This entry is a new allocation if the entry was not previously valid. Otherwise it's being merged with another request
     logic allocating;
-    assign allocating = i_update_en & (mhq_entry_state_r == MHQ_STATE_INVALID);
+    assign allocating = i_update_en & (mhq_entry_state_r == MHQ_ENTRY_STATE_INVALID);
 
     // Set dirty bit for entry if it's being written too. Clear it if it's a newly allocated entry and not being written to
     logic mhq_entry_dirty;
@@ -115,12 +118,12 @@ module procyon_mhq_entry #(
 
     // Check if the lookup address matches this entry's address
     logic mhq_entry_valid;
-    assign mhq_entry_valid = (mhq_entry_state_r != MHQ_STATE_INVALID);
+    assign mhq_entry_valid = (mhq_entry_state_r != MHQ_ENTRY_STATE_INVALID);
     assign o_lookup_hit = mhq_entry_valid & (mhq_entry_addr_r == i_lookup_addr);
 
     // Output entry registers
     assign o_mhq_entry_valid = mhq_entry_valid;
-    assign o_mhq_entry_complete = (mhq_entry_state_r == MHQ_STATE_COMPLETE);
+    assign o_mhq_entry_complete = (mhq_entry_state_r == MHQ_ENTRY_STATE_COMPLETE);
     assign o_mhq_entry_dirty = mhq_entry_dirty_r;
     assign o_mhq_entry_addr = mhq_entry_addr_r;
     assign o_mhq_entry_data = mhq_entry_data_r;

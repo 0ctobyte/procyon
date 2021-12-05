@@ -39,9 +39,12 @@ module procyon_ccu_arb #(
 
     localparam CCU_ARB_IDX_WIDTH   = OPTN_CCU_ARB_DEPTH == 1 ? 1 : $clog2(OPTN_CCU_ARB_DEPTH);
     localparam CCU_ARB_STATE_WIDTH = 2;
-    localparam CCU_ARB_STATE_IDLE  = 2'b00;
-    localparam CCU_ARB_STATE_BUSY  = 2'b01;
-    localparam CCU_ARB_STATE_DONE  = 2'b10;
+
+    typedef enum logic [CCU_ARB_STATE_WIDTH-1:0] {
+        CCU_ARB_STATE_IDLE  = 2'b00,
+        CCU_ARB_STATE_BUSY  = 2'b01,
+        CCU_ARB_STATE_DONE  = 2'b10
+    } ccu_arb_state_t;
 
     // Pick a requestor giving priority to the requestor mapped to bit 0
     logic [OPTN_CCU_ARB_DEPTH-1:0] ccu_arb_select;
@@ -61,8 +64,8 @@ module procyon_ccu_arb #(
     // CCU can begin transaction if a requestor asserts valid and the FSM is in IDLE
     // CCU will be busy while the BIU is servicing that transaction. When it receives ack from BIU it will signal done to the requestor
     // After one cycle of asserting done, it will return back to the idle state.
-    logic [CCU_ARB_STATE_WIDTH-1:0] ccu_arb_state_r;
-    logic [CCU_ARB_STATE_WIDTH-1:0] ccu_arb_state_next;
+    ccu_arb_state_t ccu_arb_state_r;
+    ccu_arb_state_t ccu_arb_state_next;
     logic [OPTN_CCU_ARB_DEPTH-1:0] ccu_arb_done;
     logic [OPTN_CCU_ARB_DEPTH-1:0] ccu_arb_grant;
     logic biu_en;

@@ -42,13 +42,16 @@ module procyon_fetch #(
     // IFQ_ENQUEUE: Enqueue PC in the IFQ
     // IFQ_STALL:   Stall fetch pipeline until IFQ signals a fill
     // FIFO_STALL:  Stall fetch pipeline until the instruction FIFO has room again
-    localparam FETCH_STATE_WIDTH       = 2;
-    localparam FETCH_STATE_NEXT_FETCH  = 2'b00;
-    localparam FETCH_STATE_IFQ_ENQUEUE = 2'b01;
-    localparam FETCH_STATE_IFQ_STALL   = 2'b10;
-    localparam FETCH_STATE_FIFO_STALL  = 2'b11;
+    localparam FETCH_STATE_WIDTH = 2;
 
-    logic [FETCH_STATE_WIDTH-1:0] fetch_state_r;
+    typedef enum logic [FETCH_STATE_WIDTH-1:0] {
+        FETCH_STATE_NEXT_FETCH  = 2'b00,
+        FETCH_STATE_IFQ_ENQUEUE = 2'b01,
+        FETCH_STATE_IFQ_STALL   = 2'b10,
+        FETCH_STATE_FIFO_STALL  = 2'b11
+    } fetch_state_t;
+
+    fetch_state_t fetch_state_r;
 
     logic fetch_it_valid_r;
     logic [OPTN_INSN_WIDTH-1:0] fetch_it_addr_r;
@@ -106,7 +109,7 @@ module procyon_fetch #(
     assign n_hit = ~ic_hit & fetch_valid;
 
     // FSM
-    logic [FETCH_STATE_WIDTH-1:0] fetch_state_next;
+    fetch_state_t fetch_state_next;
 
     always_comb begin
         fetch_state_next = fetch_state_r;

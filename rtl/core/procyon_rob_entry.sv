@@ -47,11 +47,14 @@ module procyon_rob_entry #(
     input  logic                              i_lsu_retire_sq_ack,
     input  logic                              i_lsu_retire_misspeculated
 );
-    localparam ROB_STATE_WIDTH       = 2;
-    localparam ROB_STATE_INVALID     = 2'b00;
-    localparam ROB_STATE_PENDING     = 2'b01;
-    localparam ROB_STATE_LSU_PENDING = 2'b10;
-    localparam ROB_STATE_RETIRABLE   = 2'b11;
+    localparam ROB_ENTRY_STATE_WIDTH = 2;
+
+    typedef enum logic [ROB_ENTRY_STATE_WIDTH-1:0] {
+        ROB_ENTRY_STATE_INVALID     = 2'b00,
+        ROB_ENTRY_STATE_PENDING     = 2'b01,
+        ROB_ENTRY_STATE_LSU_PENDING = 2'b10,
+        ROB_ENTRY_STATE_RETIRABLE   = 2'b11
+    } rob_entry_state_t;
 
     // ROB entry consists of the following:
     // redirect:    Asserted by branches or instructions that cause exceptions
@@ -65,7 +68,7 @@ module procyon_rob_entry #(
     logic [OPTN_ADDR_WIDTH-1:0] rob_entry_pc_r;
     logic [OPTN_RAT_IDX_WIDTH-1:0] rob_entry_rdst_r ;
     logic [OPTN_DATA_WIDTH-1:0] rob_entry_data_r;
-    logic [ROB_STATE_WIDTH-1:0] rob_entry_state_r;
+    rob_entry_state_t rob_entry_state_r;
 
     // An ROB entry holding a LD/ST op can only move on to the retired state if it's in the lsu_pending state and the
     // LSU sends back an ack
@@ -74,7 +77,7 @@ module procyon_rob_entry #(
     logic lsu_retired_sq_ack;
     logic lsu_retired_ack;
 
-    assign rob_entry_lsu_pending = (rob_entry_state_r == ROB_STATE_LSU_PENDING);
+    assign rob_entry_lsu_pending = (rob_entry_state_r == ROB_ENTRY_STATE_LSU_PENDING);
     assign lsu_retired_lq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] & i_lsu_retire_lq_ack;
     assign lsu_retired_sq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX] & i_lsu_retire_sq_ack;
     assign lsu_retired_ack = lsu_retired_lq_ack | lsu_retired_sq_ack;
@@ -120,32 +123,32 @@ module procyon_rob_entry #(
 
     // ROB entry next state logic
     // Each ROB entry progresses through up to 4 states (at least 3 of them, LSU ops go through an extra state)
-    // ROB_STATE_PENDING: From INVALID to PENDING when a ROB entry is enqueued
-    // ROB_STATE_LSU_PENDING: LSU ops are put in the LSU_PENDING state waiting for an ack from the LQ or SQ
+    // ROB_ENTRY_STATE_PENDING: From INVALID to PENDING when a ROB entry is enqueued
+    // ROB_ENTRY_STATE_LSU_PENDING: LSU ops are put in the LSU_PENDING state waiting for an ack from the LQ or SQ
     // This is needed to allow the LQ to signal back whether the load has been misspeculated and for the SQ to acknowledge that store has been written out to memeory
     // In both cases the LQ and SQ dequeue the op
-    // ROB_STATE_RETIRABLE: This indicates that the op has completed execution and can be retired when it reaches the head of the ROB
-    logic [ROB_STATE_WIDTH-1:0] rob_entry_state_next;
+    // ROB_ENTRY_STATE_RETIRABLE: This indicates that the op has completed execution and can be retired when it reaches the head of the ROB
+    rob_entry_state_t rob_entry_state_next;
 
     always_comb begin
-        logic [ROB_STATE_WIDTH-1:0] rob_entry_state_lsu_pending_mux;
-        rob_entry_state_lsu_pending_mux = (rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] | rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX]) ? ROB_STATE_LSU_PENDING : ROB_STATE_RETIRABLE;
+        rob_entry_state_t rob_entry_state_lsu_pending_mux;
+        rob_entry_state_lsu_pending_mux = (rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] | rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX]) ? ROB_ENTRY_STATE_LSU_PENDING : ROB_ENTRY_STATE_RETIRABLE;
 
         case (rob_entry_state_r)
-            ROB_STATE_INVALID:     rob_entry_state_next = i_dispatch_en ? ROB_STATE_PENDING : ROB_STATE_INVALID;
-            ROB_STATE_PENDING:     rob_entry_state_next = rob_entry_retirable ? rob_entry_state_lsu_pending_mux : ROB_STATE_PENDING;
-            ROB_STATE_LSU_PENDING: rob_entry_state_next = lsu_retired_ack ? ROB_STATE_RETIRABLE : ROB_STATE_LSU_PENDING;
-            ROB_STATE_RETIRABLE:   rob_entry_state_next = i_retire_en ? ROB_STATE_INVALID : ROB_STATE_RETIRABLE;
-            default:               rob_entry_state_next = ROB_STATE_INVALID;
+            ROB_ENTRY_STATE_INVALID:     rob_entry_state_next = i_dispatch_en ? ROB_ENTRY_STATE_PENDING : ROB_ENTRY_STATE_INVALID;
+            ROB_ENTRY_STATE_PENDING:     rob_entry_state_next = rob_entry_retirable ? rob_entry_state_lsu_pending_mux : ROB_ENTRY_STATE_PENDING;
+            ROB_ENTRY_STATE_LSU_PENDING: rob_entry_state_next = lsu_retired_ack ? ROB_ENTRY_STATE_RETIRABLE : ROB_ENTRY_STATE_LSU_PENDING;
+            ROB_ENTRY_STATE_RETIRABLE:   rob_entry_state_next = i_retire_en ? ROB_ENTRY_STATE_INVALID : ROB_ENTRY_STATE_RETIRABLE;
+            default:                     rob_entry_state_next = ROB_ENTRY_STATE_INVALID;
         endcase
 
-        rob_entry_state_next = i_redirect ? ROB_STATE_INVALID : rob_entry_state_next;
+        rob_entry_state_next = i_redirect ? ROB_ENTRY_STATE_INVALID : rob_entry_state_next;
     end
 
-    procyon_srff #(ROB_STATE_WIDTH) rob_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_entry_state_next), .i_reset(ROB_STATE_INVALID), .o_q(rob_entry_state_r));
+    procyon_srff #(ROB_ENTRY_STATE_WIDTH) rob_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rob_entry_state_next), .i_reset(ROB_ENTRY_STATE_INVALID), .o_q(rob_entry_state_r));
 
     // Signal to indicate if this entry is retirable
-    assign o_retirable = (rob_entry_state_r == ROB_STATE_RETIRABLE);
+    assign o_retirable = (rob_entry_state_r == ROB_ENTRY_STATE_RETIRABLE);
 
     // Signal to indicate if this entry is waiting on an ack from the LSU
     assign o_lsu_pending = rob_entry_lsu_pending;

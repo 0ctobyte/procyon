@@ -69,16 +69,19 @@ module procyon_biu_controller_wb #(
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    localparam BIU_COUNTER_WIDTH    = $clog2(`PCYN_BIU_LEN_MAX_SIZE / WB_DATA_SIZE);
-    localparam BIU_IDX_WIDTH        = BIU_DATA_WIDTH == OPTN_WB_DATA_WIDTH ? 1 : $clog2(BIU_DATA_WIDTH / OPTN_WB_DATA_WIDTH);
-    localparam BIU_STATE_WIDTH      = 3;
-    localparam BIU_STATE_IDLE       = 3'b000;
-    localparam BIU_STATE_SEND_REQ   = 3'b001;
-    localparam BIU_STATE_RMW_READ   = 3'b010;
-    localparam BIU_STATE_RMW_MODIFY = 3'b011;
-    localparam BIU_STATE_RMW_WRITE  = 3'b100;
-    localparam BIU_STATE_DONE       = 3'b101;
-    localparam BIU_STATE_ERR        = 3'b111;
+    localparam BIU_COUNTER_WIDTH = $clog2(`PCYN_BIU_LEN_MAX_SIZE / WB_DATA_SIZE);
+    localparam BIU_IDX_WIDTH     = BIU_DATA_WIDTH == OPTN_WB_DATA_WIDTH ? 1 : $clog2(BIU_DATA_WIDTH / OPTN_WB_DATA_WIDTH);
+    localparam BIU_STATE_WIDTH   = 3;
+
+    typedef enum logic [BIU_STATE_WIDTH-1:0] {
+        BIU_STATE_IDLE       = 3'b000,
+        BIU_STATE_SEND_REQ   = 3'b001,
+        BIU_STATE_RMW_READ   = 3'b010,
+        BIU_STATE_RMW_MODIFY = 3'b011,
+        BIU_STATE_RMW_WRITE  = 3'b100,
+        BIU_STATE_DONE       = 3'b101,
+        BIU_STATE_ERR        = 3'b111
+    } biu_state_t;
 
     logic n_wb_rst;
     assign n_wb_rst = ~i_wb_rst;
@@ -102,8 +105,9 @@ module procyon_biu_controller_wb #(
         if (initial_count == 0) initial_count = BIU_COUNTER_WIDTH'(1);
     end
 
-    logic [BIU_STATE_WIDTH-1:0] biu_state_r;
-    logic [BIU_STATE_WIDTH-1:0] biu_state_next;
+    biu_state_t biu_state_r;
+    biu_state_t biu_state_next;
+
     logic [BIU_COUNTER_WIDTH-1:0] req_cnt_r;
     logic [BIU_COUNTER_WIDTH-1:0] req_cnt_next;
     logic [BIU_IDX_WIDTH-1:0] req_idx_r;
