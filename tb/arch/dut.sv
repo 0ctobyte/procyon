@@ -152,11 +152,11 @@ module dut #(
         .o_wb_data(wb_data_o)
     );
 
-    sram_wb #(
+    sram_top #(
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
         .OPTN_BASE_ADDR(OPTN_WB_SRAM_BASE_ADDR)
-    ) sram_wb_inst (
+    ) sram_top_inst (
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
         .i_wb_cyc(wb_cyc),
