@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-module procyon_vq_entry #(
+module procyon_ccu_vq_entry #(
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_DC_LINE_SIZE = 32,
 

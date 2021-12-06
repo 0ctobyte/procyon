@@ -122,12 +122,12 @@ module procyon_ccu #(
     assign ccu_arb_data_ifq = ccu_arb_data_r[IC_LINE_WIDTH-1:0];
     assign biu_sel = '1;
 
-    procyon_vq #(
+    procyon_ccu_vq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) procyon_vq_inst (
+    ) procyon_ccu_vq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_vq_full(vq_full),
@@ -147,12 +147,12 @@ module procyon_ccu #(
         .o_ccu_data(ccu_arb_data_vq)
     );
 
-    procyon_mhq #(
+    procyon_ccu_mhq #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) procyon_mhq_inst (
+    ) procyon_ccu_mhq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_vq_full(vq_full),
@@ -178,11 +178,11 @@ module procyon_ccu #(
         .o_ccu_addr(ccu_arb_addr[CCU_MHQ_PRIORITY])
     );
 
-    procyon_ifq #(
+    procyon_ccu_ifq #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_IFQ_DEPTH(OPTN_IFQ_DEPTH),
         .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE)
-    ) procyon_ifq_inst (
+    ) procyon_ccu_ifq_inst (
         .clk(clk),
         .n_rst(n_rst),
         .o_ifq_full(o_ifq_full),

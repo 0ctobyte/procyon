@@ -16,7 +16,7 @@
 
 `include "procyon_constants.svh"
 
-module procyon_vq #(
+module procyon_ccu_vq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_VQ_DEPTH     = 4,
@@ -95,10 +95,10 @@ module procyon_vq #(
     genvar inst;
     generate
     for (inst = 0; inst < OPTN_VQ_DEPTH; inst++) begin : GEN_VQ_ENTRY_INST
-        procyon_vq_entry #(
+        procyon_ccu_vq_entry #(
             .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
             .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-        ) procyon_vq_entry_inst (
+        ) procyon_ccu_vq_entry_inst (
             .clk(clk),
             .n_rst(n_rst),
             .o_vq_entry_valid(vq_entry_valid[inst]),

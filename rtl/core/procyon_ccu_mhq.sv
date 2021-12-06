@@ -18,7 +18,7 @@
 
 `include "procyon_constants.svh"
 
-module procyon_mhq #(
+module procyon_ccu_mhq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,
@@ -107,10 +107,10 @@ module procyon_mhq #(
     genvar inst;
     generate
     for (inst = 0; inst < OPTN_MHQ_DEPTH; inst++) begin : GEN_MHQ_ENTRY_INST
-        procyon_mhq_entry #(
+        procyon_ccu_mhq_entry #(
             .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
             .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-        ) procyon_mhq_entry_inst (
+        ) procyon_ccu_mhq_entry_inst (
             .clk(clk),
             .n_rst(n_rst),
             .o_mhq_entry_valid(mhq_entry_valid[inst]),
@@ -140,12 +140,12 @@ module procyon_mhq #(
     logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_fill_addr_r;
     logic mhq_lookup_allocating;
 
-    procyon_mhq_lu #(
+    procyon_ccu_mhq_lu #(
         .OPTN_DATA_WIDTH(OPTN_DATA_WIDTH),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
-    ) procyon_mhq_lu_inst (
+    ) procyon_ccu_mhq_lu_inst (
         .clk(clk),
         .n_rst(n_rst),
         .i_mhq_full(mhq_queue_full),

@@ -11,7 +11,7 @@
 
 `include "procyon_constants.svh"
 
-module procyon_ifq #(
+module procyon_ccu_ifq #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_IFQ_DEPTH     = 1,
     parameter OPTN_IC_LINE_SIZE  = 32,
@@ -76,10 +76,10 @@ module procyon_ifq #(
     genvar inst;
     generate
     for (inst = 0; inst < OPTN_IFQ_DEPTH; inst++) begin : GEN_IFQ_ENTRY_INST
-        procyon_ifq_entry #(
+        procyon_ccu_ifq_entry #(
             .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
             .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE)
-        ) procyon_ifq_entry_inst (
+        ) procyon_ccu_ifq_entry_inst (
             .clk(clk),
             .n_rst(n_rst),
             .o_ifq_entry_valid(ifq_entry_valid[inst]),
