@@ -69,7 +69,7 @@ This part of the pipeline is the same for all ALU, branch and load/store instruc
 
 ### Fetch Stage
 
-The fetch stage is very simple at the moment. It simply takes the current PC and retrieves the instruction word from the `bootrom`. There is no instruction cache, address translation or branch prediction implemented at the moment. The PC is incremented by 4 for the next fetch.
+The fetch stage is very simple at the moment. It simply takes the current PC (`PC` cycle) and sends it to the iCache to read out (`IT` - iCache tag/data cacheline read, `IR` - pull out 4 byte instruction from cacheline). If there is a cache miss, the fetch unit will signal the Instruction Fetch Queue to retreive the cacheline and stall. Once the cacheline is filled, the fetch unit will resume at the missed PC. If a valid instruction is found in the iCache, the fetch unit will enqueue (`IE` - instruction enqueue) it into the instruction FIFO. It will stall if the instruction FIFO is full. The PC mux will use the redirect address for the PC if a flush is signalled by the back end of the core.
 
 ### Decode Stage
 
