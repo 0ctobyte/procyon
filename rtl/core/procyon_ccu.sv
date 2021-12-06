@@ -14,17 +14,22 @@ module procyon_ccu #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_VQ_DEPTH      = 4,
     parameter OPTN_MHQ_DEPTH     = 4,
+    parameter OPTN_IFQ_DEPTH     = 1,
+    parameter OPTN_IC_LINE_SIZE  = 32,
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
 
     parameter MHQ_IDX_WIDTH      = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
     parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
+    parameter IC_LINE_WIDTH      = OPTN_IC_LINE_SIZE * 8,
     parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8,
     parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
 )(
     input  logic                            clk,
     input  logic                            n_rst,
+
+    output logic                            o_ifq_full,
 
     // VQ lookup interface
     input  logic                            i_vq_lookup_valid,
@@ -49,12 +54,21 @@ module procyon_ccu #(
     output logic                            o_mhq_lookup_replay,
     output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
 
-    // Fill cacheline
+    // DCache fill interface
     output logic                            o_mhq_fill_en,
     output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_fill_tag,
     output logic                            o_mhq_fill_dirty,
     output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
     output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
+
+    // IFQ enqueue interface
+    input  logic                            i_ifq_alloc_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_alloc_addr,
+
+    // ICache fill interface
+    output logic                            o_ifq_fill_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_fill_addr,
+    output logic [IC_LINE_WIDTH-1:0]        o_ifq_fill_data,
 
     // Wishbone bus interface
     input  logic                            i_wb_clk,
@@ -71,32 +85,41 @@ module procyon_ccu #(
     output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
 );
 
-    localparam CCU_ARB_DEPTH = 2;
-    localparam CCU_VQ_PRIORITY = 0;
+    localparam CCU_LINE_SIZE    = (OPTN_DC_LINE_SIZE > OPTN_IC_LINE_SIZE) ? OPTN_DC_LINE_SIZE : OPTN_IC_LINE_SIZE;
+    localparam CCU_LINE_WIDTH   = CCU_LINE_SIZE * 8;
+    localparam CCU_ARB_DEPTH    = 3;
+    localparam CCU_VQ_PRIORITY  = 0;
     localparam CCU_MHQ_PRIORITY = 1;
+    localparam CCU_IFQ_PRIORITY = 2;
 
     logic vq_full;
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_valid;
     logic [OPTN_ADDR_WIDTH-1:0] ccu_arb_addr [0:CCU_ARB_DEPTH-1];
-    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_w [0:CCU_ARB_DEPTH-1];
+    logic [CCU_LINE_WIDTH-1:0] ccu_arb_data_w [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_we;
     logic [`PCYN_CCU_LEN_WIDTH-1:0] ccu_arb_len [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_done;
-    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_r;
+    logic [CCU_LINE_WIDTH-1:0] ccu_arb_data_r;
 /* verilator lint_off UNUSED */
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_grant;
 /* verilator lint_on  UNUSED */
     logic biu_en;
     logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
     logic [`PCYN_BIU_LEN_WIDTH-1:0] biu_len;
-    logic [OPTN_DC_LINE_SIZE-1:0] biu_sel;
+    logic [CCU_LINE_SIZE-1:0] biu_sel;
     logic [OPTN_ADDR_WIDTH-1:0] biu_addr;
-    logic [DC_LINE_WIDTH-1:0] biu_data_w;
+    logic [CCU_LINE_WIDTH-1:0] biu_data_w;
     logic biu_done;
-    logic [DC_LINE_WIDTH-1:0] biu_data_r;
+    logic [CCU_LINE_WIDTH-1:0] biu_data_r;
+    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_vq;
+    logic [DC_LINE_WIDTH-1:0] ccu_arb_data_mhq;
+    logic [IC_LINE_WIDTH-1:0] ccu_arb_data_ifq;
 
-    // FIXME for now just drive these signals
+    assign ccu_arb_data_w[CCU_VQ_PRIORITY] = {{(CCU_LINE_WIDTH-DC_LINE_WIDTH){1'b0}}, ccu_arb_data_vq};
     assign ccu_arb_data_w[CCU_MHQ_PRIORITY] = '0;
+    assign ccu_arb_data_w[CCU_IFQ_PRIORITY] = '0;
+    assign ccu_arb_data_mhq = ccu_arb_data_r[DC_LINE_WIDTH-1:0];
+    assign ccu_arb_data_ifq = ccu_arb_data_r[IC_LINE_WIDTH-1:0];
     assign biu_sel = '1;
 
     procyon_vq #(
@@ -121,7 +144,7 @@ module procyon_ccu #(
         .o_ccu_we(ccu_arb_we[CCU_VQ_PRIORITY]),
         .o_ccu_len(ccu_arb_len[CCU_VQ_PRIORITY]),
         .o_ccu_addr(ccu_arb_addr[CCU_VQ_PRIORITY]),
-        .o_ccu_data(ccu_arb_data_w[CCU_VQ_PRIORITY])
+        .o_ccu_data(ccu_arb_data_vq)
     );
 
     procyon_mhq #(
@@ -148,17 +171,38 @@ module procyon_ccu #(
         .o_mhq_fill_addr(o_mhq_fill_addr),
         .o_mhq_fill_data(o_mhq_fill_data),
         .i_ccu_done(ccu_arb_done[CCU_MHQ_PRIORITY]),
-        .i_ccu_data(ccu_arb_data_r),
+        .i_ccu_data(ccu_arb_data_mhq),
         .o_ccu_en(ccu_arb_valid[CCU_MHQ_PRIORITY]),
         .o_ccu_we(ccu_arb_we[CCU_MHQ_PRIORITY]),
         .o_ccu_len(ccu_arb_len[CCU_MHQ_PRIORITY]),
         .o_ccu_addr(ccu_arb_addr[CCU_MHQ_PRIORITY])
     );
 
+    procyon_ifq #(
+        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
+        .OPTN_IFQ_DEPTH(OPTN_IFQ_DEPTH),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE)
+    ) procyon_ifq_inst (
+        .clk(clk),
+        .n_rst(n_rst),
+        .o_ifq_full(o_ifq_full),
+        .i_ifq_alloc_en(i_ifq_alloc_en),
+        .i_ifq_alloc_addr(i_ifq_alloc_addr),
+        .o_ifq_fill_en(o_ifq_fill_en),
+        .o_ifq_fill_addr(o_ifq_fill_addr),
+        .o_ifq_fill_data(o_ifq_fill_data),
+        .i_ccu_done(ccu_arb_done[CCU_IFQ_PRIORITY]),
+        .i_ccu_data(ccu_arb_data_ifq),
+        .o_ccu_en(ccu_arb_valid[CCU_IFQ_PRIORITY]),
+        .o_ccu_we(ccu_arb_we[CCU_IFQ_PRIORITY]),
+        .o_ccu_len(ccu_arb_len[CCU_IFQ_PRIORITY]),
+        .o_ccu_addr(ccu_arb_addr[CCU_IFQ_PRIORITY])
+    );
+
     procyon_ccu_arb #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_CCU_ARB_DEPTH(CCU_ARB_DEPTH),
-        .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE)
+        .OPTN_CCU_LINE_SIZE(CCU_LINE_SIZE)
     ) procyon_ccu_arb_inst (
         .clk(clk),
         .n_rst(n_rst),
@@ -180,7 +224,7 @@ module procyon_ccu #(
     );
 
     procyon_biu_controller_wb #(
-        .OPTN_BIU_DATA_SIZE(OPTN_DC_LINE_SIZE),
+        .OPTN_BIU_DATA_SIZE(CCU_LINE_SIZE),
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH)

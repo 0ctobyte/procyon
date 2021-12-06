@@ -20,7 +20,7 @@ module procyon_vq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_VQ_DEPTH     = 4,
-    parameter OPTN_DC_LINE_SIZE = 1024,
+    parameter OPTN_DC_LINE_SIZE = 32,
 
     parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
     parameter DATA_SIZE         = OPTN_DATA_WIDTH / 8

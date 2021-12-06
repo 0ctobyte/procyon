@@ -16,14 +16,15 @@ module dut #(
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_NUM_IEU            = 1,
-    parameter OPTN_INSN_FIFO_DEPTH    = 32,
-    parameter OPTN_ROB_DEPTH          = 128,
-    parameter OPTN_RS_IEU_DEPTH       = 32,
-    parameter OPTN_RS_LSU_DEPTH       = 32,
-    parameter OPTN_LQ_DEPTH           = 16,
-    parameter OPTN_SQ_DEPTH           = 16,
-    parameter OPTN_VQ_DEPTH           = 16,
-    parameter OPTN_MHQ_DEPTH          = 16,
+    parameter OPTN_INSN_FIFO_DEPTH    = 8,
+    parameter OPTN_ROB_DEPTH          = 12,
+    parameter OPTN_RS_IEU_DEPTH       = 7,
+    parameter OPTN_RS_LSU_DEPTH       = 5,
+    parameter OPTN_LQ_DEPTH           = 5,
+    parameter OPTN_SQ_DEPTH           = 4,
+    parameter OPTN_VQ_DEPTH           = 1,
+    parameter OPTN_MHQ_DEPTH          = 2,
+    parameter OPTN_IFQ_DEPTH          = 1,
     parameter OPTN_IC_CACHE_SIZE      = 1024,
     parameter OPTN_IC_LINE_SIZE       = 32,
     parameter OPTN_IC_WAY_COUNT       = 1,
@@ -49,14 +50,7 @@ module dut #(
 
     // FIXME: To test if simulations pass/fail
     output logic [OPTN_DATA_WIDTH-1:0]      o_sim_tp,
-    output logic                            o_sim_retire,
-
-    // FIXME: Temporary instruction fetch queue interface
-    input  logic                            i_ifq_fill_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_fill_addr,
-    input  logic [OPTN_IC_LINE_SIZE*8-1:0]  i_ifq_fill_data,
-    output logic                            o_ifq_alloc_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_alloc_addr
+    output logic                            o_sim_retire
 );
 
     timeunit 1ns;
@@ -115,6 +109,7 @@ module dut #(
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_IFQ_DEPTH(OPTN_IFQ_DEPTH),
         .OPTN_IC_CACHE_SIZE(OPTN_IC_CACHE_SIZE),
         .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
         .OPTN_IC_WAY_COUNT(OPTN_IC_WAY_COUNT),
@@ -132,12 +127,6 @@ module dut #(
         .o_rat_retire_en(rat_retire_en),
         .o_rat_retire_rdst(rat_retire_rdst),
         .o_rat_retire_data(rat_retire_data),
-        .i_ifq_full('0),
-        .i_ifq_fill_en(i_ifq_fill_en),
-        .i_ifq_fill_addr(i_ifq_fill_addr),
-        .i_ifq_fill_data(i_ifq_fill_data),
-        .o_ifq_alloc_en(o_ifq_alloc_en),
-        .o_ifq_alloc_addr(o_ifq_alloc_addr),
         .i_wb_clk(wb_clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),

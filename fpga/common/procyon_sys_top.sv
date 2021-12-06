@@ -24,6 +24,7 @@ module procyon_sys_top #(
     parameter OPTN_SQ_DEPTH           = 4,
     parameter OPTN_VQ_DEPTH           = 2,
     parameter OPTN_MHQ_DEPTH          = 2,
+    parameter OPTN_IFQ_DEPTH          = 1,
     parameter OPTN_IC_CACHE_SIZE      = 1024,
     parameter OPTN_IC_LINE_SIZE       = 32,
     parameter OPTN_IC_WAY_COUNT       = 1,
@@ -179,14 +180,6 @@ module procyon_sys_top #(
     assign HEX6 = o_hex[6];
     assign HEX7 = o_hex[7];
 
-    // FIXME: Temporary instruction cache interface
-    logic ifq_full;
-    logic ifq_alloc_en;
-    logic [OPTN_ADDR_WIDTH-1:0] ifq_alloc_addr;
-    logic ifq_fill_en;
-    logic [OPTN_ADDR_WIDTH-1:0] ifq_fill_addr;
-    logic [IC_LINE_WIDTH-1:0] ifq_fill_data;
-
     // Wishbone interface
     logic wb_rst;
     logic wb_ack;
@@ -219,10 +212,6 @@ module procyon_sys_top #(
     logic boot_ctrl_done;
     logic [IC_LINE_WIDTH-1:0] rom_data;
     logic [ROM_ADDR_WIDTH-1:0] rom_addr;
-    logic [ROM_ADDR_WIDTH-1:0] core_rom_addr;
-    logic [ROM_ADDR_WIDTH-1:0] boot_rom_addr;
-
-    assign rom_addr = boot_ctrl_done ? core_rom_addr : boot_rom_addr;
 
     procyon_rom #(
         .OPTN_DATA_WIDTH(IC_LINE_WIDTH),
@@ -252,25 +241,8 @@ module procyon_sys_top #(
         .o_wb_addr(boot_wb_addr),
         .o_wb_data(boot_wb_data_o),
         .i_rom_data(rom_data),
-        .o_rom_addr(boot_rom_addr),
+        .o_rom_addr(rom_addr),
         .o_boot_ctrl_done(boot_ctrl_done)
-    );
-
-    ifq_stub #(
-        .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
-        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
-        .OPTN_HEX_SIZE(OPTN_HEX_SIZE)
-    ) ifq_stub_inst (
-        .clk(clk),
-        .n_rst(boot_ctrl_done),
-        .i_rom_data(rom_data),
-        .o_rom_addr(core_rom_addr),
-        .i_alloc_en(ifq_alloc_en),
-        .i_alloc_addr(ifq_alloc_addr),
-        .o_full(ifq_full),
-        .o_fill_en(ifq_fill_en),
-        .o_fill_addr(ifq_fill_addr),
-        .o_fill_data(ifq_fill_data)
     );
 
     procyon #(
@@ -287,6 +259,7 @@ module procyon_sys_top #(
         .OPTN_SQ_DEPTH(OPTN_SQ_DEPTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_IFQ_DEPTH(OPTN_IFQ_DEPTH),
         .OPTN_IC_CACHE_SIZE(OPTN_IC_CACHE_SIZE),
         .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
         .OPTN_IC_WAY_COUNT(OPTN_IC_WAY_COUNT),
@@ -304,12 +277,6 @@ module procyon_sys_top #(
         .o_rat_retire_en(rat_retire_en),
         .o_rat_retire_rdst(rat_retire_rdst),
         .o_rat_retire_data(rat_retire_data),
-        .i_ifq_full(ifq_full),
-        .i_ifq_fill_en(ifq_fill_en),
-        .i_ifq_fill_addr(ifq_fill_addr),
-        .i_ifq_fill_data(ifq_fill_data),
-        .o_ifq_alloc_en(ifq_alloc_en),
-        .o_ifq_alloc_addr(ifq_alloc_addr),
         .i_wb_clk(clk),
         .i_wb_rst(wb_rst),
         .i_wb_ack(wb_ack),

@@ -22,6 +22,7 @@ module procyon #(
     parameter OPTN_SQ_DEPTH         = 8,
     parameter OPTN_VQ_DEPTH         = 4,
     parameter OPTN_MHQ_DEPTH        = 4,
+    parameter OPTN_IFQ_DEPTH        = 1,
     parameter OPTN_IC_CACHE_SIZE    = 1024,
     parameter OPTN_IC_LINE_SIZE     = 32,
     parameter OPTN_IC_WAY_COUNT     = 1,
@@ -47,14 +48,6 @@ module procyon #(
     output logic [RAT_IDX_WIDTH-1:0]        o_rat_retire_rdst,
     output logic [OPTN_DATA_WIDTH-1:0]      o_rat_retire_data,
 
-    // FIXME: Temporary instruction fetch queue interface
-    input  logic                            i_ifq_full,
-    input  logic                            i_ifq_fill_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_fill_addr,
-    input  logic [OPTN_IC_LINE_SIZE*8-1:0]  i_ifq_fill_data,
-    output logic                            o_ifq_alloc_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_alloc_addr,
-
     // Wishbone bus interface
     input  logic                            i_wb_clk,
     input  logic                            i_wb_rst,
@@ -74,6 +67,7 @@ module procyon #(
     localparam ROB_IDX_WIDTH = OPTN_ROB_DEPTH == 1 ? 1 : $clog2(OPTN_ROB_DEPTH);
     localparam MHQ_IDX_WIDTH = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH);
     localparam DC_LINE_WIDTH = OPTN_DC_LINE_SIZE * 8;
+    localparam IC_LINE_WIDTH = OPTN_IC_LINE_SIZE * 8;
     localparam DATA_SIZE     = OPTN_DATA_WIDTH / 8;
 
     // Module signals
@@ -164,6 +158,13 @@ module procyon #(
     logic [OPTN_ADDR_WIDTH-1:0] mhq_fill_addr;
     logic [DC_LINE_WIDTH-1:0] mhq_fill_data;
 
+    logic ifq_full;
+    logic ifq_alloc_en;
+    logic [OPTN_ADDR_WIDTH-1:0] ifq_alloc_addr;
+    logic ifq_fill_en;
+    logic [OPTN_ADDR_WIDTH-1:0] ifq_fill_addr;
+    logic [IC_LINE_WIDTH-1:0] ifq_fill_data;
+
     logic rob_redirect;
     logic [OPTN_ADDR_WIDTH-1:0] rob_redirect_addr;
 
@@ -187,12 +188,12 @@ module procyon #(
         .n_rst(n_rst),
         .i_redirect(rob_redirect),
         .i_redirect_addr(rob_redirect_addr),
-        .i_ifq_full(i_ifq_full),
-        .o_ifq_alloc_en(o_ifq_alloc_en),
-        .o_ifq_alloc_addr(o_ifq_alloc_addr),
-        .i_ifq_fill_en(i_ifq_fill_en),
-        .i_ifq_fill_addr(i_ifq_fill_addr),
-        .i_ifq_fill_data(i_ifq_fill_data),
+        .i_ifq_full(ifq_full),
+        .o_ifq_alloc_en(ifq_alloc_en),
+        .o_ifq_alloc_addr(ifq_alloc_addr),
+        .i_ifq_fill_en(ifq_fill_en),
+        .i_ifq_fill_addr(ifq_fill_addr),
+        .i_ifq_fill_data(ifq_fill_data),
         .i_decode_stall(decode_stall),
         .o_fetch_pc(fetch_pc),
         .o_fetch_insn(fetch_insn),
@@ -472,12 +473,15 @@ module procyon #(
         .OPTN_ADDR_WIDTH(OPTN_ADDR_WIDTH),
         .OPTN_VQ_DEPTH(OPTN_VQ_DEPTH),
         .OPTN_MHQ_DEPTH(OPTN_MHQ_DEPTH),
+        .OPTN_IFQ_DEPTH(OPTN_IFQ_DEPTH),
+        .OPTN_IC_LINE_SIZE(OPTN_IC_LINE_SIZE),
         .OPTN_DC_LINE_SIZE(OPTN_DC_LINE_SIZE),
         .OPTN_WB_ADDR_WIDTH(OPTN_WB_ADDR_WIDTH),
         .OPTN_WB_DATA_WIDTH(OPTN_WB_DATA_WIDTH)
     ) procyon_ccu_inst (
         .clk(clk),
         .n_rst(n_rst),
+        .o_ifq_full(ifq_full),
         .i_vq_lookup_valid(vq_lookup_valid),
         .i_vq_lookup_addr(vq_lookup_addr),
         .i_vq_lookup_byte_sel(vq_lookup_byte_sel),
@@ -500,6 +504,11 @@ module procyon #(
         .o_mhq_fill_dirty(mhq_fill_dirty),
         .o_mhq_fill_addr(mhq_fill_addr),
         .o_mhq_fill_data(mhq_fill_data),
+        .i_ifq_alloc_en(ifq_alloc_en),
+        .i_ifq_alloc_addr(ifq_alloc_addr),
+        .o_ifq_fill_en(ifq_fill_en),
+        .o_ifq_fill_addr(ifq_fill_addr),
+        .o_ifq_fill_data(ifq_fill_data),
         .i_wb_clk(i_wb_clk),
         .i_wb_rst(i_wb_rst),
         .i_wb_ack(i_wb_ack),

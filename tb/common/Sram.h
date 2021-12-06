@@ -23,6 +23,7 @@ SC_MODULE(Sram) {
         SC_METHOD(process);
         sensitive << i_sram_addr << i_sram_dq << i_sram_we_n << i_sram_ce_n << i_sram_oe_n << i_sram_ub_n << i_sram_lb_n;
         m_sram = new uint16_t[sram_size >> 1];
+        dont_initialize();
     }
 
     void trace_all(sc_trace_file *tf, const std::string& parent_name);
