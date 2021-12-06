@@ -63,7 +63,7 @@ At a finer level, the processor's pipeline is organized as described below for t
 
 ## Front-End Pipeline
 
-![Procyon Front-End Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-FE-Pipeline.jpeg)
+![Procyon Front-End Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-FE-Pipeline.png)
 
 This part of the pipeline is the same for all ALU, branch and load/store instructions. It's composed of the Fetch, Decode and Dispatch stages.
 
@@ -82,7 +82,7 @@ The Reorder Buffer and the Reservation Station will be updated in this cycle sim
 
 ## IEU Pipeline
 
-![Procyon IEU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-IEU-Pipeline.jpeg)
+![Procyon IEU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-IEU-Pipeline.png)
 
 The IEU (Integer Execution Unit) executes all ALU and branch instructions in the execution stage of the pipeline.
 
@@ -102,7 +102,7 @@ Retiring instructions is straightforward for integer ALU instructions; they will
 
 ## LSU Pipeline
 
-![Procyon LSU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-LSU-Pipeline.jpeg)
+![Procyon LSU Pipeline Diagram](https://raw.githubusercontent.com/0ctobyte/procyon/master/Procyon-Core-LSU-Pipeline.png)
 
 The load/store unit performs loads and stores in the execution stage. The main pipeline is split into four cycles but is complicated by data cache misses and structural hazards due to cache fills, older loads/stores replaying or stores retiring.
 
