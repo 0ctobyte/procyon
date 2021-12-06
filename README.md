@@ -51,7 +51,7 @@ The Procyon core is an out-of-order, speculative processor. At a high-level an i
 
 Stage | Description
 ----- | -----------
-Fetch | Retrieve an instruction from the instruction cache and place it into the Instruction FIFO.
+Fetch | Retrieve an instruction from the instruction cache and place it into the Instruction FIFO. If there was a cache miss, it will allocate an entry in the Instruction Fetch Queue and stall until the cache fill arrives. It will stall if the Instruction FIFO or Instruction Fetch Queue is full.
 Decode | Decodes an instruction from the Instruction FIFO every cycle and reserve entries in the Reorder Buffer and the appropriate Reservation Station depending on the instruction type. Gets values or producer of source registers and renames destination registers in the Register Alias Table.
 Dispatch | Updates entries in the Reorder Buffer and Reservation Station for the new instruction and allows it to be scheduled when it's ready.
 Issue | When all operands are available an instruction can be issued into the appropriate functional unit every cycle. The reservation station will capture register values from producer ops and schedule ready instructions to it's functional unit when available.
@@ -69,7 +69,31 @@ This part of the pipeline is the same for all ALU, branch and load/store instruc
 
 ### Fetch Stage
 
-The fetch stage is very simple at the moment. It simply takes the current PC (`PC` cycle) and sends it to the iCache to read out (`IT` - iCache tag/data cacheline read, `IR` - pull out 4 byte instruction from cacheline). If there is a cache miss, the fetch unit will signal the Instruction Fetch Queue to retreive the cacheline and stall. Once the cacheline is filled, the fetch unit will resume at the missed PC. If a valid instruction is found in the iCache, the fetch unit will enqueue (`IE` - instruction enqueue) it into the instruction FIFO. It will stall if the instruction FIFO is full. The PC mux will use the redirect address for the PC if a flush is signalled by the back end of the core.
+The fetch stage is very simple at the moment. It simply takes the current PC and sends it to the iCache to read out  and enqueuing it into the Instruction FIFO. It handles cache misses by allocating the PC in the Instruction Fetch Queue.
+
+#### PC Generator
+
+The PC Generator (`PC`) either increments the PC by 4 or maintains the current PC in case of structural hazards (Instruction FIFO full or Instruction Fetch Queue full) or sets it to the redirect address in case of a flush.
+
+#### Instruction Cache Data/Tag Read
+
+The Instruction Cache is queried for tag and the data (it will return the full cache-line) in this cycle (`IT`). The cache supports bypassing data from incoming fills.
+
+#### Instruction Cache Hit Check & Read
+
+Cache-line tags and validity are checked in this cycle (`IR`) and if a cache hit is indicated, the instruction data will be marked valid.
+
+#### Enqueue
+
+If there is a cache miss, the fetch unit will signal the Instruction Fetch Queue to retrieve the cache-line and stall. Once the cache-line is filled, the fetch unit will resume at the missed PC. If a valid instruction is found in the iCache, the fetch unit will enqueue it into the Instruction FIFO in this cycle (`IE`). It will stall if the instruction FIFO is full.
+
+### IFQ: Instruction Fetch Queue
+
+The Instruction Fetch Queue is very simple. It will simply request the CCU to retrieve the cache-line and then signal a fill request to the iCache when the cache-line is available.
+
+#### IFQ Allocate
+
+Whenever the Fetch unit misses in the iCache it will send an allocate request to the Instruction Fetch Queue with the PC that missed.
 
 ### Decode Stage
 
@@ -108,7 +132,7 @@ The load/store unit performs loads and stores in the execution stage. The main p
 
 ### LSU: Load/Store Unit
 
-The Load/Store Unit is split into four main cycles assuming a cache hit; `AM`, `DT`, `DW`, and `EX`. There are several structures in the LSU and around it that are key to successful operation. These are the Load Queue, Store Queue and Miss Handling Queue.
+The Load/Store Unit is split into four main cycles assuming a cache hit; `AM`, `DT`, `DW`, and `EX`. There are several structures in the LSU and around it that are key to successful operation. These are the Load Queue, Store Queue, Victim Queue and Miss Handling Queue.
 
 #### Address Generation & Mux
 
@@ -124,11 +148,15 @@ In the same cycle as `DT` (Data Cache Data/Tag Read), an entry will be allocated
 
 #### Data Cache Hit Check & Write
 
-Cache-line tags and validity are checked here and if a cache hit is indicated then the load data will be marked valid and retiring store data will be written into the cache.
+Cache-line tags and validity are checked here and if a cache hit is indicated, the load data will be marked valid and retiring store data will be written into the cache.
+
+#### Victim Queue Lookup
+
+The Victim Queue will be queried for load operations only. Valid data can be bypassed from the Victim Queue with a `hit` signal indicating the lookup was successful.
 
 #### Execute
 
-The execute stage is straightforward. The actual bytes needed by the load instruction is extracted from the cache-line and prepared to be driven on the CDB alongside the Reorder Buffer entry number. If a victim data is provided by the Data Cache it will be sent to the Victim Buffer in this cycle.
+The execute stage is straightforward. The actual bytes needed by the load instruction is extracted from the cache-line and prepared to be driven on the CDB alongside the Reorder Buffer entry number. If a cache fill operation occurred and there is a victimized cache-line, that cache-line will be allocated in the Victim Queue in this cycle. The victimized cache-line will eventually be written out to memory but is available for lookups by load operations while waiting in the Victim Queue.
 
 #### Complete
 
@@ -136,7 +164,7 @@ The data on the CDB will be used to forward any load data to dependent instructi
 
 #### LQ/SQ Update
 
-During the same cycle as `CM` (complete), the Load Queue and Store Queue will be updated with the Miss Handling Queue tag or told to "sleep" until the next Miss Handling Queue fill request comes through in the case the load or store missed in the cache and the Miss Handling Queue is full. Load & stores will be immediately be marked `replayable` if the cacheline they need is ready in the Miss Handling Queue and the Miss Handling Queue is ready to launch a cache fill request to the LSU.
+During the same cycle as `CM` (complete), the Load Queue and Store Queue will be updated with the Miss Handling Queue tag or told to "sleep" until the next Miss Handling Queue fill request comes through in the case the load or store missed in the cache and the Miss Handling Queue is full. Load & stores will be immediately be marked `replayable` if the cache-line they need is ready in the Miss Handling Queue and the Miss Handling Queue is ready to launch a cache fill request to the LSU.
 
 #### Retire
 
@@ -165,3 +193,15 @@ A new entry is allocated in this cycle in case of a cache miss. If an entry alre
 #### Cache Fills
 
 When a full cache-line is received from the BIU, the Miss Handling Queue will signal the LSU pipeline to perform the Cache Fill. This goes through the same LSU pipeline flow as described above. Cache Fills take priority over any other LSU pipeline operation.
+
+### VQ: Victim Queue
+
+The Victim Queue holds victimized cache-lines due to cache fill operations. The Victim Queue allows lookups and bypasses valid data for load operations only.
+
+#### VQ Lookup
+
+After the `DT` stage, the Victim Queue is queried for data for the load operation. If it is available, the data will be sent to the LSU with a `hit` signal in the next cycle.
+
+#### VQ Allocate
+
+After a cache fill operation writes into the Data Cache, the victimized cache-line will be allocated into the Victim Queue in the LSU `EX` stage. The victim cache-line is available for lookups by load operations. Since writes may update the victimized cache-line by enqueuing into the MHQ, the Victim Queue may hold stale data that can be used by subsequent loads. This scenario is handled by the store operation marking all younger loads as mis-speculated causing those loads to flush the core and restart from the mis-speculated load. In the case that the VQ is full, the MHQ will not issue any cache fill operations even if it can until the VQ is no longer full. The VQ gets priority over the MHQ and IFQ by the CCU arbiter.
