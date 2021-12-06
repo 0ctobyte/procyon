@@ -24,10 +24,6 @@ int sc_main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     Verilated::traceEverOn(true);
 
-    if (argc < 2) {
-        std::cerr << "ERROR: No binary or hex file specified" << std::endl;
-    }
-
     std::string top_name("top");
     sc_trace_file *tf = sc_create_vcd_trace_file("sysc");
 
@@ -73,14 +69,6 @@ int sc_main(int argc, char** argv) {
     dut.o_sram_lb_n(sram_lb_n);
     dut.o_sim_tp(sim_tp);
     dut.o_sim_retire(sim_retire);
-
-    std::string rom_file(argv[1]);
-    std::string suffix_str("hex");
-    if (ends_with(rom_file, suffix_str)) {
-        sram.load_hex(rom_file);
-    } else {
-        sram.load_bin(rom_file);
-    }
 
     VerilatedVcdSc tfp;
     dut.trace(&tfp, 100);

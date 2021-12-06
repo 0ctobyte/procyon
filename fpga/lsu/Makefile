@@ -32,7 +32,7 @@ OBJ_DIR := obj_dir
 DUT := dut
 DUT_SRC := ../common/$(DUT).sv
 SYSC_CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
-SYSC_SRCS := sc_main.cpp ../../tb/common/utils.cpp
+SYSC_SRCS := ../common/sc_main.cpp ../../tb/common/utils.cpp
 VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv)
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe

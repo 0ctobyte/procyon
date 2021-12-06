@@ -7,12 +7,13 @@ IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
+DUT_SRC := ../common/$(DUT).sv
 CFLAGS := -CFLAGS -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
 VSRCS := $(wildcard ../../rtl/*/*.sv)
-SRCS := sc_main.cpp ../common/utils.cpp
+SRCS := ../common/sc_main.cpp ../common/utils.cpp
 
 TESTS_DIR := tests
 TESTS_RUN_DIR := $(TESTS_DIR)/isa
@@ -34,8 +35,8 @@ clean:
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
-$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT).sv
-	$(VERILATOR) $(CFLAGS) $(VINCLUDE) $(VFLAGS) $(DUT).sv $(SRCS) --prefix $(VDUT)
+$(OBJ_DIR)/$(VDUT).mk: $(SRCS) $(VSRCS) $(DUT_SRC)
+	$(VERILATOR) $(CFLAGS) $(VINCLUDE) $(VFLAGS) $(DUT_SRC) $(SRCS) --prefix $(VDUT)
 
 $(TESTS_RUN_DIR): $(TESTS_DIR)/Makefile
 	$(MAKE) -C $(TESTS_DIR)

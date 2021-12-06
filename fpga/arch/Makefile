@@ -34,7 +34,7 @@ VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe
 VDUT := V$(DUT)
 VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv)
-SRCS := sc_main.cpp ../../tb/common/utils.cpp
+SRCS := ../common/sc_main.cpp ../../tb/common/utils.cpp
 
 # Check if the tcl file contains the right hex file in case the HEX_FILE variable has been updated via a make call
 # specifying a new PROGRAM. The touch command will force make to re-write the tcl file and re-build the FPGA bitstream
