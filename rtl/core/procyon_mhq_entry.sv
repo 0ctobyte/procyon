@@ -94,6 +94,9 @@ module procyon_mhq_entry #(
     // Update data and byte_updated merging data from a store or from the CCU or both
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data_mux;
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_entry_byte_updated_mux;
+    logic update_we;
+
+    assign update_we = i_update_en & i_update_we;
 
     always_comb begin
         mhq_entry_data_mux = mhq_entry_data_r;
@@ -101,7 +104,7 @@ module procyon_mhq_entry #(
 
         for (int i = 0; i < OPTN_DC_LINE_SIZE; i++) begin
             logic update_byte;
-            update_byte = i_update_en & i_update_we & i_update_byte_select[i];
+            update_byte = update_we & i_update_byte_select[i];
 
             // Merge store data into miss queue entry and update the byte_updated field
             mhq_entry_data_mux[i*8 +: 8] = update_byte ? i_update_wr_data[i*8 +: 8] : mhq_entry_data_mux[i*8 +: 8];
@@ -121,9 +124,10 @@ module procyon_mhq_entry #(
     assign mhq_entry_valid = (mhq_entry_state_r != MHQ_ENTRY_STATE_INVALID);
     assign o_lookup_hit = mhq_entry_valid & (mhq_entry_addr_r == i_lookup_addr);
 
-    // Output entry registers
+    // Output entry registers. De-assert the entry_complete signal if the entry is currently being written too by a
+    // retiring store otherwise the fill request sent to the DCache will have outdated data.
     assign o_mhq_entry_valid = mhq_entry_valid;
-    assign o_mhq_entry_complete = (mhq_entry_state_r == MHQ_ENTRY_STATE_COMPLETE);
+    assign o_mhq_entry_complete = (mhq_entry_state_r == MHQ_ENTRY_STATE_COMPLETE) & ~update_we;
     assign o_mhq_entry_dirty = mhq_entry_dirty_r;
     assign o_mhq_entry_addr = mhq_entry_addr_r;
     assign o_mhq_entry_data = mhq_entry_data_r;
