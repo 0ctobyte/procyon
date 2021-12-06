@@ -6,6 +6,7 @@ Procyon is a dynamically scheduling, scalar, speculative RISCV processor support
 * Highly parameterizable
 * Synthesizes for FPGAs
 * Out-of-order execution
+* L1 instruction cache
 * Non-blocking L1 data cache with configurable number of outstanding misses
 * Speculative execution across branches and speculative load execution with memory disambiguation
 * Configurable number of integer issue pipelines
@@ -30,18 +31,18 @@ The above will also work from any of the other directories in the `tb` directory
 
 # FPGA Build
 
-In the `fpga` directory there are several FPGA tests similar to the simulation tests. Currently, only the CycloneIVe FPGA on the Terasic DE2-115 board is supported. To build run `make`. To program the FPGA run `make program`.
+Currently, only the CycloneIVe FPGA on the Terasic DE2-115 board is supported. To build run `make`. To program the FPGA run `make program`. SW[17] (Switch 17) on the DE2-115 board is flipped to the up position to bring the design out of reset. The core is automatically halted after the first instruction of the loaded program has retired. `KEY0` on the DE2-115 board is used to step through the code one instruction at a time. `KEY1` is used to un-halt the core and let it run full-speed. If the program is one of the architectural or LSU tests the core will automatically halt once the test has completed. The hex displays on the board will show the retired data written into the register file; in the case the test passes, it will show `4A33` otherwise it will show `FAE1`. The red LEDs show the retiring PC or branch address and the green LEDs show the register number the retiring instruction is writing too.
 
 The Procyon core and system is functional on the FPGA with the following blocks:
 
 * `procyon`: The actual RISCV core
-* `bootrom`: Interfaces with the fetch unit in the core. This is loaded with a freestanding bare-metal binary converted to .hex format
-* `wb_sram`: Wishbone SRAM slave module used to interface with the IS61WV102416BLL SRAM chip on the DE2-115 board and connected to the Wishbone bus
+* `procyon_rom`: The `bootrom`. It will hold the bare-metal program instructions that the core will execute.
+* `boot_ctrl`: Copies the binary loaded into the `bootrom` to the SRAM before de-asserting reset to the Procyon core and switching the Wishbone bux mux to pass through the signals from the Procyon core.
+* `sram_top`: SRAM controller module used to interface with the IS61WV102416BLL SRAM chip on the DE2-115 board. It includes a Wishbone responder interface to the Wishbone bus.
 
-A python script, `hexify-bin.py`, is provided to convert an elf or binary file to .hex format: `hexify-bin.py <binary> <out_dir>`. This is used by the Makefile automatically.
+A python script, `hexify-bin.py`, is provided to convert an elf or binary file to hex format: `hexify-bin.py <binary/ELF> <out_dir>`. This is done by the Makefile automatically.
 
-To build the FPGA bitstream with a custom binary loaded into the bootrom: `make PROG_FILE=<riscv_program>`.
-The `RISCV_ARCH_TESTS` environment variable must be set to the directory containing the riscv elf/binary file or it can be overridden by providing `PROG_DIR=<dir>` to the `make` command.
+To build the FPGA bitstream with a custom binary loaded into the bootrom: `make PROGRAM=<riscv program ELF/binary>`.
 
 # The Procyon Core
 
