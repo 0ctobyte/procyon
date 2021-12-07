@@ -66,14 +66,25 @@ module procyon_ccu_arb #(
     // After one cycle of asserting done, it will return back to the idle state.
     ccu_arb_state_t ccu_arb_state_r;
     ccu_arb_state_t ccu_arb_state_next;
+    always_comb begin
+        logic any_valid;
+        any_valid = (ccu_arb_select != 0);
+
+        case (ccu_arb_state_r)
+            CCU_ARB_STATE_IDLE: ccu_arb_state_next = any_valid ? CCU_ARB_STATE_BUSY : ccu_arb_state_r;
+            CCU_ARB_STATE_BUSY: ccu_arb_state_next = i_biu_done ? CCU_ARB_STATE_DONE : ccu_arb_state_r;
+            CCU_ARB_STATE_DONE: ccu_arb_state_next = CCU_ARB_STATE_IDLE;
+            default:            ccu_arb_state_next = CCU_ARB_STATE_IDLE;
+        endcase
+    end
+
+    procyon_srff #(CCU_ARB_STATE_WIDTH) ccu_arb_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(ccu_arb_state_next), .i_reset(CCU_ARB_STATE_IDLE), .o_q(ccu_arb_state_r));
+
     logic [OPTN_CCU_ARB_DEPTH-1:0] ccu_arb_done;
     logic [OPTN_CCU_ARB_DEPTH-1:0] ccu_arb_grant;
     logic biu_en;
 
     always_comb begin
-        logic any_valid;
-        any_valid = (ccu_arb_select != 0);
-
         ccu_arb_done = '0;
         ccu_arb_grant = '0;
 
@@ -82,30 +93,24 @@ module procyon_ccu_arb #(
                 ccu_arb_done = '0;
                 ccu_arb_grant = ccu_arb_select;
                 biu_en = 1'b0;
-                ccu_arb_state_next = any_valid ? CCU_ARB_STATE_BUSY : ccu_arb_state_r;
             end
             CCU_ARB_STATE_BUSY: begin
                 ccu_arb_done[ccu_arb_idx_r] = i_biu_done;
                 ccu_arb_grant = '0;
                 biu_en = i_biu_done ? 1'b0 : i_ccu_arb_valid[ccu_arb_idx_r];
-                ccu_arb_state_next = i_biu_done ? CCU_ARB_STATE_DONE : ccu_arb_state_r;
             end
             CCU_ARB_STATE_DONE: begin
                 ccu_arb_done = '0;
                 ccu_arb_grant = '0;
                 biu_en = 1'b0;
-                ccu_arb_state_next = CCU_ARB_STATE_IDLE;
             end
             default: begin
                 ccu_arb_done = '0;
                 ccu_arb_grant = '0;
                 biu_en = 1'b0;
-                ccu_arb_state_next = CCU_ARB_STATE_IDLE;
             end
         endcase
     end
-
-    procyon_srff #(CCU_ARB_STATE_WIDTH) ccu_arb_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(ccu_arb_state_next), .i_reset(CCU_ARB_STATE_IDLE), .o_q(ccu_arb_state_r));
 
     // Only set the DONE and GRANT signals for the selected requestor
     procyon_srff #(OPTN_CCU_ARB_DEPTH) o_ccu_arb_done_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(ccu_arb_done), .i_reset('0), .o_q(o_ccu_arb_done));

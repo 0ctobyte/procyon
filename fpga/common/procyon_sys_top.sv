@@ -136,16 +136,18 @@ module procyon_sys_top #(
             TEST_STATE_HALT: test_state_next = key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_HALT);
             TEST_STATE_DONE: test_state_next = key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_DONE);
         endcase
+    end
 
+    procyon_srff #(TEST_STATE_WIDTH) test_state_r_srff (.clk(CLOCK_50), .n_rst(n_rst), .i_en(1'b1), .i_set(test_state_next), .i_reset(TEST_STATE_STEP), .o_q(test_state_r));
+
+    always_comb begin
         rat_retire_data_next = test_state_done ? sim_tp : rat_retire_data;
-
         clk = CLOCK_50 | test_state_r[1];
     end
 
     logic enable;
     assign enable = rat_retire_en & (test_state_r == TEST_STATE_STEP);
 
-    procyon_srff #(TEST_STATE_WIDTH) test_state_r_srff (.clk(CLOCK_50), .n_rst(n_rst), .i_en(1'b1), .i_set(test_state_next), .i_reset(TEST_STATE_STEP), .o_q(test_state_r));
     procyon_ff #(1) rob_redirect_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rob_redirect), .o_q(rob_redirect_r));
     procyon_ff #(OPTN_ADDR_WIDTH) rob_redirect_addr_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rob_redirect_addr), .o_q(rob_redirect_addr_r));
     procyon_ff #(RAT_IDX_WIDTH) rat_retire_rdst_r_ff (.clk(CLOCK_50), .i_en(enable), .i_d(rat_retire_rdst), .o_q(rat_retire_rdst_r));

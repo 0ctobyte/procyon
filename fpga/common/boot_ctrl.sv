@@ -74,10 +74,22 @@ module boot_ctrl #(
     endcase
     endgenerate
 
-    logic [ROM_ADDR_WIDTH-1:0] rom_addr_next;
-    logic [ROM_ADDR_WIDTH-1:0] rom_addr_r;
     logic [BOOT_CTRL_STATE_WIDTH-1:0] boot_ctrl_state_next;
     logic [BOOT_CTRL_STATE_WIDTH-1:0] boot_ctrl_state_r;
+
+    always_comb begin
+        case (boot_ctrl_state_r)
+            BOOT_CTRL_STATE_RESET: boot_ctrl_state_next = BOOT_CTRL_STATE_BUSY;
+            BOOT_CTRL_STATE_BUSY:  boot_ctrl_state_next = ((rom_addr_r == (ROM_ADDR_WIDTH)'(OPTN_HEX_SIZE-1)) & biu_done) ? BOOT_CTRL_STATE_DONE : BOOT_CTRL_STATE_BUSY;
+            BOOT_CTRL_STATE_DONE:  boot_ctrl_state_next = BOOT_CTRL_STATE_DONE;
+            default:               boot_ctrl_state_next = BOOT_CTRL_STATE_DONE;
+        endcase
+    end
+
+    procyon_srff #(BOOT_CTRL_STATE_WIDTH) boot_ctrl_state_r_srff (.clk(i_wb_clk), .n_rst(n_wb_rst), .i_en(1'b1), .i_set(boot_ctrl_state_next), .i_reset(BOOT_CTRL_STATE_RESET), .o_q(boot_ctrl_state_r));
+
+    logic [ROM_ADDR_WIDTH-1:0] rom_addr_next;
+    logic [ROM_ADDR_WIDTH-1:0] rom_addr_r;
 
     always_comb begin
         biu_data_o_next = i_rom_data;
@@ -87,27 +99,22 @@ module boot_ctrl #(
             BOOT_CTRL_STATE_RESET: begin
                 biu_en_next = 1'b0;
                 rom_addr_next = '0;
-                boot_ctrl_state_next = BOOT_CTRL_STATE_BUSY;
             end
             BOOT_CTRL_STATE_BUSY: begin
                 biu_en_next = ~biu_done;
                 rom_addr_next = rom_addr_r + (ROM_ADDR_WIDTH)'(biu_done);
-                boot_ctrl_state_next = ((rom_addr_r == (ROM_ADDR_WIDTH)'(OPTN_HEX_SIZE-1)) & biu_done) ? BOOT_CTRL_STATE_DONE : BOOT_CTRL_STATE_BUSY;
             end
             BOOT_CTRL_STATE_DONE: begin
                 biu_en_next = 1'b0;
                 rom_addr_next = '0;
-                boot_ctrl_state_next = BOOT_CTRL_STATE_DONE;
             end
             default: begin
                 biu_en_next = 1'b0;
                 rom_addr_next = '0;
-                boot_ctrl_state_next = BOOT_CTRL_STATE_DONE;
             end
         endcase
     end
 
-    procyon_srff #(BOOT_CTRL_STATE_WIDTH) boot_ctrl_state_r_srff (.clk(i_wb_clk), .n_rst(n_wb_rst), .i_en(1'b1), .i_set(boot_ctrl_state_next), .i_reset(BOOT_CTRL_STATE_RESET), .o_q(boot_ctrl_state_r));
     procyon_srff #(1) biu_en_r_srff (.clk(i_wb_clk), .n_rst(n_wb_rst), .i_en(1'b1), .i_set(biu_en_next), .i_reset(1'b0), .o_q(biu_en_r));
     procyon_ff #(ROM_ADDR_WIDTH) rom_addr_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(rom_addr_next), .o_q(rom_addr_r));
     procyon_ff #(IC_LINE_WIDTH) biu_data_o_r_ff (.clk(i_wb_clk), .i_en(1'b1), .i_d(biu_data_o_next), .o_q(biu_data_o_r));
