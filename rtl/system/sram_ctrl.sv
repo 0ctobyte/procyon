@@ -52,12 +52,12 @@ module sram_ctrl #(
     localparam SRAM_CTRL_STATE_WIDTH = 3;
 
     typedef enum logic [SRAM_CTRL_STATE_WIDTH-1:0] {
-        SRAM_CTRL_STATE_IDLE         = 3'b000,
-        SRAM_CTRL_STATE_READ_ACK     = 3'b001,
-        SRAM_CTRL_STATE_WRITE_ACK    = 3'b010,
-        SRAM_CTRL_STATE_READ_GATHER  = 3'b011,
-        SRAM_CTRL_STATE_WRITE_GATHER = 3'b100,
-        SRAM_CTRL_STATE_UNALIGNED    = 3'b101
+        SRAM_CTRL_STATE_IDLE         = (SRAM_CTRL_STATE_WIDTH)'('b000),
+        SRAM_CTRL_STATE_READ_ACK     = (SRAM_CTRL_STATE_WIDTH)'('b001),
+        SRAM_CTRL_STATE_WRITE_ACK    = (SRAM_CTRL_STATE_WIDTH)'('b010),
+        SRAM_CTRL_STATE_READ_GATHER  = (SRAM_CTRL_STATE_WIDTH)'('b011),
+        SRAM_CTRL_STATE_WRITE_GATHER = (SRAM_CTRL_STATE_WIDTH)'('b100),
+        SRAM_CTRL_STATE_UNALIGNED    = (SRAM_CTRL_STATE_WIDTH)'('b101)
     } sram_ctrl_state_t;
 
     sram_ctrl_state_t sram_ctrl_state_r;

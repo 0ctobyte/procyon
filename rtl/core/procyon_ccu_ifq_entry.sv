@@ -31,8 +31,8 @@ module procyon_ccu_ifq_entry #(
     localparam IFQ_ENTRY_STATE_WIDTH = 2;
 
     typedef enum logic [IFQ_ENTRY_STATE_WIDTH-1:0] {
-        IFQ_ENTRY_STATE_INVALID  = 2'b00,
-        IFQ_ENTRY_STATE_VALID    = 2'b01
+        IFQ_ENTRY_STATE_INVALID  = (IFQ_ENTRY_STATE_WIDTH)'('b00),
+        IFQ_ENTRY_STATE_VALID    = (IFQ_ENTRY_STATE_WIDTH)'('b01)
     } ifq_entry_state_t;
 
     // Each entry in the IFQ contains the following

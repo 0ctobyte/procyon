@@ -70,10 +70,10 @@ module procyon_sys_top #(
     localparam TEST_STATE_WIDTH = 2;
 
     typedef enum logic [TEST_STATE_WIDTH-1:0] {
-        TEST_STATE_RUN   = 2'b00,
-        TEST_STATE_STEP  = 2'b01,
-        TEST_STATE_HALT  = 2'b10,
-        TEST_STATE_DONE  = 2'b11
+        TEST_STATE_RUN   = (TEST_STATE_WIDTH)'('b00),
+        TEST_STATE_STEP  = (TEST_STATE_WIDTH)'('b01),
+        TEST_STATE_HALT  = (TEST_STATE_WIDTH)'('b10),
+        TEST_STATE_DONE  = (TEST_STATE_WIDTH)'('b11)
     } test_state_t;
 
     logic rst_sync;

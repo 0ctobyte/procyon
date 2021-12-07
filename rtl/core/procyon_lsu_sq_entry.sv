@@ -60,11 +60,11 @@ module procyon_lsu_sq_entry #(
     localparam SQ_ENTRY_STATE_WIDTH = 3;
 
     typedef enum logic [SQ_ENTRY_STATE_WIDTH-1:0] {
-        SQ_ENTRY_STATE_INVALID        = 3'b000,
-        SQ_ENTRY_STATE_VALID          = 3'b001,
-        SQ_ENTRY_STATE_MHQ_FILL_WAIT  = 3'b100,
-        SQ_ENTRY_STATE_NONSPECULATIVE = 3'b101,
-        SQ_ENTRY_STATE_LAUNCHED       = 3'b110
+        SQ_ENTRY_STATE_INVALID        = (SQ_ENTRY_STATE_WIDTH)'('b000),
+        SQ_ENTRY_STATE_VALID          = (SQ_ENTRY_STATE_WIDTH)'('b001),
+        SQ_ENTRY_STATE_MHQ_FILL_WAIT  = (SQ_ENTRY_STATE_WIDTH)'('b100),
+        SQ_ENTRY_STATE_NONSPECULATIVE = (SQ_ENTRY_STATE_WIDTH)'('b101),
+        SQ_ENTRY_STATE_LAUNCHED       = (SQ_ENTRY_STATE_WIDTH)'('b110)
     } sq_entry_state_t;
 
     // Each SQ entry contains:

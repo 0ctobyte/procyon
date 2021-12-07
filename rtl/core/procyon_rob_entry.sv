@@ -50,10 +50,10 @@ module procyon_rob_entry #(
     localparam ROB_ENTRY_STATE_WIDTH = 2;
 
     typedef enum logic [ROB_ENTRY_STATE_WIDTH-1:0] {
-        ROB_ENTRY_STATE_INVALID     = 2'b00,
-        ROB_ENTRY_STATE_PENDING     = 2'b01,
-        ROB_ENTRY_STATE_LSU_PENDING = 2'b10,
-        ROB_ENTRY_STATE_RETIRABLE   = 2'b11
+        ROB_ENTRY_STATE_INVALID     = (ROB_ENTRY_STATE_WIDTH)'('b00),
+        ROB_ENTRY_STATE_PENDING     = (ROB_ENTRY_STATE_WIDTH)'('b01),
+        ROB_ENTRY_STATE_LSU_PENDING = (ROB_ENTRY_STATE_WIDTH)'('b10),
+        ROB_ENTRY_STATE_RETIRABLE   = (ROB_ENTRY_STATE_WIDTH)'('b11)
     } rob_entry_state_t;
 
     // ROB entry consists of the following:

@@ -41,9 +41,9 @@ module procyon_ccu_arb #(
     localparam CCU_ARB_STATE_WIDTH = 2;
 
     typedef enum logic [CCU_ARB_STATE_WIDTH-1:0] {
-        CCU_ARB_STATE_IDLE  = 2'b00,
-        CCU_ARB_STATE_BUSY  = 2'b01,
-        CCU_ARB_STATE_DONE  = 2'b10
+        CCU_ARB_STATE_IDLE  = (CCU_ARB_STATE_WIDTH)'('b00),
+        CCU_ARB_STATE_BUSY  = (CCU_ARB_STATE_WIDTH)'('b01),
+        CCU_ARB_STATE_DONE  = (CCU_ARB_STATE_WIDTH)'('b10)
     } ccu_arb_state_t;
 
     // Pick a requestor giving priority to the requestor mapped to bit 0

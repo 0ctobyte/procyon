@@ -46,9 +46,9 @@ module procyon_ccu_mhq_entry #(
     localparam MHQ_ENTRY_STATE_WIDTH = 2;
 
     typedef enum logic [MHQ_ENTRY_STATE_WIDTH-1:0] {
-        MHQ_ENTRY_STATE_INVALID  = 2'b00,
-        MHQ_ENTRY_STATE_VALID    = 2'b01,
-        MHQ_ENTRY_STATE_COMPLETE = 2'b10
+        MHQ_ENTRY_STATE_INVALID  = (MHQ_ENTRY_STATE_WIDTH)'('b00),
+        MHQ_ENTRY_STATE_VALID    = (MHQ_ENTRY_STATE_WIDTH)'('b01),
+        MHQ_ENTRY_STATE_COMPLETE = (MHQ_ENTRY_STATE_WIDTH)'('b10)
     } mhq_entry_state_t;
 
     // Each entry in the MHQ contains the following

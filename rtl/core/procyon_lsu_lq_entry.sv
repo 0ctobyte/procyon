@@ -70,13 +70,13 @@ module procyon_lsu_lq_entry #(
     localparam LQ_ENTRY_STATE_WIDTH = 3;
 
     typedef enum logic [LQ_ENTRY_STATE_WIDTH-1:0] {
-        LQ_ENTRY_STATE_INVALID       = 3'b000,
-        LQ_ENTRY_STATE_VALID         = 3'b001,
-        LQ_ENTRY_STATE_MHQ_TAG_WAIT  = 3'b010,
-        LQ_ENTRY_STATE_MHQ_FILL_WAIT = 3'b011,
-        LQ_ENTRY_STATE_REPLAYABLE    = 3'b100,
-        LQ_ENTRY_STATE_LAUNCHED      = 3'b101,
-        LQ_ENTRY_STATE_COMPLETE      = 3'b110
+        LQ_ENTRY_STATE_INVALID       = (LQ_ENTRY_STATE_WIDTH)'('b000),
+        LQ_ENTRY_STATE_VALID         = (LQ_ENTRY_STATE_WIDTH)'('b001),
+        LQ_ENTRY_STATE_MHQ_TAG_WAIT  = (LQ_ENTRY_STATE_WIDTH)'('b010),
+        LQ_ENTRY_STATE_MHQ_FILL_WAIT = (LQ_ENTRY_STATE_WIDTH)'('b011),
+        LQ_ENTRY_STATE_REPLAYABLE    = (LQ_ENTRY_STATE_WIDTH)'('b100),
+        LQ_ENTRY_STATE_LAUNCHED      = (LQ_ENTRY_STATE_WIDTH)'('b101),
+        LQ_ENTRY_STATE_COMPLETE      = (LQ_ENTRY_STATE_WIDTH)'('b110)
     } lq_entry_state_t;
 
     // Each entry in the LQ contains the following

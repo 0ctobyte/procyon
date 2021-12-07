@@ -37,8 +37,8 @@ module procyon_ccu_vq_entry #(
     localparam VQ_ENTRY_STATE_WIDTH = 1;
 
     typedef enum logic [VQ_ENTRY_STATE_WIDTH-1:0] {
-        VQ_ENTRY_STATE_INVALID  = 1'b0,
-        VQ_ENTRY_STATE_VALID    = 1'b1
+        VQ_ENTRY_STATE_INVALID  = (VQ_ENTRY_STATE_WIDTH)'('b0),
+        VQ_ENTRY_STATE_VALID    = (VQ_ENTRY_STATE_WIDTH)'('b1)
     } vq_entry_state_t;
 
     // Each entry in the VQ contains the following

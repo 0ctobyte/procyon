@@ -74,13 +74,13 @@ module procyon_biu_controller_wb #(
     localparam BIU_STATE_WIDTH   = 3;
 
     typedef enum logic [BIU_STATE_WIDTH-1:0] {
-        BIU_STATE_IDLE       = 3'b000,
-        BIU_STATE_SEND_REQ   = 3'b001,
-        BIU_STATE_RMW_READ   = 3'b010,
-        BIU_STATE_RMW_MODIFY = 3'b011,
-        BIU_STATE_RMW_WRITE  = 3'b100,
-        BIU_STATE_DONE       = 3'b101,
-        BIU_STATE_ERR        = 3'b111
+        BIU_STATE_IDLE       = (BIU_STATE_WIDTH)'('b000),
+        BIU_STATE_SEND_REQ   = (BIU_STATE_WIDTH)'('b001),
+        BIU_STATE_RMW_READ   = (BIU_STATE_WIDTH)'('b010),
+        BIU_STATE_RMW_MODIFY = (BIU_STATE_WIDTH)'('b011),
+        BIU_STATE_RMW_WRITE  = (BIU_STATE_WIDTH)'('b100),
+        BIU_STATE_DONE       = (BIU_STATE_WIDTH)'('b101),
+        BIU_STATE_ERR        = (BIU_STATE_WIDTH)'('b111)
     } biu_state_t;
 
     logic n_wb_rst;

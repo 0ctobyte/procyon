@@ -45,10 +45,10 @@ module procyon_fetch #(
     localparam FETCH_STATE_WIDTH = 2;
 
     typedef enum logic [FETCH_STATE_WIDTH-1:0] {
-        FETCH_STATE_NEXT_FETCH  = 2'b00,
-        FETCH_STATE_IFQ_ENQUEUE = 2'b01,
-        FETCH_STATE_IFQ_STALL   = 2'b10,
-        FETCH_STATE_FIFO_STALL  = 2'b11
+        FETCH_STATE_NEXT_FETCH  = (FETCH_STATE_WIDTH)'('b00),
+        FETCH_STATE_IFQ_ENQUEUE = (FETCH_STATE_WIDTH)'('b01),
+        FETCH_STATE_IFQ_STALL   = (FETCH_STATE_WIDTH)'('b10),
+        FETCH_STATE_FIFO_STALL  = (FETCH_STATE_WIDTH)'('b11)
     } fetch_state_t;
 
     fetch_state_t fetch_state_r;
