@@ -112,7 +112,7 @@ module procyon_fetch #(
     fetch_state_t fetch_state_next;
 
     always_comb begin
-        case (fetch_state_r)
+        unique case (fetch_state_r)
             FETCH_STATE_NEXT_FETCH:  fetch_state_next = n_hit ? FETCH_STATE_IFQ_ENQUEUE : (insn_fifo_full ? FETCH_STATE_FIFO_STALL : FETCH_STATE_NEXT_FETCH);
             FETCH_STATE_IFQ_ENQUEUE: fetch_state_next = ~i_ifq_full ? FETCH_STATE_IFQ_STALL : FETCH_STATE_IFQ_ENQUEUE;
             FETCH_STATE_IFQ_STALL:   fetch_state_next = i_ifq_fill_en ? (insn_fifo_full ? FETCH_STATE_FIFO_STALL : FETCH_STATE_NEXT_FETCH) : FETCH_STATE_IFQ_STALL;
@@ -133,7 +133,7 @@ module procyon_fetch #(
         logic [OPTN_ADDR_WIDTH-1:0] pc_plus_4;
         pc_plus_4 = pc_r + 4;
 
-        case (fetch_state_r)
+        unique case (fetch_state_r)
             FETCH_STATE_NEXT_FETCH:  pc_next = pc_plus_4;
             FETCH_STATE_IFQ_ENQUEUE: pc_next = pc_plus_4;
             FETCH_STATE_IFQ_STALL:   pc_next = fetch_ifq_addr_r;

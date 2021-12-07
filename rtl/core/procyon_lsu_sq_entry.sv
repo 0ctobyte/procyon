@@ -98,7 +98,7 @@ module procyon_lsu_sq_entry #(
         sq_fill_bypass_mux = i_mhq_fill_en ? SQ_ENTRY_STATE_NONSPECULATIVE : SQ_ENTRY_STATE_MHQ_FILL_WAIT;
         sq_update_state_sel = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
 
-        case (sq_update_state_sel)
+        unique case (sq_update_state_sel)
             3'b000: sq_update_state_mux = SQ_ENTRY_STATE_INVALID;
             3'b001: sq_update_state_mux = SQ_ENTRY_STATE_INVALID;
             3'b010: sq_update_state_mux = SQ_ENTRY_STATE_INVALID;
@@ -111,7 +111,7 @@ module procyon_lsu_sq_entry #(
 
         sq_entry_state_next = sq_entry_state_r;
 
-        case (sq_entry_state_next)
+        unique case (sq_entry_state_next)
             SQ_ENTRY_STATE_INVALID:        sq_entry_state_next = i_alloc_en ? SQ_ENTRY_STATE_VALID : sq_entry_state_next;
             SQ_ENTRY_STATE_VALID:          sq_entry_state_next = i_flush ? SQ_ENTRY_STATE_INVALID : (rob_retire_en ? SQ_ENTRY_STATE_NONSPECULATIVE : sq_entry_state_next);
             SQ_ENTRY_STATE_MHQ_FILL_WAIT:  sq_entry_state_next = i_mhq_fill_en ? SQ_ENTRY_STATE_NONSPECULATIVE : sq_entry_state_next;

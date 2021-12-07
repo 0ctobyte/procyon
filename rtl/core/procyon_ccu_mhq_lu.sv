@@ -77,7 +77,7 @@ module procyon_ccu_mhq_lu #(
         logic [1:0] mhq_lookup_select_mux_sel;
         mhq_lookup_select_mux_sel = {mhq_update_bypass_hit, mhq_lookup_entry_hit};
 
-        case (mhq_lookup_select_mux_sel)
+        unique case (mhq_lookup_select_mux_sel)
             2'b00: mhq_lookup_select_mux = i_mhq_lookup_entry_alloc_select;
             2'b01: mhq_lookup_select_mux = i_mhq_lookup_entry_hit_select;
             2'b10: mhq_lookup_select_mux = i_mhq_update_bypass_select;
@@ -133,7 +133,7 @@ module procyon_ccu_mhq_lu #(
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
 
     always_comb begin
-        case (i_mhq_lookup_op)
+        unique case (i_mhq_lookup_op)
             `PCYN_OP_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
             `PCYN_OP_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
             `PCYN_OP_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});

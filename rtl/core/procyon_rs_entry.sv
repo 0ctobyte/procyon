@@ -84,7 +84,7 @@ module procyon_rs_entry #(
         logic [1:0] rs_entry_empty_sel;
         rs_entry_empty_sel = {i_issue_en, i_reserve_en};
 
-        case (rs_entry_empty_sel)
+        unique case (rs_entry_empty_sel)
             2'b00: rs_entry_empty_mux = rs_entry_empty_r;
             2'b01: rs_entry_empty_mux = 1'b0;
             2'b10: rs_entry_empty_mux = 1'b1;
@@ -154,7 +154,7 @@ module procyon_rs_entry #(
     logic [RS_IDX_WIDTH-1:0] rs_entry_age_mux;
 
     always_comb begin
-        case ({i_dispatching, i_issuing})
+        unique case ({i_dispatching, i_issuing})
             2'b00: rs_entry_age_mux = rs_entry_age_r;
             2'b01: rs_entry_age_mux = rs_entry_age_r - (RS_IDX_WIDTH)'((rs_entry_age_r > i_rs_issue_entry_age) ? 1 : 0);
             2'b10: rs_entry_age_mux = i_dispatch_en ? '0 : (rs_entry_age_r + (RS_IDX_WIDTH)'(1));

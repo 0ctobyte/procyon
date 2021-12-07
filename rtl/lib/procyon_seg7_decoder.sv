@@ -27,7 +27,7 @@ module procyon_seg7_decoder (
         if (~n_rst) begin
             o_hex = 7'h7F;
         end else begin
-            case(i_hex)
+            unique case(i_hex)
                 4'b0000: o_hex = 7'h40;
                 4'b0001: o_hex = 7'h79;
                 4'b0010: o_hex = 7'h24;

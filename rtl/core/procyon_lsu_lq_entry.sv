@@ -116,7 +116,7 @@ module procyon_lsu_lq_entry #(
         lq_fill_bypass_mux = i_mhq_fill_en ? LQ_ENTRY_STATE_REPLAYABLE : LQ_ENTRY_STATE_MHQ_FILL_WAIT;
         lq_update_state_sel = {i_update_retry, i_update_mhq_replay | i_update_replay, i_update_mhq_retry};
 
-        case (lq_update_state_sel)
+        unique case (lq_update_state_sel)
             3'b000: lq_update_state_mux = LQ_ENTRY_STATE_COMPLETE;
             3'b001: lq_update_state_mux = LQ_ENTRY_STATE_COMPLETE;
             3'b010: lq_update_state_mux = LQ_ENTRY_STATE_COMPLETE;
@@ -129,7 +129,7 @@ module procyon_lsu_lq_entry #(
 
         lq_entry_state_next = lq_entry_state_r;
 
-        case (lq_entry_state_next)
+        unique case (lq_entry_state_next)
             LQ_ENTRY_STATE_INVALID:       lq_entry_state_next = i_alloc_en ? LQ_ENTRY_STATE_VALID : lq_entry_state_next;
             LQ_ENTRY_STATE_VALID:         lq_entry_state_next = i_update_en ? lq_update_state_mux : lq_entry_state_next;
             LQ_ENTRY_STATE_MHQ_TAG_WAIT:  lq_entry_state_next = lq_mhq_tag_match ? LQ_ENTRY_STATE_REPLAYABLE : lq_entry_state_next;
@@ -160,7 +160,7 @@ module procyon_lsu_lq_entry #(
         lq_op = i_alloc_en ? i_alloc_op : lq_entry_op_r;
         lq_addr_start = i_alloc_en ? i_alloc_addr : lq_entry_addr_r;
 
-        case (lq_op)
+        unique case (lq_op)
             `PCYN_OP_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
             `PCYN_OP_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
             `PCYN_OP_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);

@@ -62,7 +62,7 @@ module procyon_ieu #(
         // Shift amount
         shamt = i_fu_src[1][`PCYN_OP_SHAMT_WIDTH-1:0];
 
-        case (i_fu_op)
+        unique case (i_fu_op)
             `PCYN_OP_ADD: result = i_fu_src[0] + i_fu_src[1];
             `PCYN_OP_SUB: result = i_fu_src[0] - i_fu_src[1];
             `PCYN_OP_AND: result = i_fu_src[0] & i_fu_src[1];

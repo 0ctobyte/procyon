@@ -89,7 +89,7 @@ module procyon_biu_controller_wb #(
     // Calculate initial counts when in IDLE state
     logic [BIU_COUNTER_WIDTH-1:0] initial_count;
     always_comb begin
-        case (i_biu_len)
+        unique case (i_biu_len)
             `PCYN_BIU_LEN_1B:   initial_count = BIU_COUNTER_WIDTH'(1 / WB_DATA_SIZE);
             `PCYN_BIU_LEN_2B:   initial_count = BIU_COUNTER_WIDTH'(2 / WB_DATA_SIZE);
             `PCYN_BIU_LEN_4B:   initial_count = BIU_COUNTER_WIDTH'(4 / WB_DATA_SIZE);
@@ -152,7 +152,7 @@ module procyon_biu_controller_wb #(
     biu_state_t biu_state_next;
 
     always_comb begin
-        case (biu_state_r)
+        unique case (biu_state_r)
             BIU_STATE_IDLE:       biu_state_next = i_biu_en ? (i_biu_func == `PCYN_BIU_FUNC_RMW ? BIU_STATE_RMW_READ : BIU_STATE_SEND_REQ) : BIU_STATE_IDLE;
             BIU_STATE_SEND_REQ:   biu_state_next = (req_cnt_next == 0) ? BIU_STATE_DONE : BIU_STATE_SEND_REQ;
             BIU_STATE_RMW_READ:   biu_state_next = i_wb_ack ? BIU_STATE_RMW_MODIFY : BIU_STATE_RMW_READ;
@@ -168,7 +168,7 @@ module procyon_biu_controller_wb #(
     always_comb begin
         biu_data_next = biu_data_r;
 
-        case (biu_state_r)
+        unique case (biu_state_r)
             BIU_STATE_IDLE: begin
                 req_cnt_next = initial_count;
                 req_idx_next = '0;

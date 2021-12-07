@@ -167,7 +167,7 @@ module procyon_lsu_am #(
     logic [OPTN_ADDR_WIDTH-1:0] lsu_am_addr_mux;
 
     always_comb begin
-        case (lsu_am_mux_sel)
+        unique case (lsu_am_mux_sel)
             2'b00: lsu_am_addr_mux = addr;
             2'b01: lsu_am_addr_mux = i_sq_retire_addr;
             2'b10: lsu_am_addr_mux = i_lq_replay_addr;
@@ -182,7 +182,7 @@ module procyon_lsu_am #(
     logic [`PCYN_OP_WIDTH-1:0] lsu_am_op_mux;
 
     always_comb begin
-        case (lsu_am_mux_sel)
+        unique case (lsu_am_mux_sel)
             2'b00: lsu_am_op_mux = i_op;
             2'b01: lsu_am_op_mux = i_sq_retire_op;
             2'b10: lsu_am_op_mux = i_lq_replay_op;
@@ -197,7 +197,7 @@ module procyon_lsu_am #(
     logic [`PCYN_OP_IS_WIDTH-1:0] lsu_am_op_is_mux;
 
     always_comb begin
-        case (lsu_am_mux_sel)
+        unique case (lsu_am_mux_sel)
             2'b00: lsu_am_op_is_mux = i_op_is;
             2'b01: lsu_am_op_is_mux = `PCYN_OP_IS_ST;
             2'b10: lsu_am_op_is_mux = `PCYN_OP_IS_LD;
@@ -212,7 +212,7 @@ module procyon_lsu_am #(
     logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_am_tag_mux;
 
     always_comb begin
-        case (lsu_am_mux_sel)
+        unique case (lsu_am_mux_sel)
             2'b00: lsu_am_tag_mux = i_tag;
             2'b01: lsu_am_tag_mux = i_sq_retire_tag;
             2'b10: lsu_am_tag_mux = i_lq_replay_tag;

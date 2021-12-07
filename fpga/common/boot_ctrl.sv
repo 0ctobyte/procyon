@@ -78,7 +78,7 @@ module boot_ctrl #(
     logic [BOOT_CTRL_STATE_WIDTH-1:0] boot_ctrl_state_r;
 
     always_comb begin
-        case (boot_ctrl_state_r)
+        unique case (boot_ctrl_state_r)
             BOOT_CTRL_STATE_RESET: boot_ctrl_state_next = BOOT_CTRL_STATE_BUSY;
             BOOT_CTRL_STATE_BUSY:  boot_ctrl_state_next = ((rom_addr_r == (ROM_ADDR_WIDTH)'(OPTN_HEX_SIZE-1)) & biu_done) ? BOOT_CTRL_STATE_DONE : BOOT_CTRL_STATE_BUSY;
             BOOT_CTRL_STATE_DONE:  boot_ctrl_state_next = BOOT_CTRL_STATE_DONE;
@@ -95,7 +95,7 @@ module boot_ctrl #(
         biu_data_o_next = i_rom_data;
         biu_addr = {{(OPTN_WB_ADDR_WIDTH-ROM_ADDR_WIDTH-IC_OFFSET_WIDTH){1'b0}}, rom_addr_r, {(IC_OFFSET_WIDTH){1'b0}}};
 
-        case (boot_ctrl_state_r)
+        unique case (boot_ctrl_state_r)
             BOOT_CTRL_STATE_RESET: begin
                 biu_en_next = 1'b0;
                 rom_addr_next = '0;

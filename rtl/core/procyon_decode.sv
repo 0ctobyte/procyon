@@ -133,9 +133,9 @@ module procyon_decode #(
         jmp_pc = (i_fetch_insn[2] ? imm_j : imm_b) + i_fetch_pc;
         pc_plus_4 = i_fetch_pc + OPTN_DATA_WIDTH'(4);
 
-        case (opcode)
+        unique case (opcode)
             `PCYN_RV_OPCODE_OPIMM: begin
-                case (funct3)
+                unique case (funct3)
                     3'b000:  dispatch_op = `PCYN_OP_ADD;
                     3'b001:  dispatch_op = funct7_is_0 ? `PCYN_OP_SLL : `PCYN_OP_UNDEFINED;
                     3'b010:  dispatch_op = `PCYN_OP_LT;
@@ -175,9 +175,9 @@ module procyon_decode #(
                 lookup_data_ovrd = '{i_fetch_pc, imm_u};
             end
             `PCYN_RV_OPCODE_OP: begin
-                case (funct7_mux_sel)
+                unique case (funct7_mux_sel)
                     2'b01: begin
-                        case (funct3)
+                        unique case (funct3)
                             3'b000:  dispatch_op = `PCYN_OP_ADD;
                             3'b001:  dispatch_op = `PCYN_OP_SLL;
                             3'b010:  dispatch_op = `PCYN_OP_LT;
@@ -190,7 +190,7 @@ module procyon_decode #(
                         endcase
                     end
                     2'b10: begin
-                        case (funct3)
+                        unique case (funct3)
                             3'b000:  dispatch_op = `PCYN_OP_SUB;
                             3'b101:  dispatch_op = `PCYN_OP_SRA;
                             default: dispatch_op = `PCYN_OP_UNDEFINED;
@@ -219,7 +219,7 @@ module procyon_decode #(
                 lookup_data_ovrd = '{i_fetch_pc, imm_j};
             end
             `PCYN_RV_OPCODE_JALR: begin
-                case (funct3)
+                unique case (funct3)
                     3'b000:  dispatch_op = `PCYN_OP_ADD;
                     default: dispatch_op = `PCYN_OP_UNDEFINED;
                 endcase
@@ -232,7 +232,7 @@ module procyon_decode #(
                 lookup_data_ovrd = '{'0, imm_i};
             end
             `PCYN_RV_OPCODE_BRANCH: begin
-                case (funct3)
+                unique case (funct3)
                     3'b000:  dispatch_op = `PCYN_OP_EQ;
                     3'b001:  dispatch_op = `PCYN_OP_NE;
                     3'b100:  dispatch_op = `PCYN_OP_LT;
@@ -250,7 +250,7 @@ module procyon_decode #(
                 lookup_data_ovrd = '{'0, '0};
             end
             `PCYN_RV_OPCODE_LOAD: begin
-                case (funct3)
+                unique case (funct3)
                     3'b000:  dispatch_op = `PCYN_OP_LB;
                     3'b001:  dispatch_op = `PCYN_OP_LH;
                     3'b010:  dispatch_op = `PCYN_OP_LW;
@@ -267,7 +267,7 @@ module procyon_decode #(
                 lookup_data_ovrd = '{'0, imm_i};
             end
             `PCYN_RV_OPCODE_STORE: begin
-                case (funct3)
+                unique case (funct3)
                     3'b000:  dispatch_op = `PCYN_OP_SB;
                     3'b001:  dispatch_op = `PCYN_OP_SH;
                     3'b010:  dispatch_op = `PCYN_OP_SW;

@@ -70,7 +70,7 @@ module procyon_ccu_arb #(
         logic any_valid;
         any_valid = (ccu_arb_select != 0);
 
-        case (ccu_arb_state_r)
+        unique case (ccu_arb_state_r)
             CCU_ARB_STATE_IDLE: ccu_arb_state_next = any_valid ? CCU_ARB_STATE_BUSY : ccu_arb_state_r;
             CCU_ARB_STATE_BUSY: ccu_arb_state_next = i_biu_done ? CCU_ARB_STATE_DONE : ccu_arb_state_r;
             CCU_ARB_STATE_DONE: ccu_arb_state_next = CCU_ARB_STATE_IDLE;
@@ -88,7 +88,7 @@ module procyon_ccu_arb #(
         ccu_arb_done = '0;
         ccu_arb_grant = '0;
 
-        case (ccu_arb_state_r)
+        unique case (ccu_arb_state_r)
             CCU_ARB_STATE_IDLE: begin
                 ccu_arb_done = '0;
                 ccu_arb_grant = ccu_arb_select;

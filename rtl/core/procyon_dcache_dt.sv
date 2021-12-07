@@ -61,7 +61,7 @@ module procyon_dcache_dt #(
 
     // Derive byte select signals from the LSU op type
     always_comb begin
-        case (i_op)
+        unique case (i_op)
             `PCYN_OP_LB:  byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};
             `PCYN_OP_LH:  byte_sel = {{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}};
             `PCYN_OP_LBU: byte_sel = {{(DATA_SIZE-1){1'b0}}, 1'b1};

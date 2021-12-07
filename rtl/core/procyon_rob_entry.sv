@@ -134,7 +134,7 @@ module procyon_rob_entry #(
         rob_entry_state_t rob_entry_state_lsu_pending_mux;
         rob_entry_state_lsu_pending_mux = (rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] | rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX]) ? ROB_ENTRY_STATE_LSU_PENDING : ROB_ENTRY_STATE_RETIRABLE;
 
-        case (rob_entry_state_r)
+        unique case (rob_entry_state_r)
             ROB_ENTRY_STATE_INVALID:     rob_entry_state_next = i_dispatch_en ? ROB_ENTRY_STATE_PENDING : ROB_ENTRY_STATE_INVALID;
             ROB_ENTRY_STATE_PENDING:     rob_entry_state_next = rob_entry_retirable ? rob_entry_state_lsu_pending_mux : ROB_ENTRY_STATE_PENDING;
             ROB_ENTRY_STATE_LSU_PENDING: rob_entry_state_next = lsu_retired_ack ? ROB_ENTRY_STATE_RETIRABLE : ROB_ENTRY_STATE_LSU_PENDING;

@@ -141,7 +141,7 @@ module sram_ctrl #(
         logic n_biu_eob;
         n_biu_eob = ~i_biu_eob;
 
-        case (sram_ctrl_state_r)
+        unique case (sram_ctrl_state_r)
             SRAM_CTRL_STATE_IDLE:         sram_ctrl_state_next = i_biu_we ? sram_ctrl_state_next_idle_val_a : (i_biu_en ? sram_ctrl_state_next_idle_val_b : SRAM_CTRL_STATE_IDLE);
             SRAM_CTRL_STATE_READ_ACK:     sram_ctrl_state_next = n_biu_eob ? sram_ctrl_state_next_read_ack_val : SRAM_CTRL_STATE_IDLE;
             SRAM_CTRL_STATE_WRITE_ACK:    sram_ctrl_state_next = n_biu_eob ? sram_ctrl_state_next_write_ack_val : SRAM_CTRL_STATE_IDLE;
@@ -158,7 +158,7 @@ module sram_ctrl #(
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next;
 
     always_comb begin
-        case (sram_ctrl_state_r)
+        unique case (sram_ctrl_state_r)
             SRAM_CTRL_STATE_IDLE: begin
                 gather_cnt_next = gather_cnt_next_idle_val;
                 gather_idx_next = gather_idx_next_idle_val;

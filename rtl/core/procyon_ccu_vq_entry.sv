@@ -55,7 +55,7 @@ module procyon_ccu_vq_entry #(
     always_comb begin
         vq_entry_state_next = vq_entry_state_r;
 
-        case (vq_entry_state_next)
+        unique case (vq_entry_state_next)
             VQ_ENTRY_STATE_INVALID: vq_entry_state_next = i_alloc_en ? VQ_ENTRY_STATE_VALID : vq_entry_state_next;
             VQ_ENTRY_STATE_VALID:   vq_entry_state_next = i_ccu_done ? VQ_ENTRY_STATE_INVALID : vq_entry_state_next;
             default:                vq_entry_state_next = VQ_ENTRY_STATE_INVALID;

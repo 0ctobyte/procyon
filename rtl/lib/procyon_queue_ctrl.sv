@@ -64,7 +64,7 @@ module procyon_queue_ctrl #(
 
         queue_entry_counter_next = queue_entry_counter_r;
 
-        case (queue_entry_counter_sel)
+        unique case (queue_entry_counter_sel)
             2'b00: queue_entry_counter_next = queue_entry_counter_next;
             2'b01: queue_entry_counter_next = queue_entry_counter_next - 1'b1;
             2'b10: queue_entry_counter_next = queue_entry_counter_next + 1'b1;

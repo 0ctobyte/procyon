@@ -51,7 +51,7 @@ module procyon_rat_entry #(
         logic [1:0] rat_rdy_sel;
         rat_rdy_sel = {i_rat_retire_en, i_rat_rename_en};
 
-        case (rat_rdy_sel)
+        unique case (rat_rdy_sel)
             2'b00: rat_entry_rdy_mux = rat_entry_rdy_r;
             2'b01: rat_entry_rdy_mux = 1'b0;
             2'b10: rat_entry_rdy_mux = (i_rat_retire_tag == rat_entry_tag_r);

@@ -78,7 +78,7 @@ module procyon_lsu_lq #(
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr_end;
 
     always_comb begin
-        case (i_sq_retire_op)
+        unique case (i_sq_retire_op)
             `PCYN_OP_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
             `PCYN_OP_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
             `PCYN_OP_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);

@@ -83,7 +83,7 @@ module procyon_lsu_ex #(
         // Bypass data from the victim queue if there was a hit
         load_data = i_vq_hit ? i_vq_data : i_dc_data;
 
-        case (i_op)
+        unique case (i_op)
             `PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){load_data[7]}}, load_data[7:0]};
             `PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){load_data[OPTN_DATA_WIDTH/2-1]}}, load_data[OPTN_DATA_WIDTH/2-1:0]};
             default:     load_data = load_data;

@@ -70,7 +70,7 @@ module procyon_ccu_mhq_entry #(
     always_comb begin
         mhq_entry_state_next = mhq_entry_state_r;
 
-        case (mhq_entry_state_next)
+        unique case (mhq_entry_state_next)
             MHQ_ENTRY_STATE_INVALID:  mhq_entry_state_next = i_update_en ? MHQ_ENTRY_STATE_VALID : mhq_entry_state_next;
             MHQ_ENTRY_STATE_VALID:    mhq_entry_state_next = i_ccu_done ? MHQ_ENTRY_STATE_COMPLETE : mhq_entry_state_next;
             MHQ_ENTRY_STATE_COMPLETE: mhq_entry_state_next = i_fill_launched ? MHQ_ENTRY_STATE_INVALID : mhq_entry_state_next;

@@ -47,7 +47,7 @@ module procyon_ccu_ifq_entry #(
     always_comb begin
         ifq_entry_state_next = ifq_entry_state_r;
 
-        case (ifq_entry_state_next)
+        unique case (ifq_entry_state_next)
             IFQ_ENTRY_STATE_INVALID: ifq_entry_state_next = i_alloc_en ? IFQ_ENTRY_STATE_VALID : ifq_entry_state_next;
             IFQ_ENTRY_STATE_VALID:   ifq_entry_state_next = i_ccu_done ? IFQ_ENTRY_STATE_INVALID : ifq_entry_state_next;
             default:                 ifq_entry_state_next = IFQ_ENTRY_STATE_INVALID;

@@ -130,7 +130,7 @@ module procyon_sys_top #(
     test_state_t test_state_r;
 
     always_comb begin
-        case (test_state_r)
+        unique case (test_state_r)
             TEST_STATE_RUN:  test_state_next = test_finished ? TEST_STATE_DONE : (key_pulse[1] ? TEST_STATE_STEP : TEST_STATE_RUN);
             TEST_STATE_STEP: test_state_next = rat_retire_en ? TEST_STATE_HALT : TEST_STATE_STEP;
             TEST_STATE_HALT: test_state_next = key_pulse[1] ? TEST_STATE_RUN : (key_pulse[0] ? TEST_STATE_STEP : TEST_STATE_HALT);
