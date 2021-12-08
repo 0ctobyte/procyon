@@ -4,51 +4,54 @@
  * SPDX-License-Identifier: MIT
  */
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_ccu_mhq_entry #(
     parameter OPTN_ADDR_WIDTH   = 32,
-    parameter OPTN_DC_LINE_SIZE = 32,
-
-    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE)
+    parameter OPTN_DC_LINE_SIZE = 32
 )(
-    input  logic                                     clk,
-    input  logic                                     n_rst,
+    input  logic                                           clk,
+    input  logic                                           n_rst,
 
-    output logic                                     o_mhq_entry_valid,
-    output logic                                     o_mhq_entry_complete,
-    output logic                                     o_mhq_entry_dirty,
-    output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_entry_addr,
-    output logic [DC_LINE_WIDTH-1:0]                 o_mhq_entry_data,
+    output logic                                           o_mhq_entry_valid,
+    output logic                                           o_mhq_entry_complete,
+    output logic                                           o_mhq_entry_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] o_mhq_entry_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        o_mhq_entry_data,
 
     // LSU lookup interface, check for address match
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_lookup_addr,
-    output logic                                     o_lookup_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_lookup_addr,
+    output logic                                           o_lookup_hit,
 
     // Allocate or merge to this entry
-    input  logic                                     i_update_en,
-    input  logic                                     i_update_we,
-    input  logic [DC_LINE_WIDTH-1:0]                 i_update_wr_data,
-    input  logic [OPTN_DC_LINE_SIZE-1:0]             i_update_byte_select,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_update_addr,
+    input  logic                                           i_update_en,
+    input  logic                                           i_update_we,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        i_update_wr_data,
+    input  logic [OPTN_DC_LINE_SIZE-1:0]                   i_update_byte_select,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_update_addr,
 
     // CCU interface
-    input  logic                                     i_ccu_done,
-    input  logic [DC_LINE_WIDTH-1:0]                 i_ccu_data,
+    input  logic                                           i_ccu_done,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        i_ccu_data,
 
     // Indicates that this entry has been sent to LSU to fill the DCache
-    input  logic                                     i_fill_launched
+    input  logic                                           i_fill_launched
 );
+
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam MHQ_ENTRY_STATE_WIDTH = 2;
 
     // Each entry in the MHQ can be in one of the following states
     // INVALID:       Entry is empty
     // VALID:         Entry is occupied
     // COMPLETE:      Entry is finished being serviced by CCU and is ready to be sent to the LSU to fill the cache
-    localparam MHQ_ENTRY_STATE_WIDTH = 2;
-
     typedef enum logic [MHQ_ENTRY_STATE_WIDTH-1:0] {
-        MHQ_ENTRY_STATE_INVALID  = (MHQ_ENTRY_STATE_WIDTH)'('b00),
-        MHQ_ENTRY_STATE_VALID    = (MHQ_ENTRY_STATE_WIDTH)'('b01),
-        MHQ_ENTRY_STATE_COMPLETE = (MHQ_ENTRY_STATE_WIDTH)'('b10)
+        MHQ_ENTRY_STATE_INVALID  = MHQ_ENTRY_STATE_WIDTH'('b00),
+        MHQ_ENTRY_STATE_VALID    = MHQ_ENTRY_STATE_WIDTH'('b01),
+        MHQ_ENTRY_STATE_COMPLETE = MHQ_ENTRY_STATE_WIDTH'('b10)
     } mhq_entry_state_t;
 
     // Each entry in the MHQ contains the following
@@ -60,7 +63,7 @@ module procyon_ccu_mhq_entry #(
     //                 between data from memory and updated store data stored in the data register.
     mhq_entry_state_t mhq_entry_state_r;
     logic mhq_entry_dirty_r;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_entry_addr_r;
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_entry_addr_r;
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data_r;
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_entry_byte_updated_r;
 
@@ -89,7 +92,7 @@ module procyon_ccu_mhq_entry #(
     assign mhq_entry_dirty = i_update_we | (~allocating & mhq_entry_dirty_r);
     procyon_ff #(1) mhq_entry_dirty_r_ff (.clk(clk), .i_en(i_update_en), .i_d(mhq_entry_dirty), .o_q(mhq_entry_dirty_r));
 
-    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) mhq_entry_addr_r_ff (.clk(clk), .i_en(allocating), .i_d(i_update_addr), .o_q(mhq_entry_addr_r));
+    procyon_ff #(OPTN_ADDR_WIDTH-`PCYN_DC_OFFSET_WIDTH) mhq_entry_addr_r_ff (.clk(clk), .i_en(allocating), .i_d(i_update_addr), .o_q(mhq_entry_addr_r));
 
     // Update data and byte_updated merging data from a store or from the CCU or both
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data_mux;

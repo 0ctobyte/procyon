@@ -23,10 +23,11 @@ module procyon_seg7_decoder (
     // going clockwise from the top horizontal segment the
     // segments are numbered: 0, 1, 2, 3, 4, 5 and the middle
     // horizontal segment is 6
-    always_comb begin : SEG7_DECODE
+    always_comb begin
         if (~n_rst) begin
             o_hex = 7'h7F;
-        end else begin
+        end
+        else begin
             unique case(i_hex)
                 4'b0000: o_hex = 7'h40;
                 4'b0001: o_hex = 7'h79;

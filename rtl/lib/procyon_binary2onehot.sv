@@ -6,14 +6,18 @@
 
 // Convert a binary number to a one-hot vector
 
-module procyon_binary2onehot #(
-    parameter OPTN_ONEHOT_WIDTH = 8,
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
-    parameter BINARY_WIDTH      = OPTN_ONEHOT_WIDTH == 1 ? 1 : $clog2(OPTN_ONEHOT_WIDTH)
+module procyon_binary2onehot #(
+    parameter OPTN_ONEHOT_WIDTH = 8
 )(
-    input  logic [BINARY_WIDTH-1:0]      i_binary,
-    output logic [OPTN_ONEHOT_WIDTH-1:0] o_onehot
+    input  logic [`PCYN_C2I(OPTN_ONEHOT_WIDTH)-1:0] i_binary,
+    output logic [OPTN_ONEHOT_WIDTH-1:0]            o_onehot
 );
+
+    localparam BINARY_WIDTH = `PCYN_C2I(OPTN_ONEHOT_WIDTH);
 
     logic [OPTN_ONEHOT_WIDTH-1:0] onehot;
     always_comb begin

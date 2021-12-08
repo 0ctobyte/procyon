@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-`define SRAM_ADDR_WIDTH 20
-`define SRAM_DATA_WIDTH 16
-
-`define WB_CTI_WIDTH 3
-`define WB_BTE_WIDTH 2
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_system_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_sys_top #(
     parameter OPTN_DATA_WIDTH         = 32,
@@ -16,7 +15,7 @@ module procyon_sys_top #(
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_NUM_IEU            = 1,
-    parameter OPTN_INSN_FIFO_DEPTH    = 8,
+    parameter OPTN_INSN_FIFO_DEPTH    = 9,
     parameter OPTN_ROB_DEPTH          = 12,
     parameter OPTN_RS_IEU_DEPTH       = 7,
     parameter OPTN_RS_LSU_DEPTH       = 5,
@@ -37,43 +36,43 @@ module procyon_sys_top #(
     parameter OPTN_HEX_FILE           = "",
     parameter OPTN_HEX_SIZE           = 0
 )(
-    input       logic                        CLOCK_50,
-    input       logic [17:17]                SW,
+    input       logic                       CLOCK_50,
+    input       logic [17:17]               SW,
 
-    input       logic [1:0]                  KEY,
+    input       logic [1:0]                 KEY,
 
-    output      logic [17:0]                 LEDR,
-    output      logic [4:0]                  LEDG,
+    output      logic [17:0]                LEDR,
+    output      logic [4:0]                 LEDG,
 
-    inout  wire logic [`SRAM_DATA_WIDTH-1:0] SRAM_DQ,
-    output      logic [`SRAM_ADDR_WIDTH-1:0] SRAM_ADDR,
-    output      logic                        SRAM_CE_N,
-    output      logic                        SRAM_WE_N,
-    output      logic                        SRAM_OE_N,
-    output      logic                        SRAM_LB_N,
-    output      logic                        SRAM_UB_N,
+    inout  wire logic [SRAM_DATA_WIDTH-1:0] SRAM_DQ,
+    output      logic [SRAM_ADDR_WIDTH-1:0] SRAM_ADDR,
+    output      logic                       SRAM_CE_N,
+    output      logic                       SRAM_WE_N,
+    output      logic                       SRAM_OE_N,
+    output      logic                       SRAM_LB_N,
+    output      logic                       SRAM_UB_N,
 
-    output      logic [6:0]                  HEX0,
-    output      logic [6:0]                  HEX1,
-    output      logic [6:0]                  HEX2,
-    output      logic [6:0]                  HEX3,
-    output      logic [6:0]                  HEX4,
-    output      logic [6:0]                  HEX5,
-    output      logic [6:0]                  HEX6,
-    output      logic [6:0]                  HEX7
+    output      logic [6:0]                 HEX0,
+    output      logic [6:0]                 HEX1,
+    output      logic [6:0]                 HEX2,
+    output      logic [6:0]                 HEX3,
+    output      logic [6:0]                 HEX4,
+    output      logic [6:0]                 HEX5,
+    output      logic [6:0]                 HEX6,
+    output      logic [6:0]                 HEX7
 );
 
-    localparam IC_LINE_WIDTH    = OPTN_IC_LINE_SIZE * 8;
-    localparam RAT_IDX_WIDTH    = $clog2(OPTN_RAT_DEPTH);
-    localparam WB_DATA_SIZE     = OPTN_WB_DATA_WIDTH / 8;
-    localparam ROM_ADDR_WIDTH   = OPTN_HEX_SIZE == 1 ? 1 : $clog2(OPTN_HEX_SIZE);
+    localparam IC_LINE_WIDTH = `PCYN_S2W(OPTN_IC_LINE_SIZE);
+    localparam RAT_IDX_WIDTH = `PCYN_C2I(OPTN_RAT_DEPTH);
+    localparam WB_DATA_SIZE = `PCYN_W2S(OPTN_WB_DATA_WIDTH);
+    localparam ROM_ADDR_WIDTH = `PCYN_C2I(OPTN_HEX_SIZE);
     localparam TEST_STATE_WIDTH = 2;
 
     typedef enum logic [TEST_STATE_WIDTH-1:0] {
-        TEST_STATE_RUN   = (TEST_STATE_WIDTH)'('b00),
-        TEST_STATE_STEP  = (TEST_STATE_WIDTH)'('b01),
-        TEST_STATE_HALT  = (TEST_STATE_WIDTH)'('b10),
-        TEST_STATE_DONE  = (TEST_STATE_WIDTH)'('b11)
+        TEST_STATE_RUN   = TEST_STATE_WIDTH'('b00),
+        TEST_STATE_STEP  = TEST_STATE_WIDTH'('b01),
+        TEST_STATE_HALT  = TEST_STATE_WIDTH'('b10),
+        TEST_STATE_DONE  = TEST_STATE_WIDTH'('b11)
     } test_state_t;
 
     logic rst_sync;
@@ -189,24 +188,24 @@ module procyon_sys_top #(
     logic wb_cyc;
     logic wb_stb;
     logic wb_we;
-    logic [`WB_CTI_WIDTH-1:0] wb_cti;
-    logic [`WB_BTE_WIDTH-1:0] wb_bte;
+    wb_cti_t wb_cti;
+    wb_bte_t wb_bte;
     logic [WB_DATA_SIZE-1:0] wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] wb_data_o;
     logic boot_wb_cyc;
     logic boot_wb_stb;
     logic boot_wb_we;
-    logic [`WB_CTI_WIDTH-1:0] boot_wb_cti;
-    logic [`WB_BTE_WIDTH-1:0] boot_wb_bte;
+    wb_cti_t boot_wb_cti;
+    wb_bte_t boot_wb_bte;
     logic [WB_DATA_SIZE-1:0] boot_wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] boot_wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] boot_wb_data_o;
     logic core_wb_cyc;
     logic core_wb_stb;
     logic core_wb_we;
-    logic [`WB_CTI_WIDTH-1:0] core_wb_cti;
-    logic [`WB_BTE_WIDTH-1:0] core_wb_bte;
+    wb_cti_t core_wb_cti;
+    wb_bte_t core_wb_bte;
     logic [WB_DATA_SIZE-1:0] core_wb_sel;
     logic [OPTN_WB_ADDR_WIDTH-1:0] core_wb_addr;
     logic [OPTN_WB_DATA_WIDTH-1:0] core_wb_data_o;

@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-`define SRAM_ADDR_WIDTH 20
-`define SRAM_DATA_WIDTH 16
-
-`define WB_CTI_WIDTH    3
-`define WB_BTE_WIDTH    2
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_system_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module dut #(
     parameter OPTN_DATA_WIDTH         = 32,
@@ -16,7 +15,7 @@ module dut #(
     parameter OPTN_ADDR_WIDTH         = 32,
     parameter OPTN_RAT_DEPTH          = 32,
     parameter OPTN_NUM_IEU            = 1,
-    parameter OPTN_INSN_FIFO_DEPTH    = 8,
+    parameter OPTN_INSN_FIFO_DEPTH    = 9,
     parameter OPTN_ROB_DEPTH          = 12,
     parameter OPTN_RS_IEU_DEPTH       = 7,
     parameter OPTN_RS_LSU_DEPTH       = 5,
@@ -37,22 +36,22 @@ module dut #(
     parameter OPTN_HEX_FILE           = "",
     parameter OPTN_HEX_SIZE           = 0
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                       clk,
+    input  logic                       n_rst,
 
     // SRAM interface
-    output logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
-    input  logic [`SRAM_DATA_WIDTH-1:0]     i_sram_dq,
-    output logic [`SRAM_DATA_WIDTH-1:0]     o_sram_dq,
-    output logic                            o_sram_ce_n,
-    output logic                            o_sram_we_n,
-    output logic                            o_sram_oe_n,
-    output logic                            o_sram_ub_n,
-    output logic                            o_sram_lb_n,
+    output sram_addr_t                 o_sram_addr,
+    input  sram_data_t                 i_sram_dq,
+    output sram_data_t                 o_sram_dq,
+    output logic                       o_sram_ce_n,
+    output logic                       o_sram_we_n,
+    output logic                       o_sram_oe_n,
+    output logic                       o_sram_ub_n,
+    output logic                       o_sram_lb_n,
 
     // FIXME: To test if simulations pass/fail
-    output logic [OPTN_DATA_WIDTH-1:0]      o_sim_tp,
-    output logic                            o_sim_retire
+    output logic [OPTN_DATA_WIDTH-1:0] o_sim_tp,
+    output logic                       o_sim_retire
 );
 
     timeunit 1ns;
@@ -72,7 +71,7 @@ module dut #(
 
     logic sram_we_n;
 /* verilator lint_off UNOPTFLAT */
-    logic [`SRAM_DATA_WIDTH-1:0] sram_dq;
+    sram_data_t sram_dq;
 /* verilator lint_on  UNOPTFLAT */
 
     assign sram_dq = sram_we_n ? i_sram_dq : 'z;

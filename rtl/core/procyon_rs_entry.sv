@@ -4,56 +4,59 @@
  * SPDX-License-Identifier: MIT
  */
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_rs_entry #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_CDB_DEPTH     = 2,
-    parameter OPTN_RS_DEPTH      = 16,
-
-    parameter RS_IDX_WIDTH       = OPTN_RS_DEPTH == 1 ? 1 : $clog2(OPTN_RS_DEPTH)
+    parameter OPTN_RS_DEPTH      = 16
 )(
-    input  logic                          clk,
-    input  logic                          n_rst,
+    input  logic                                clk,
+    input  logic                                n_rst,
 
-    input  logic                          i_flush,
+    input  logic                                i_flush,
 
-    output logic                          o_ready,
+    output logic                                o_ready,
 
-    output logic                          o_rs_entry_empty,
-    output logic [RS_IDX_WIDTH-1:0]       o_rs_entry_age,
-    output logic [`PCYN_OP_WIDTH-1:0]     o_rs_entry_op,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]  o_rs_entry_op_is,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_rs_entry_imm,
-    output logic [OPTN_DATA_WIDTH-1:0]    o_rs_entry_src_data [0:1],
-    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_rs_entry_tag,
+    output logic                                o_rs_entry_empty,
+    output logic [`PCYN_C2I(OPTN_RS_DEPTH)-1:0] o_rs_entry_age,
+    output pcyn_op_t                            o_rs_entry_op,
+    output pcyn_op_is_t                         o_rs_entry_op_is,
+    output logic [OPTN_DATA_WIDTH-1:0]          o_rs_entry_imm,
+    output logic [OPTN_DATA_WIDTH-1:0]          o_rs_entry_src_data [0:1],
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]       o_rs_entry_tag,
 
     // Common Data Bus networks
-    input  logic                          i_cdb_en [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag [0:OPTN_CDB_DEPTH-1],
+    input  logic                                i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]          i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]       i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
-    input  logic                          i_reserve_en,
-    input  logic                          i_dispatch_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]     i_dispatch_op,
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]  i_dispatch_op_is,
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_imm,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_dispatch_dst_tag,
-    input  logic                          i_dispatch_src_rdy [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_src_data [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_dispatch_src_tag [0:1],
+    input  logic                                i_reserve_en,
+    input  logic                                i_dispatch_en,
+    input  pcyn_op_t                            i_dispatch_op,
+    input  pcyn_op_is_t                         i_dispatch_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]          i_dispatch_imm,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]       i_dispatch_dst_tag,
+    input  logic                                i_dispatch_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]          i_dispatch_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]       i_dispatch_src_tag [0:1],
 
     // Indication that this entry is going to be issued
-    input  logic                          i_issue_en,
+    input  logic                                i_issue_en,
 
     // Used to calculate age updates for this entry
-    input  logic                          i_dispatching,
-    input  logic                          i_issuing,
-    input  logic [RS_IDX_WIDTH-1:0]       i_rs_issue_entry_age
+    input  logic                                i_dispatching,
+    input  logic                                i_issuing,
+    input  logic [`PCYN_C2I(OPTN_RS_DEPTH)-1:0] i_rs_issue_entry_age
 );
+
+    localparam RS_IDX_WIDTH = `PCYN_C2I(OPTN_RS_DEPTH);
 
     // Reservation station entry registers
     // empty:         Indicates if this entry is currently empty
@@ -67,8 +70,8 @@ module procyon_rs_entry #(
     // src_tag:       ROB entry number for each source this entry is waiting on data for
     logic rs_entry_empty_r;
     logic [RS_IDX_WIDTH-1:0] rs_entry_age_r;
-    logic [`PCYN_OP_WIDTH-1:0] rs_entry_op_r;
-    logic [`PCYN_OP_IS_WIDTH-1:0] rs_entry_op_is_r;
+    pcyn_op_t rs_entry_op_r;
+    pcyn_op_is_t rs_entry_op_is_r;
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_imm_r;
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_dst_tag_r;
     logic rs_entry_src_rdy_r [0:1];
@@ -97,8 +100,8 @@ module procyon_rs_entry #(
     procyon_srff #(1) rs_entry_empty_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(rs_entry_empty_mux), .i_reset(1'b1), .o_q(rs_entry_empty_r));
 
     // Update entry for newly dispatched instruction
-    procyon_ff #(`PCYN_OP_WIDTH) rs_entry_op_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op), .o_q(rs_entry_op_r));
-    procyon_ff #(`PCYN_OP_IS_WIDTH) rs_entry_op_is_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op_is), .o_q(rs_entry_op_is_r));
+    procyon_ff #(PCYN_OP_WIDTH) rs_entry_op_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op), .o_q(rs_entry_op_r));
+    procyon_ff #(PCYN_OP_IS_WIDTH) rs_entry_op_is_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op_is), .o_q(rs_entry_op_is_r));
     procyon_ff #(OPTN_DATA_WIDTH) rs_entry_imm_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_imm), .o_q(rs_entry_imm_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_dst_tag_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_dst_tag), .o_q(rs_entry_dst_tag_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) rs_entry_src_tag_r_0_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_src_tag[0]), .o_q(rs_entry_src_tag_r[0]));
@@ -156,9 +159,9 @@ module procyon_rs_entry #(
     always_comb begin
         unique case ({i_dispatching, i_issuing})
             2'b00: rs_entry_age_mux = rs_entry_age_r;
-            2'b01: rs_entry_age_mux = rs_entry_age_r - (RS_IDX_WIDTH)'((rs_entry_age_r > i_rs_issue_entry_age) ? 1 : 0);
-            2'b10: rs_entry_age_mux = i_dispatch_en ? '0 : (rs_entry_age_r + (RS_IDX_WIDTH)'(1));
-            2'b11: rs_entry_age_mux = i_dispatch_en ? '0 : (rs_entry_age_r + (RS_IDX_WIDTH)'((rs_entry_age_r < i_rs_issue_entry_age) ? 1 : 0));
+            2'b01: rs_entry_age_mux = rs_entry_age_r - RS_IDX_WIDTH'((rs_entry_age_r > i_rs_issue_entry_age) ? 1 : 0);
+            2'b10: rs_entry_age_mux = i_dispatch_en ? '0 : (rs_entry_age_r + RS_IDX_WIDTH'(1));
+            2'b11: rs_entry_age_mux = i_dispatch_en ? '0 : (rs_entry_age_r + RS_IDX_WIDTH'((rs_entry_age_r < i_rs_issue_entry_age) ? 1 : 0));
         endcase
     end
 

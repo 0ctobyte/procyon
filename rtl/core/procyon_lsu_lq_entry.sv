@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_lq_entry #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -13,51 +16,52 @@ module procyon_lsu_lq_entry #(
     parameter OPTN_MHQ_IDX_WIDTH = 2
 
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                            i_flush,
+    input  logic                          i_flush,
 
-    output logic                            o_empty,
-    output logic                            o_replayable,
+    output logic                          o_empty,
+    output logic                          o_replayable,
 
     // Signals from LSU_ID to allocate new load op
-    input  logic                            i_alloc_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
+    input  logic                          i_alloc_en,
+    input  pcyn_op_t                      i_alloc_op,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_alloc_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_alloc_addr,
 
     // Output signals to replay this load
-    input  logic                            i_replay_en,
-    output logic [`PCYN_OP_WIDTH-1:0]       o_replay_op,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
+    input  logic                          i_replay_en,
+    output pcyn_op_t                      o_replay_op,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_replay_tag,
+    output logic [OPTN_ADDR_WIDTH-1:0]    o_replay_addr,
 
     // Signals from LSU_EX and MHQ_LU to update a load when it needs to be retried later or replayed ASAP
-    input  logic                            i_update_en,
-    input  logic                            i_update_retry,
-    input  logic                            i_update_replay,
-    input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_update_mhq_tag,
-    input  logic                            i_update_mhq_retry,
-    input  logic                            i_update_mhq_replay,
+    input  logic                          i_update_en,
+    input  logic                          i_update_retry,
+    input  logic                          i_update_replay,
+    input  logic [OPTN_MHQ_IDX_WIDTH-1:0] i_update_mhq_tag,
+    input  logic                          i_update_mhq_retry,
+    input  logic                          i_update_mhq_replay,
 
     // MHQ fill broadcast
-    input  logic                            i_mhq_fill_en,
-    input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_mhq_fill_tag,
+    input  logic                          i_mhq_fill_en,
+    input  logic [OPTN_MHQ_IDX_WIDTH-1:0] i_mhq_fill_tag,
 
     // SQ will send address of retiring store for mis-speculation detection
-    input  logic                            i_sq_retire_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr_end,
+    input  logic                          i_sq_retire_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_sq_retire_addr,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_sq_retire_addr_end,
 
     // ROB signal that a load has been retired
-    input  logic                            i_rob_retire_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_rob_retire_tag,
-    output logic                            o_rob_retire_ack,
-    output logic                            o_rob_retire_misspeculated
+    input  logic                          i_rob_retire_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rob_retire_tag,
+    output logic                          o_rob_retire_ack,
+    output logic                          o_rob_retire_misspeculated
 );
 
-    localparam DATA_SIZE = OPTN_DATA_WIDTH / 8;
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
+    localparam LQ_ENTRY_STATE_WIDTH = 3;
 
     // Each entry in the LQ can be in one of the following states
     // INVALID:       Entry is empty
@@ -67,16 +71,14 @@ module procyon_lsu_lq_entry #(
     // REPLAYABLE:    Entry contains a load op that is woken up due to a MHQ fill broadcast and can be replayed
     // LAUNCHED:      Entry contains a load op that has been replayed and is currently going through the LSU pipeline and must wait for the LSU update
     // COMPLETE:      Entry contains a load op that has successfully been executed and is waiting for ROB retire signal before it can be dequeued
-    localparam LQ_ENTRY_STATE_WIDTH = 3;
-
     typedef enum logic [LQ_ENTRY_STATE_WIDTH-1:0] {
-        LQ_ENTRY_STATE_INVALID       = (LQ_ENTRY_STATE_WIDTH)'('b000),
-        LQ_ENTRY_STATE_VALID         = (LQ_ENTRY_STATE_WIDTH)'('b001),
-        LQ_ENTRY_STATE_MHQ_TAG_WAIT  = (LQ_ENTRY_STATE_WIDTH)'('b010),
-        LQ_ENTRY_STATE_MHQ_FILL_WAIT = (LQ_ENTRY_STATE_WIDTH)'('b011),
-        LQ_ENTRY_STATE_REPLAYABLE    = (LQ_ENTRY_STATE_WIDTH)'('b100),
-        LQ_ENTRY_STATE_LAUNCHED      = (LQ_ENTRY_STATE_WIDTH)'('b101),
-        LQ_ENTRY_STATE_COMPLETE      = (LQ_ENTRY_STATE_WIDTH)'('b110)
+        LQ_ENTRY_STATE_INVALID       = LQ_ENTRY_STATE_WIDTH'('b000),
+        LQ_ENTRY_STATE_VALID         = LQ_ENTRY_STATE_WIDTH'('b001),
+        LQ_ENTRY_STATE_MHQ_TAG_WAIT  = LQ_ENTRY_STATE_WIDTH'('b010),
+        LQ_ENTRY_STATE_MHQ_FILL_WAIT = LQ_ENTRY_STATE_WIDTH'('b011),
+        LQ_ENTRY_STATE_REPLAYABLE    = LQ_ENTRY_STATE_WIDTH'('b100),
+        LQ_ENTRY_STATE_LAUNCHED      = LQ_ENTRY_STATE_WIDTH'('b101),
+        LQ_ENTRY_STATE_COMPLETE      = LQ_ENTRY_STATE_WIDTH'('b110)
     } lq_entry_state_t;
 
     // Each entry in the LQ contains the following
@@ -88,7 +90,7 @@ module procyon_lsu_lq_entry #(
     // state:             Current state of the entry
     logic [OPTN_ADDR_WIDTH-1:0] lq_entry_addr_r;
     logic [OPTN_ROB_IDX_WIDTH-1:0] lq_entry_tag_r;
-    logic [`PCYN_OP_WIDTH-1:0] lq_entry_op_r;
+    pcyn_op_t lq_entry_op_r;
     logic [OPTN_MHQ_IDX_WIDTH-1:0] lq_entry_mhq_tag_r;
     logic lq_entry_misspeculated_r;
     lq_entry_state_t lq_entry_state_r;
@@ -150,7 +152,7 @@ module procyon_lsu_lq_entry #(
     logic lq_entry_misspeculated;
 
     always_comb begin
-        logic [`PCYN_OP_WIDTH-1:0] lq_op;
+        pcyn_op_t lq_op;
         logic [OPTN_ADDR_WIDTH-1:0] lq_addr_start;
         logic [OPTN_ADDR_WIDTH-1:0] lq_addr_end;
         logic lq_overlap_sq;
@@ -161,11 +163,11 @@ module procyon_lsu_lq_entry #(
         lq_addr_start = i_alloc_en ? i_alloc_addr : lq_entry_addr_r;
 
         unique case (lq_op)
-            `PCYN_OP_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
-            `PCYN_OP_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            `PCYN_OP_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
-            `PCYN_OP_LHU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
-            default:      lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE);
+            PCYN_OP_LB:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            PCYN_OP_LH:  lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            PCYN_OP_LBU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(1);
+            PCYN_OP_LHU: lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE/2);
+            default:     lq_addr_end = lq_addr_start + OPTN_ADDR_WIDTH'(DATA_SIZE);
         endcase
 
         // Compare retired store address with all valid load addresses to detect mis-speculated loads
@@ -186,7 +188,7 @@ module procyon_lsu_lq_entry #(
     assign lq_entry_mhq_tag = i_update_en ? i_update_mhq_tag : lq_entry_mhq_tag_r;
     procyon_ff #(OPTN_MHQ_IDX_WIDTH) lq_entry_mhq_tag_r_ff (.clk(clk), .i_en(1'b1), .i_d(lq_entry_mhq_tag), .o_q(lq_entry_mhq_tag_r));
 
-    procyon_ff #(`PCYN_OP_WIDTH) lq_entry_op_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_op), .o_q(lq_entry_op_r));
+    procyon_ff #(PCYN_OP_WIDTH) lq_entry_op_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_op), .o_q(lq_entry_op_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) lq_entry_tag_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_tag), .o_q(lq_entry_tag_r));
     procyon_ff #(OPTN_ADDR_WIDTH) lq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(lq_entry_addr_r));
 

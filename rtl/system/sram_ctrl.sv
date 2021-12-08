@@ -7,57 +7,53 @@
 // SRAM controller
 // Controls the IS61WV102416BLL SRAM chip
 
-// Constants
-`define SRAM_DATA_WIDTH 16
-`define SRAM_ADDR_WIDTH 20
-`define SRAM_DATA_SIZE  `SRAM_DATA_WIDTH / 8
-`define SRAM_ADDR_SPAN  2097152 // 2M bytes, or 1M 2-byte words
-
-`include "../lib/procyon_biu_wb_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_system_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module sram_ctrl #(
     parameter OPTN_DATA_WIDTH = 16,
-    parameter OPTN_ADDR_WIDTH = 32,
-
-    parameter DATA_SIZE       = OPTN_DATA_WIDTH / 8
+    parameter OPTN_ADDR_WIDTH = 32
 )(
-    input  logic                                 clk,
-    input  logic                                 n_rst,
+    input  logic                                  clk,
+    input  logic                                  n_rst,
 
     // BIU Interface
-    input  logic                                 i_biu_en,
-    input  logic                                 i_biu_we,
-    input  logic                                 i_biu_eob,
-    input  logic [DATA_SIZE-1:0]                 i_biu_sel,
+    input  logic                                  i_biu_en,
+    input  logic                                  i_biu_we,
+    input  logic                                  i_biu_eob,
+    input  logic [`PCYN_W2S(OPTN_DATA_WIDTH)-1:0] i_biu_sel,
 /* verilator lint_off UNUSED */
-    input  logic [OPTN_ADDR_WIDTH-1:0]           i_biu_addr,
+    input  logic [OPTN_ADDR_WIDTH-1:0]            i_biu_addr,
 /* verilator lint_on  UNUSED */
-    input  logic [OPTN_DATA_WIDTH-1:0]           i_biu_data,
-    output logic                                 o_biu_done,
-    output logic [OPTN_DATA_WIDTH-1:0]           o_biu_data,
+    input  logic [OPTN_DATA_WIDTH-1:0]            i_biu_data,
+    output logic                                  o_biu_done,
+    output logic [OPTN_DATA_WIDTH-1:0]            o_biu_data,
 
     // SRAM interface
-    output      logic                            o_sram_ce_n,
-    output      logic                            o_sram_oe_n,
-    output      logic                            o_sram_we_n,
-    output      logic                            o_sram_lb_n,
-    output      logic                            o_sram_ub_n,
-    output      logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
-    inout  wire logic [`SRAM_DATA_WIDTH-1:0]     io_sram_dq
+    output      logic                             o_sram_ce_n,
+    output      logic                             o_sram_oe_n,
+    output      logic                             o_sram_we_n,
+    output      logic                             o_sram_lb_n,
+    output      logic                             o_sram_ub_n,
+    output      sram_addr_t                       o_sram_addr,
+    inout  wire logic [SRAM_DATA_WIDTH-1:0]       io_sram_dq
 );
 
-    localparam GATHER_COUNT          = OPTN_DATA_WIDTH / `SRAM_DATA_WIDTH;
-    localparam INITIAL_GATHER_COUNT  = GATHER_COUNT - 1;
-    localparam GATHER_COUNT_WIDTH    = GATHER_COUNT == 1 ? 1 : $clog2(GATHER_COUNT);
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
+    localparam GATHER_COUNT = OPTN_DATA_WIDTH / SRAM_DATA_WIDTH;
+    localparam INITIAL_GATHER_COUNT = GATHER_COUNT - 1;
+    localparam GATHER_COUNT_WIDTH = `PCYN_C2I(GATHER_COUNT);
     localparam SRAM_CTRL_STATE_WIDTH = 3;
 
     typedef enum logic [SRAM_CTRL_STATE_WIDTH-1:0] {
-        SRAM_CTRL_STATE_IDLE         = (SRAM_CTRL_STATE_WIDTH)'('b000),
-        SRAM_CTRL_STATE_READ_ACK     = (SRAM_CTRL_STATE_WIDTH)'('b001),
-        SRAM_CTRL_STATE_WRITE_ACK    = (SRAM_CTRL_STATE_WIDTH)'('b010),
-        SRAM_CTRL_STATE_READ_GATHER  = (SRAM_CTRL_STATE_WIDTH)'('b011),
-        SRAM_CTRL_STATE_WRITE_GATHER = (SRAM_CTRL_STATE_WIDTH)'('b100),
-        SRAM_CTRL_STATE_UNALIGNED    = (SRAM_CTRL_STATE_WIDTH)'('b101)
+        SRAM_CTRL_STATE_IDLE         = SRAM_CTRL_STATE_WIDTH'('b000),
+        SRAM_CTRL_STATE_READ_ACK     = SRAM_CTRL_STATE_WIDTH'('b001),
+        SRAM_CTRL_STATE_WRITE_ACK    = SRAM_CTRL_STATE_WIDTH'('b010),
+        SRAM_CTRL_STATE_READ_GATHER  = SRAM_CTRL_STATE_WIDTH'('b011),
+        SRAM_CTRL_STATE_WRITE_GATHER = SRAM_CTRL_STATE_WIDTH'('b100),
+        SRAM_CTRL_STATE_UNALIGNED    = SRAM_CTRL_STATE_WIDTH'('b101)
     } sram_ctrl_state_t;
 
     sram_ctrl_state_t sram_ctrl_state_r;
@@ -68,24 +64,24 @@ module sram_ctrl #(
     // Determine if the access is unaligned
     // Unaligned accesses take an extra cycle to retrieve the last byte of data
     logic unaligned;
-    logic [DATA_SIZE+`SRAM_DATA_SIZE-1:0] sel_ua;
-    logic [OPTN_DATA_WIDTH+`SRAM_DATA_WIDTH-1:0] data_ua;
+    logic [DATA_SIZE+SRAM_DATA_SIZE-1:0] sel_ua;
+    logic [OPTN_DATA_WIDTH+SRAM_DATA_WIDTH-1:0] data_ua;
 
     assign unaligned = i_biu_addr[0];
-    assign sel_ua = unaligned ? {1'b0, i_biu_sel, 1'b0} : {{(`SRAM_DATA_SIZE){1'b0}}, i_biu_sel};
-    assign data_ua = unaligned ? {8'b0, i_biu_data, 8'b0} : {{(`SRAM_DATA_WIDTH){1'b0}}, i_biu_data};
+    assign sel_ua = unaligned ? {1'b0, i_biu_sel, 1'b0} : {SRAM_DATA_SIZE'(0), i_biu_sel};
+    assign data_ua = unaligned ? {8'b0, i_biu_data, 8'b0} : {SRAM_DATA_WIDTH'(0), i_biu_data};
 
     // Increment index to get next word from the WB bus on the next cycle for unaligned accesses
     logic [GATHER_COUNT_WIDTH:0] biu_gather_idx;
     assign biu_gather_idx = (sram_ctrl_state_r == SRAM_CTRL_STATE_UNALIGNED & ~i_biu_we) | (sram_ctrl_state_r == SRAM_CTRL_STATE_WRITE_ACK & unaligned) ? gather_idx_r + 1'b1 : {1'b0, gather_idx_r};
 
-    logic [`SRAM_DATA_SIZE-1:0] sel;
-    logic [`SRAM_ADDR_WIDTH-1:0] addr;
-    logic [`SRAM_DATA_WIDTH-1:0] data_i;
+    sram_data_select_t sel;
+    sram_addr_t addr;
+    sram_data_t data_i;
 
-    assign sel = sel_ua[biu_gather_idx*`SRAM_DATA_SIZE +: `SRAM_DATA_SIZE];
-    assign addr = i_biu_addr[`SRAM_ADDR_WIDTH:1];
-    assign data_i = data_ua[biu_gather_idx*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH];
+    assign sel = sel_ua[biu_gather_idx*SRAM_DATA_SIZE +: SRAM_DATA_SIZE];
+    assign addr = i_biu_addr[SRAM_ADDR_WIDTH:1];
+    assign data_i = data_ua[biu_gather_idx*SRAM_DATA_WIDTH +: SRAM_DATA_WIDTH];
 
     logic [GATHER_COUNT_WIDTH-1:0] gather_cnt_next_idle_val;
     logic [GATHER_COUNT_WIDTH-1:0] gather_idx_next_idle_val;
@@ -202,7 +198,7 @@ module sram_ctrl #(
     for (data_o_idx = 0 ; data_o_idx < GATHER_COUNT; data_o_idx++) begin : GEN_DATA_O_FF
         logic data_o_en;
         assign data_o_en = gather_idx_r == data_o_idx;
-        procyon_ff #(`SRAM_DATA_WIDTH) data_o_ff (.clk(clk), .i_en(data_o_en), .i_d(io_sram_dq), .o_q(data_o[data_o_idx*`SRAM_DATA_WIDTH +: `SRAM_DATA_WIDTH]));
+        procyon_ff #(SRAM_DATA_WIDTH) data_o_ff (.clk(clk), .i_en(data_o_en), .i_d(io_sram_dq), .o_q(data_o[data_o_idx*SRAM_DATA_WIDTH +: SRAM_DATA_WIDTH]));
     end
     endgenerate
 
@@ -214,7 +210,7 @@ module sram_ctrl #(
 
     assign data_a = {io_sram_dq[7:0], data_o[OPTN_DATA_WIDTH-1:8]};
     generate
-    if (GATHER_COUNT > 1) assign data_b = {io_sram_dq, data_o[OPTN_DATA_WIDTH-`SRAM_DATA_WIDTH-1:0]};
+    if (GATHER_COUNT > 1) assign data_b = {io_sram_dq, data_o[OPTN_DATA_WIDTH-SRAM_DATA_WIDTH-1:0]};
     else                  assign data_b = io_sram_dq;
     endgenerate
 
@@ -233,7 +229,7 @@ module sram_ctrl #(
     assign o_sram_we_n = ~i_biu_we;
     assign o_sram_lb_n = ~sel[0];
     assign o_sram_ub_n = ~sel[1];
-    assign o_sram_addr = addr + ((sram_ctrl_state_r == SRAM_CTRL_STATE_READ_ACK) ? `SRAM_ADDR_WIDTH'(GATHER_COUNT) : `SRAM_ADDR_WIDTH'(biu_gather_idx));
+    assign o_sram_addr = addr + ((sram_ctrl_state_r == SRAM_CTRL_STATE_READ_ACK) ? sram_addr_t'(GATHER_COUNT) : sram_addr_t'(biu_gather_idx));
     assign io_sram_dq = i_biu_we ? data_i : 'z;
 
 endmodule

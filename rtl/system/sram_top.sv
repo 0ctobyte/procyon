@@ -7,44 +7,41 @@
 // SRAM controller with a wishbone interface
 // Controls the IS61WV102416BLL SRAM chip
 
-// Constants
-`define SRAM_DATA_WIDTH 16
-`define SRAM_ADDR_WIDTH 20
-`define SRAM_DATA_SIZE  `SRAM_DATA_WIDTH / 8
-`define SRAM_ADDR_SPAN  2097152 // 2M bytes, or 1M 2-byte words
-
-`include "../lib/procyon_biu_wb_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_system_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module sram_top #(
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,
-    parameter OPTN_BASE_ADDR     = 0,
-
-    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter OPTN_BASE_ADDR     = 0
 )(
     // Wishbone Interface
-    input       logic                            i_wb_clk,
-    input       logic                            i_wb_rst,
-    input       logic                            i_wb_cyc,
-    input       logic                            i_wb_stb,
-    input       logic                            i_wb_we,
-    input       logic [`WB_CTI_WIDTH-1:0]        i_wb_cti,
-    input       logic [`WB_BTE_WIDTH-1:0]        i_wb_bte,
-    input       logic [WB_DATA_SIZE-1:0]         i_wb_sel,
-    input       logic [OPTN_WB_ADDR_WIDTH-1:0]   i_wb_addr,
-    input       logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
-    output      logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data,
-    output      logic                            o_wb_ack,
+    input       logic                                     i_wb_clk,
+    input       logic                                     i_wb_rst,
+    input       logic                                     i_wb_cyc,
+    input       logic                                     i_wb_stb,
+    input       logic                                     i_wb_we,
+    input       wb_cti_t                                  i_wb_cti,
+    input       wb_bte_t                                  i_wb_bte,
+    input       logic [`PCYN_W2S(OPTN_WB_DATA_WIDTH)-1:0] i_wb_sel,
+    input       logic [OPTN_WB_ADDR_WIDTH-1:0]            i_wb_addr,
+    input       logic [OPTN_WB_DATA_WIDTH-1:0]            i_wb_data,
+    output      logic [OPTN_WB_DATA_WIDTH-1:0]            o_wb_data,
+    output      logic                                     o_wb_ack,
 
     // SRAM interface
-    output      logic                            o_sram_ce_n,
-    output      logic                            o_sram_oe_n,
-    output      logic                            o_sram_we_n,
-    output      logic                            o_sram_lb_n,
-    output      logic                            o_sram_ub_n,
-    output      logic [`SRAM_ADDR_WIDTH-1:0]     o_sram_addr,
-    inout  wire logic [`SRAM_DATA_WIDTH-1:0]     io_sram_dq
+    output      logic                                     o_sram_ce_n,
+    output      logic                                     o_sram_oe_n,
+    output      logic                                     o_sram_we_n,
+    output      logic                                     o_sram_lb_n,
+    output      logic                                     o_sram_ub_n,
+    output      sram_addr_t                               o_sram_addr,
+    inout  wire logic [SRAM_DATA_WIDTH-1:0]               io_sram_dq
 );
+
+    localparam WB_DATA_SIZE = `PCYN_W2S(OPTN_WB_DATA_WIDTH);
 
     logic n_rst;
     assign n_rst = ~i_wb_rst;

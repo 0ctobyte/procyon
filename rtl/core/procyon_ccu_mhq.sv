@@ -16,51 +16,52 @@
 // Update Stage:
 // - Enqueue or merges if necessary and writes store retire data into the MHQ entry
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ccu_mhq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,
-    parameter OPTN_DC_LINE_SIZE = 32,
-
-    parameter MHQ_IDX_WIDTH     = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
-    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8
+    parameter OPTN_DC_LINE_SIZE = 32
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
     // Signal from VQ that it is full; prevent fills until VQ is not full
-    input  logic                            i_vq_full,
+    input  logic                                    i_vq_full,
 
     // Interface to LSU to match lookup address to valid entries and return enqueue tag
-    input  logic                            i_mhq_lookup_valid,
-    input  logic                            i_mhq_lookup_dc_hit,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_lookup_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_mhq_lookup_op,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_mhq_lookup_data,
-    input  logic                            i_mhq_lookup_we,
-    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
-    output logic                            o_mhq_lookup_retry,
-    output logic                            o_mhq_lookup_replay,
+    input  logic                                    i_mhq_lookup_valid,
+    input  logic                                    i_mhq_lookup_dc_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_mhq_lookup_addr,
+    input  pcyn_op_t                                i_mhq_lookup_op,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_mhq_lookup_data,
+    input  logic                                    i_mhq_lookup_we,
+    output logic [`PCYN_C2I(OPTN_MHQ_DEPTH)-1:0]    o_mhq_lookup_tag,
+    output logic                                    o_mhq_lookup_retry,
+    output logic                                    o_mhq_lookup_replay,
 
     // Fill cacheline interface
-    output logic                            o_mhq_fill_en,
-    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_fill_tag,
-    output logic                            o_mhq_fill_dirty,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
-    output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
+    output logic                                    o_mhq_fill_en,
+    output logic [`PCYN_C2I(OPTN_MHQ_DEPTH)-1:0]    o_mhq_fill_tag,
+    output logic                                    o_mhq_fill_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_mhq_fill_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_mhq_fill_data,
 
     // CCU interface
-    input  logic                            i_ccu_done,
-    input  logic [DC_LINE_WIDTH-1:0]        i_ccu_data,
-    output logic                            o_ccu_en,
-    output logic                            o_ccu_we,
-    output logic [`PCYN_CCU_LEN_WIDTH-1:0]  o_ccu_len,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
+    input  logic                                    i_ccu_done,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_ccu_data,
+    output logic                                    o_ccu_en,
+    output logic                                    o_ccu_we,
+    output pcyn_ccu_len_t                           o_ccu_len,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_ccu_addr
 );
 
-    localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
+    localparam MHQ_IDX_WIDTH = `PCYN_C2I(OPTN_MHQ_DEPTH);
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
 
     logic [MHQ_IDX_WIDTH-1:0] mhq_queue_head;
     logic [MHQ_IDX_WIDTH-1:0] mhq_queue_tail;
@@ -69,26 +70,26 @@ module procyon_ccu_mhq #(
     logic mhq_queue_empty;
 /* verilator lint_on  UNUSED */
 
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lookup_addr;
-    assign mhq_lookup_addr = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_lookup_addr;
+    assign mhq_lookup_addr = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH];
 
     logic [OPTN_MHQ_DEPTH-1:0] mhq_entry_valid;
     logic [OPTN_MHQ_DEPTH-1:0] mhq_entry_complete;
     logic [OPTN_MHQ_DEPTH-1:0] mhq_entry_dirty;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_entry_addr [0:OPTN_MHQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_entry_addr [0:OPTN_MHQ_DEPTH-1];
     logic [DC_LINE_WIDTH-1:0] mhq_entry_data [0:OPTN_MHQ_DEPTH-1];
     logic [OPTN_MHQ_DEPTH-1:0] mhq_lookup_entry_hit_select;
     logic [OPTN_MHQ_DEPTH-1:0] mhq_update_select;
     logic mhq_update_we;
     logic [DC_LINE_WIDTH-1:0] mhq_update_wr_data;
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_update_addr;
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_update_addr;
 
     // Send to the MHQ_LU stage to compare against current lookup address and signal immediate replay
     // However, don't mark MHQ entries as "completed" if the VQ is full since there will be no place to put potential
     // victimized cachelines.
     logic mhq_completing;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_completing_addr;
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_completing_addr;
 
     assign mhq_completing = ~i_vq_full & mhq_entry_complete[mhq_queue_head];
     assign mhq_completing_addr = mhq_entry_addr[mhq_queue_head];
@@ -137,7 +138,7 @@ module procyon_ccu_mhq #(
     procyon_binary2onehot #(OPTN_MHQ_DEPTH) mhq_lookup_entry_alloc_select_binary2onehot (.i_binary(mhq_queue_tail), .o_onehot(mhq_lookup_entry_alloc_select));
 
     logic mhq_fill_en_r;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_fill_addr_r;
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_fill_addr_r;
     logic mhq_lookup_allocating;
 
     procyon_ccu_mhq_lu #(
@@ -198,25 +199,25 @@ module procyon_ccu_mhq #(
     procyon_ff #(MHQ_IDX_WIDTH) o_mhq_fill_tag_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_queue_head), .o_q(o_mhq_fill_tag));
     procyon_ff #(1) o_mhq_fill_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_dirty[mhq_queue_head]), .o_q(o_mhq_fill_dirty));
 
-    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) mhq_fill_addr_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_addr[mhq_queue_head]), .o_q(mhq_fill_addr_r));
-    assign o_mhq_fill_addr = {mhq_fill_addr_r, {(DC_OFFSET_WIDTH){1'b0}}};
+    procyon_ff #(OPTN_ADDR_WIDTH-`PCYN_DC_OFFSET_WIDTH) mhq_fill_addr_r_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_addr[mhq_queue_head]), .o_q(mhq_fill_addr_r));
+    assign o_mhq_fill_addr = {mhq_fill_addr_r, `PCYN_DC_OFFSET_WIDTH'(0)};
 
     procyon_ff #(DC_LINE_WIDTH) o_mhq_fill_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_entry_data[mhq_queue_head]), .o_q(o_mhq_fill_data));
 
     // Signal to CCU to fetch data from memory
     assign o_ccu_en = mhq_entry_valid[mhq_queue_head] & ~mhq_entry_complete[mhq_queue_head];
     assign o_ccu_we = 1'b0;
-    assign o_ccu_addr = {mhq_entry_addr[mhq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
+    assign o_ccu_addr = {mhq_entry_addr[mhq_queue_head], `PCYN_DC_OFFSET_WIDTH'(0)};
 
     generate
     case (OPTN_DC_LINE_SIZE)
-        4:       assign o_ccu_len = `PCYN_CCU_LEN_4B;
-        8:       assign o_ccu_len = `PCYN_CCU_LEN_8B;
-        16:      assign o_ccu_len = `PCYN_CCU_LEN_16B;
-        32:      assign o_ccu_len = `PCYN_CCU_LEN_32B;
-        64:      assign o_ccu_len = `PCYN_CCU_LEN_64B;
-        128:     assign o_ccu_len = `PCYN_CCU_LEN_128B;
-        default: assign o_ccu_len = `PCYN_CCU_LEN_4B;
+        4:       assign o_ccu_len = PCYN_CCU_LEN_4B;
+        8:       assign o_ccu_len = PCYN_CCU_LEN_8B;
+        16:      assign o_ccu_len = PCYN_CCU_LEN_16B;
+        32:      assign o_ccu_len = PCYN_CCU_LEN_32B;
+        64:      assign o_ccu_len = PCYN_CCU_LEN_64B;
+        128:     assign o_ccu_len = PCYN_CCU_LEN_128B;
+        default: assign o_ccu_len = PCYN_CCU_LEN_4B;
     endcase
     endgenerate
 

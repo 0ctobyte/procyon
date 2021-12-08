@@ -6,39 +6,43 @@
 
 // Register Alias Table with tag information for register renaming
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_rat #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_RAT_DEPTH     = 32,
-    parameter OPTN_ROB_IDX_WIDTH = 5,
-
-    parameter RAT_IDX_WIDTH      = $clog2(OPTN_RAT_DEPTH)
+    parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                           clk,
-    input  logic                           n_rst,
+    input  logic                                 clk,
+    input  logic                                 n_rst,
 
     // FIXME: Temporary for simulation pass/fail detection
-    output logic [OPTN_DATA_WIDTH-1:0]     o_sim_tp,
+    output logic [OPTN_DATA_WIDTH-1:0]           o_sim_tp,
 
     // Flush signal -> Set all ready bits (basically invalidate tags)
-    input  logic                           i_flush,
+    input  logic                                 i_flush,
 
     // Lookup source operand tag/data/rdy
-    input  logic [RAT_IDX_WIDTH-1:0]       i_rat_lookup_rsrc [0:1],
-    output logic                           o_rat_lookup_rdy [0:1],
-    output logic [OPTN_DATA_WIDTH-1:0]     o_rat_lookup_data [0:1],
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]  o_rat_lookup_tag [0:1],
+    input  logic [`PCYN_C2I(OPTN_RAT_DEPTH)-1:0] i_rat_lookup_rsrc [0:1],
+    output logic                                 o_rat_lookup_rdy [0:1],
+    output logic [OPTN_DATA_WIDTH-1:0]           o_rat_lookup_data [0:1],
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]        o_rat_lookup_tag [0:1],
 
     // Tag update interface
-    input  logic                           i_rat_rename_en,
-    input  logic [RAT_IDX_WIDTH-1:0]       i_rat_rename_rdst,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]  i_rat_rename_tag,
+    input  logic                                 i_rat_rename_en,
+    input  logic [`PCYN_C2I(OPTN_RAT_DEPTH)-1:0] i_rat_rename_rdst,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]        i_rat_rename_tag,
 
     // Destination register update interface
-    input  logic                           i_rat_retire_en,
-    input  logic [RAT_IDX_WIDTH-1:0]       i_rat_retire_rdst,
-    input  logic [OPTN_DATA_WIDTH-1:0]     i_rat_retire_data,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]  i_rat_retire_tag
+    input  logic                                 i_rat_retire_en,
+    input  logic [`PCYN_C2I(OPTN_RAT_DEPTH)-1:0] i_rat_retire_rdst,
+    input  logic [OPTN_DATA_WIDTH-1:0]           i_rat_retire_data,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]        i_rat_retire_tag
 );
+
+    localparam RAT_IDX_WIDTH = `PCYN_C2I(OPTN_RAT_DEPTH);
 
 /* verilator lint_off UNUSED */
     logic [OPTN_RAT_DEPTH-1:0] rat_retire_select;

@@ -6,6 +6,10 @@
 
 // Synchronous FIFO
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_sync_fifo #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_FIFO_DEPTH = 8
@@ -26,7 +30,7 @@ module procyon_sync_fifo #(
     output logic                       o_fifo_full
 );
 
-    localparam FIFO_IDX_WIDTH = OPTN_FIFO_DEPTH == 1 ? 1 : $clog2(OPTN_FIFO_DEPTH);
+    localparam FIFO_IDX_WIDTH = `PCYN_C2I(OPTN_FIFO_DEPTH);
 
     logic [FIFO_IDX_WIDTH-1:0] fifo_queue_head;
     logic [FIFO_IDX_WIDTH-1:0] fifo_queue_tail;

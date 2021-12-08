@@ -7,43 +7,47 @@
 // Core Communications Unit Arbiter
 // This module will select requests to forward to the BIU using priority arbitration
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_ccu_arb #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_CCU_ARB_DEPTH = 1,
-    parameter OPTN_CCU_LINE_SIZE = 32,
-
-    parameter CCU_LINE_WIDTH     = OPTN_CCU_LINE_SIZE * 8
+    parameter OPTN_CCU_LINE_SIZE = 32
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                     clk,
+    input  logic                                     n_rst,
 
     // CCU request handshake signals
-    input  logic [OPTN_CCU_ARB_DEPTH-1:0]   i_ccu_arb_valid,
-    input  logic [OPTN_CCU_ARB_DEPTH-1:0]   i_ccu_arb_we,
-    input  logic [`PCYN_CCU_LEN_WIDTH-1:0]  i_ccu_arb_len [0:OPTN_CCU_ARB_DEPTH-1],
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ccu_arb_addr [0:OPTN_CCU_ARB_DEPTH-1],
-    input  logic [CCU_LINE_WIDTH-1:0]       i_ccu_arb_data [0:OPTN_CCU_ARB_DEPTH-1],
-    output logic [OPTN_CCU_ARB_DEPTH-1:0]   o_ccu_arb_done,
-    output logic [OPTN_CCU_ARB_DEPTH-1:0]   o_ccu_arb_grant,
-    output logic [CCU_LINE_WIDTH-1:0]       o_ccu_arb_data,
+    input  logic [OPTN_CCU_ARB_DEPTH-1:0]            i_ccu_arb_valid,
+    input  logic [OPTN_CCU_ARB_DEPTH-1:0]            i_ccu_arb_we,
+    input  pcyn_ccu_len_t                            i_ccu_arb_len [0:OPTN_CCU_ARB_DEPTH-1],
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_ccu_arb_addr [0:OPTN_CCU_ARB_DEPTH-1],
+    input  logic [`PCYN_S2W(OPTN_CCU_LINE_SIZE)-1:0] i_ccu_arb_data [0:OPTN_CCU_ARB_DEPTH-1],
+    output logic [OPTN_CCU_ARB_DEPTH-1:0]            o_ccu_arb_done,
+    output logic [OPTN_CCU_ARB_DEPTH-1:0]            o_ccu_arb_grant,
+    output logic [`PCYN_S2W(OPTN_CCU_LINE_SIZE)-1:0] o_ccu_arb_data,
 
     // BIU interface
-    input  logic                            i_biu_done,
-    input  logic [CCU_LINE_WIDTH-1:0]       i_biu_data,
-    output logic                            o_biu_en,
-    output logic [`PCYN_BIU_FUNC_WIDTH-1:0] o_biu_func,
-    output logic [`PCYN_BIU_LEN_WIDTH-1:0]  o_biu_len,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_biu_addr,
-    output logic [CCU_LINE_WIDTH-1:0]       o_biu_data
+    input  logic                                     i_biu_done,
+    input  logic [`PCYN_S2W(OPTN_CCU_LINE_SIZE)-1:0] i_biu_data,
+    output logic                                     o_biu_en,
+    output pcyn_biu_func_t                           o_biu_func,
+    output pcyn_biu_len_t                            o_biu_len,
+    output logic [OPTN_ADDR_WIDTH-1:0]               o_biu_addr,
+    output logic [`PCYN_S2W(OPTN_CCU_LINE_SIZE)-1:0] o_biu_data
 );
 
-    localparam CCU_ARB_IDX_WIDTH   = OPTN_CCU_ARB_DEPTH == 1 ? 1 : $clog2(OPTN_CCU_ARB_DEPTH);
+    localparam CCU_LINE_WIDTH = `PCYN_S2W(OPTN_CCU_LINE_SIZE);
+    localparam CCU_ARB_IDX_WIDTH = `PCYN_C2I(OPTN_CCU_ARB_DEPTH);
     localparam CCU_ARB_STATE_WIDTH = 2;
 
     typedef enum logic [CCU_ARB_STATE_WIDTH-1:0] {
-        CCU_ARB_STATE_IDLE  = (CCU_ARB_STATE_WIDTH)'('b00),
-        CCU_ARB_STATE_BUSY  = (CCU_ARB_STATE_WIDTH)'('b01),
-        CCU_ARB_STATE_DONE  = (CCU_ARB_STATE_WIDTH)'('b10)
+        CCU_ARB_STATE_IDLE  = CCU_ARB_STATE_WIDTH'('b00),
+        CCU_ARB_STATE_BUSY  = CCU_ARB_STATE_WIDTH'('b01),
+        CCU_ARB_STATE_DONE  = CCU_ARB_STATE_WIDTH'('b10)
     } ccu_arb_state_t;
 
     // Pick a requestor giving priority to the requestor mapped to bit 0
@@ -120,13 +124,13 @@ module procyon_ccu_arb #(
 
     // Output to BIU
     procyon_srff #(1) o_biu_en_ff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(biu_en), .i_reset(1'b0), .o_q(o_biu_en));
-    procyon_ff #(`PCYN_BIU_LEN_WIDTH) o_biu_len_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_len[ccu_arb_idx_r]), .o_q(o_biu_len));
+    procyon_ff #(PCYN_BIU_LEN_WIDTH) o_biu_len_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_len[ccu_arb_idx_r]), .o_q(o_biu_len));
     procyon_ff #(OPTN_ADDR_WIDTH) o_biu_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_addr[ccu_arb_idx_r]), .o_q(o_biu_addr));
     procyon_ff #(CCU_LINE_WIDTH) o_biu_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_ccu_arb_data[ccu_arb_idx_r]), .o_q(o_biu_data));
 
-    logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
-    assign biu_func = i_ccu_arb_we[ccu_arb_idx_r] ? `PCYN_BIU_FUNC_WRITE : `PCYN_BIU_FUNC_READ;
+    logic [PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
+    assign biu_func = i_ccu_arb_we[ccu_arb_idx_r] ? PCYN_BIU_FUNC_WRITE : PCYN_BIU_FUNC_READ;
 
-    procyon_ff #(`PCYN_BIU_FUNC_WIDTH) o_biu_func_ff (.clk(clk), .i_en(1'b1), .i_d(biu_func), .o_q(o_biu_func));
+    procyon_ff #(PCYN_BIU_FUNC_WIDTH) o_biu_func_ff (.clk(clk), .i_en(1'b1), .i_d(biu_func), .o_q(o_biu_func));
 
 endmodule

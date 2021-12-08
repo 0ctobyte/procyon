@@ -6,64 +6,63 @@
 
 // LSU execute pipeline stage
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_core_pkg::*;
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_ex #(
     parameter OPTN_DATA_WIDTH    = 32,
-    parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
     parameter OPTN_SQ_DEPTH      = 8,
-    parameter OPTN_DC_LINE_SIZE  = 32,
-    parameter OPTN_ROB_IDX_WIDTH = 5,
-
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
+    parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                            i_flush,
+    input  logic                          i_flush,
 
     // Inputs from previous pipeline stage
-    input  logic                            i_valid,
-    input  logic                            i_fill_replay,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_op,
+    input  logic                          i_valid,
+    input  logic                          i_fill_replay,
+    input  pcyn_op_t                      i_op,
 /* verilator lint_off UNUSED */
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]    i_op_is,
+    input  pcyn_op_is_t                   i_op_is,
 /* verilator lint_on  UNUSED */
-    input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_select,
-    input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_select,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_tag,
-    input  logic                            i_retire,
+    input  logic [OPTN_LQ_DEPTH-1:0]      i_lq_select,
+    input  logic [OPTN_SQ_DEPTH-1:0]      i_sq_select,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_tag,
+    input  logic                          i_retire,
 
     // Inputs from dcache
-    input  logic                            i_dc_hit,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
+    input  logic                          i_dc_hit,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_dc_data,
 
     // Inputs from the victim queue
-    input  logic                            i_vq_hit,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_vq_data,
+    input  logic                          i_vq_hit,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_vq_data,
 
     // Broadcast CDB results
-    output logic                            o_valid,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_data,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_tag,
+    output logic                          o_valid,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_data,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_tag,
 
     // Update LQ/SQ
-    output logic                            o_update_lq_en,
-    output logic [OPTN_LQ_DEPTH-1:0]        o_update_lq_select,
-    output logic                            o_update_sq_en,
-    output logic [OPTN_SQ_DEPTH-1:0]        o_update_sq_select,
-    output logic                            o_update_retry,
-    output logic                            o_update_replay
+    output logic                          o_update_lq_en,
+    output logic [OPTN_LQ_DEPTH-1:0]      o_update_lq_select,
+    output logic                          o_update_sq_en,
+    output logic [OPTN_SQ_DEPTH-1:0]      o_update_sq_select,
+    output logic                          o_update_retry,
+    output logic                          o_update_replay
 );
 
     logic is_fill;
     logic is_not_fill;
     logic is_store;
 
-    assign is_fill = (i_op == `PCYN_OP_FILL);
+    assign is_fill = (i_op == PCYN_OP_FILL);
     assign is_not_fill = ~is_fill;
-    assign is_store = i_op_is[`PCYN_OP_IS_ST_IDX];
+    assign is_store = i_op_is[PCYN_OP_IS_ST_IDX];
 
     logic n_flush;
     assign n_flush = ~i_flush;
@@ -84,9 +83,9 @@ module procyon_lsu_ex #(
         load_data = i_vq_hit ? i_vq_data : i_dc_data;
 
         unique case (i_op)
-            `PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){load_data[7]}}, load_data[7:0]};
-            `PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){load_data[OPTN_DATA_WIDTH/2-1]}}, load_data[OPTN_DATA_WIDTH/2-1:0]};
-            default:     load_data = load_data;
+            PCYN_OP_LB: load_data = {{(OPTN_DATA_WIDTH-8){load_data[7]}}, load_data[7:0]};
+            PCYN_OP_LH: load_data = {{(OPTN_DATA_WIDTH-OPTN_DATA_WIDTH/2){load_data[OPTN_DATA_WIDTH/2-1]}}, load_data[OPTN_DATA_WIDTH/2-1:0]};
+            default:    load_data = load_data;
         endcase
     end
 

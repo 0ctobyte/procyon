@@ -13,8 +13,8 @@ module procyon_sync #(
     parameter                       OPTN_SYNC_DEPTH = 2,
     parameter [OPTN_DATA_WIDTH-1:0] OPTN_RESET_VAL  = 0
 )(
-    input  logic                  clk,
-    input  logic                  n_rst,
+    input  logic                       clk,
+    input  logic                       n_rst,
 
     input  logic [OPTN_DATA_WIDTH-1:0] i_async_data,
     output logic [OPTN_DATA_WIDTH-1:0] o_sync_data

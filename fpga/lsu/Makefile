@@ -30,12 +30,11 @@ IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
-DUT_SRC := ../common/$(DUT).sv
 SYSC_CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 SYSC_SRCS := ../common/sc_main.cpp ../../tb/common/utils.cpp
-VSRCS := $(wildcard ../../rtl/*/*.sv ../common/*.sv)
+VSRCS := ../../rtl/lib/procyon_lib_pkg.sv ../../rtl/system/procyon_system_pkg.sv ../../rtl/core/procyon_core_pkg.sv $(filter-out %_pkg.sv, $(wildcard ../../rtl/*/*.sv ../common/*.sv))
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
-VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --sc --exe
+VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --top-module $(DUT) --sc --exe
 VDUT := V$(DUT)
 LINK_FILE := ../../tb/lsu/link.ld
 CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)
@@ -120,5 +119,5 @@ $(TESTS_DIR)/%: $(TESTS_SRC_DIR)/%.S
 $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
-$(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(VSRCS) $(DUT_SRC)
-	$(VERILATOR) $(SYSC_CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(DUT_SRC) $(SYSC_SRCS) --prefix $(VDUT)
+$(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(VSRCS)
+	$(VERILATOR) $(SYSC_CFLAGS) $(VINCLUDE) -GOPTN_HEX_SIZE=$(shell wc -l < $(HEX_FILE)) $(VFLAGS) $(VSRCS) $(SYSC_SRCS) --prefix $(VDUT)

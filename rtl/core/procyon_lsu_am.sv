@@ -6,7 +6,10 @@
 
 // LSU address generation and mux stage
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_am #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -14,83 +17,83 @@ module procyon_lsu_am #(
     parameter OPTN_LQ_DEPTH      = 8,
     parameter OPTN_SQ_DEPTH      = 8,
     parameter OPTN_DC_LINE_SIZE  = 32,
-    parameter OPTN_ROB_IDX_WIDTH = 5,
-
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8
+    parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    input  logic                            i_flush,
+    input  logic                                    i_flush,
 
     // Full signal inputs from LQ/SQ
-    input  logic                            i_lq_full,
-    input  logic                            i_sq_full,
+    input  logic                                    i_lq_full,
+    input  logic                                    i_sq_full,
 
     // Inputs from reservation station
-    input                                   i_valid,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_op,
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]    i_op_is,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_imm,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_src [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_tag,
-    output logic                            o_stall,
+    input                                           i_valid,
+    input  pcyn_op_t                                i_op,
+    input  pcyn_op_is_t                             i_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_imm,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_src [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]           i_tag,
+    output logic                                    o_stall,
 
     // Input from MHQ on a fill
-    input  logic                            i_mhq_fill_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_fill_addr,
-    input  logic [DC_LINE_WIDTH-1:0]        i_mhq_fill_data,
-    input  logic                            i_mhq_fill_dirty,
+    input  logic                                    i_mhq_fill_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_mhq_fill_addr,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_mhq_fill_data,
+    input  logic                                    i_mhq_fill_dirty,
 
     // Input from SQ on a store-retire
-    input  logic                            i_sq_retire_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_sq_retire_tag,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_sq_retire_data,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_sq_retire_op,
-    input  logic [OPTN_SQ_DEPTH-1:0]        i_sq_retire_select,
-    output logic                            o_sq_retire_stall,
+    input  logic                                    i_sq_retire_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]           i_sq_retire_tag,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_sq_retire_data,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_sq_retire_addr,
+    input  pcyn_op_t                                i_sq_retire_op,
+    input  logic [OPTN_SQ_DEPTH-1:0]                i_sq_retire_select,
+    output logic                                    o_sq_retire_stall,
 
     // Input from LQ on a load-replay
-    input  logic                            i_lq_replay_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_lq_replay_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_lq_replay_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_lq_replay_op,
-    input  logic [OPTN_LQ_DEPTH-1:0]        i_lq_replay_select,
-    output logic                            o_lq_replay_stall,
+    input  logic                                    i_lq_replay_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0]           i_lq_replay_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_lq_replay_addr,
+    input  pcyn_op_t                                i_lq_replay_op,
+    input  logic [OPTN_LQ_DEPTH-1:0]                i_lq_replay_select,
+    output logic                                    o_lq_replay_stall,
 
     // Outputs to next pipeline stage
-    output logic [`PCYN_OP_WIDTH-1:0]       o_op,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]    o_op_is,
-    output logic [OPTN_LQ_DEPTH-1:0]        o_lq_select,
-    output logic [OPTN_SQ_DEPTH-1:0]        o_sq_select,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_tag,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_addr,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_retire_data,
-    output logic                            o_retire,
-    output logic                            o_replay,
-    output logic                            o_valid,
+    output pcyn_op_t                                o_op,
+    output pcyn_op_is_t                             o_op_is,
+    output logic [OPTN_LQ_DEPTH-1:0]                o_lq_select,
+    output logic [OPTN_SQ_DEPTH-1:0]                o_sq_select,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]           o_tag,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_addr,
+    output logic [OPTN_DATA_WIDTH-1:0]              o_retire_data,
+    output logic                                    o_retire,
+    output logic                                    o_replay,
+    output logic                                    o_valid,
 
     // Send read/write request to Dcache
-    output logic                            o_dc_wr_en,
-    output logic                            o_dc_dirty,
-    output logic                            o_dc_fill,
-    output logic [DC_LINE_WIDTH-1:0]        o_dc_fill_data,
+    output logic                                    o_dc_wr_en,
+    output logic                                    o_dc_dirty,
+    output logic                                    o_dc_fill,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_dc_fill_data,
 
     // Enqueue newly issued load/store ops in the load/store queues
-    output logic [`PCYN_OP_WIDTH-1:0] o_alloc_op,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_alloc_tag,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_alloc_data,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_alloc_addr,
-    output logic                            o_alloc_sq_en,
-    output logic                            o_alloc_lq_en
+    output pcyn_op_t                                o_alloc_op,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0]           o_alloc_tag,
+    output logic [OPTN_DATA_WIDTH-1:0]              o_alloc_data,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_alloc_addr,
+    output logic                                    o_alloc_sq_en,
+    output logic                                    o_alloc_lq_en
 );
 
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+
     logic lq_full;
-    assign lq_full = i_lq_full & i_op_is[`PCYN_OP_IS_LD_IDX];
+    assign lq_full = i_lq_full & i_op_is[PCYN_OP_IS_LD_IDX];
 
     logic sq_full;
-    assign sq_full = i_sq_full & i_op_is[`PCYN_OP_IS_ST_IDX];
+    assign sq_full = i_sq_full & i_op_is[PCYN_OP_IS_ST_IDX];
 
     // Stall the LSU RS if either of these conditions apply:
     // 1. There is a cache fill in progress
@@ -110,14 +113,14 @@ module procyon_lsu_am #(
 
     // Allocate op in load queue or store queue
     logic alloc_sq_en;
-    assign alloc_sq_en = n_flush & i_op_is[`PCYN_OP_IS_ST_IDX] & i_valid & n_rs_stall;
+    assign alloc_sq_en = n_flush & i_op_is[PCYN_OP_IS_ST_IDX] & i_valid & n_rs_stall;
     procyon_srff #(1) o_alloc_sq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_sq_en), .i_reset(1'b0), .o_q(o_alloc_sq_en));
 
     logic alloc_lq_en;
-    assign alloc_lq_en = n_flush & i_op_is[`PCYN_OP_IS_LD_IDX] & i_valid & n_rs_stall;
+    assign alloc_lq_en = n_flush & i_op_is[PCYN_OP_IS_LD_IDX] & i_valid & n_rs_stall;
     procyon_srff #(1) o_alloc_lq_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(alloc_lq_en), .i_reset(1'b0), .o_q(o_alloc_lq_en));
 
-    procyon_ff #(`PCYN_OP_WIDTH) o_alloc_op_ff (.clk(clk), .i_en(1'b1), .i_d(i_op), .o_q(o_alloc_op));
+    procyon_ff #(PCYN_OP_WIDTH) o_alloc_op_ff (.clk(clk), .i_en(1'b1), .i_d(i_op), .o_q(o_alloc_op));
 
     // Calculate address
     logic [OPTN_ADDR_WIDTH-1:0] addr;
@@ -179,7 +182,7 @@ module procyon_lsu_am #(
 
     procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_addr_mux), .o_q(o_addr));
 
-    logic [`PCYN_OP_WIDTH-1:0] lsu_am_op_mux;
+    logic [PCYN_OP_WIDTH-1:0] lsu_am_op_mux;
 
     always_comb begin
         unique case (lsu_am_mux_sel)
@@ -189,25 +192,25 @@ module procyon_lsu_am #(
             2'b11: lsu_am_op_mux = i_sq_retire_op;
         endcase
 
-        lsu_am_op_mux = i_mhq_fill_en ? `PCYN_OP_FILL : lsu_am_op_mux;
+        lsu_am_op_mux = i_mhq_fill_en ? PCYN_OP_FILL : lsu_am_op_mux;
     end
 
-    procyon_ff #(`PCYN_OP_WIDTH) o_op_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_mux), .o_q(o_op));
+    procyon_ff #(PCYN_OP_WIDTH) o_op_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_mux), .o_q(o_op));
 
-    logic [`PCYN_OP_IS_WIDTH-1:0] lsu_am_op_is_mux;
+    pcyn_op_is_t lsu_am_op_is_mux;
 
     always_comb begin
         unique case (lsu_am_mux_sel)
             2'b00: lsu_am_op_is_mux = i_op_is;
-            2'b01: lsu_am_op_is_mux = `PCYN_OP_IS_ST;
-            2'b10: lsu_am_op_is_mux = `PCYN_OP_IS_LD;
-            2'b11: lsu_am_op_is_mux = `PCYN_OP_IS_ST;
+            2'b01: lsu_am_op_is_mux = PCYN_OP_IS_ST;
+            2'b10: lsu_am_op_is_mux = PCYN_OP_IS_LD;
+            2'b11: lsu_am_op_is_mux = PCYN_OP_IS_ST;
         endcase
 
-        lsu_am_op_is_mux = i_mhq_fill_en ? `PCYN_OP_IS_OP : lsu_am_op_is_mux;
+        lsu_am_op_is_mux = i_mhq_fill_en ? PCYN_OP_IS_OP : lsu_am_op_is_mux;
     end
 
-    procyon_ff #(`PCYN_OP_IS_WIDTH) o_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_is_mux), .o_q(o_op_is));
+    procyon_ff #(PCYN_OP_IS_WIDTH) o_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(lsu_am_op_is_mux), .o_q(o_op_is));
 
     logic [OPTN_ROB_IDX_WIDTH-1:0] lsu_am_tag_mux;
 

@@ -9,42 +9,43 @@
 // Fetch unit will indicate what address to allocate in the queue and the IFQ will respond some cycles later with a
 // fill with the cacheline data
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ccu_ifq #(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_IFQ_DEPTH     = 1,
-    parameter OPTN_IC_LINE_SIZE  = 32,
-
-    parameter IC_LINE_WIDTH      = OPTN_IC_LINE_SIZE * 8
+    parameter OPTN_IC_LINE_SIZE  = 32
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    output logic                            o_ifq_full,
+    output logic                                    o_ifq_full,
 
     // ICache miss enqueue interface
-    input  logic                            i_ifq_alloc_en,
+    input  logic                                    i_ifq_alloc_en,
 /* verilator lint_off UNUSED */
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_alloc_addr,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_ifq_alloc_addr,
 /* verilator lint_on  UNUSED */
 
     // ICache fille interface
-    output logic                            o_ifq_fill_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_fill_addr,
-    output logic [IC_LINE_WIDTH-1:0]        o_ifq_fill_data,
+    output logic                                    o_ifq_fill_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_ifq_fill_addr,
+    output logic [`PCYN_S2W(OPTN_IC_LINE_SIZE)-1:0] o_ifq_fill_data,
 
     // CCU interface
-    input  logic                            i_ccu_done,
-    input  logic [IC_LINE_WIDTH-1:0]        i_ccu_data,
-    output logic                            o_ccu_en,
-    output logic                            o_ccu_we,
-    output logic [`PCYN_CCU_LEN_WIDTH-1:0]  o_ccu_len,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr
+    input  logic                                    i_ccu_done,
+    input  logic [`PCYN_S2W(OPTN_IC_LINE_SIZE)-1:0] i_ccu_data,
+    output logic                                    o_ccu_en,
+    output logic                                    o_ccu_we,
+    output pcyn_ccu_len_t                           o_ccu_len,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_ccu_addr
 );
 
-    localparam IFQ_IDX_WIDTH    = OPTN_IFQ_DEPTH == 1 ? 1 : $clog2(OPTN_IFQ_DEPTH);
-    localparam IC_OFFSET_WIDTH  = $clog2(OPTN_IC_LINE_SIZE);
+    localparam IFQ_IDX_WIDTH = `PCYN_C2I(OPTN_IFQ_DEPTH);
+    localparam IC_LINE_WIDTH = `PCYN_S2W(OPTN_IC_LINE_SIZE);
 
     logic [IFQ_IDX_WIDTH-1:0] ifq_queue_head;
     logic [IFQ_IDX_WIDTH-1:0] ifq_queue_tail;
@@ -53,11 +54,11 @@ module procyon_ccu_ifq #(
     logic ifq_queue_empty;
 /* verilator lint_on  UNUSED */
 
-    logic [OPTN_ADDR_WIDTH-1:IC_OFFSET_WIDTH] ifq_alloc_addr;
-    assign ifq_alloc_addr = i_ifq_alloc_addr[OPTN_ADDR_WIDTH-1:IC_OFFSET_WIDTH];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_IC_OFFSET_WIDTH] ifq_alloc_addr;
+    assign ifq_alloc_addr = i_ifq_alloc_addr[OPTN_ADDR_WIDTH-1:`PCYN_IC_OFFSET_WIDTH];
 
     logic [OPTN_IFQ_DEPTH-1:0] ifq_entry_valid;
-    logic [OPTN_ADDR_WIDTH-1:IC_OFFSET_WIDTH] ifq_entry_addr [0:OPTN_IFQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_IC_OFFSET_WIDTH] ifq_entry_addr [0:OPTN_IFQ_DEPTH-1];
 
     logic [OPTN_IFQ_DEPTH-1:0] ccu_done;
 
@@ -114,7 +115,7 @@ module procyon_ccu_ifq #(
     logic [OPTN_ADDR_WIDTH-1:0] ifq_fill_addr;
     logic [IC_LINE_WIDTH-1:0] ifq_fill_data;
 
-    assign ifq_fill_addr = {ifq_entry_addr[ifq_queue_head], {(IC_OFFSET_WIDTH){1'b0}}};
+    assign ifq_fill_addr = {ifq_entry_addr[ifq_queue_head], `PCYN_IC_OFFSET_WIDTH'(0)};
     assign ifq_fill_data = i_ccu_data[IC_LINE_WIDTH-1:0];
 
     procyon_srff #(1) o_ifq_fill_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(i_ccu_done), .i_reset(1'b0), .o_q(o_ifq_fill_en));
@@ -124,17 +125,17 @@ module procyon_ccu_ifq #(
     // Signal to CCU to read data from memory
     assign o_ccu_en = ifq_entry_valid[ifq_queue_head];
     assign o_ccu_we = 1'b0;
-    assign o_ccu_addr = {ifq_entry_addr[ifq_queue_head], {(IC_OFFSET_WIDTH){1'b0}}};
+    assign o_ccu_addr = {ifq_entry_addr[ifq_queue_head], `PCYN_IC_OFFSET_WIDTH'(0)};
 
     generate
     case (OPTN_IC_LINE_SIZE)
-        4:       assign o_ccu_len = `PCYN_CCU_LEN_4B;
-        8:       assign o_ccu_len = `PCYN_CCU_LEN_8B;
-        16:      assign o_ccu_len = `PCYN_CCU_LEN_16B;
-        32:      assign o_ccu_len = `PCYN_CCU_LEN_32B;
-        64:      assign o_ccu_len = `PCYN_CCU_LEN_64B;
-        128:     assign o_ccu_len = `PCYN_CCU_LEN_128B;
-        default: assign o_ccu_len = `PCYN_CCU_LEN_4B;
+        4:       assign o_ccu_len = PCYN_CCU_LEN_4B;
+        8:       assign o_ccu_len = PCYN_CCU_LEN_8B;
+        16:      assign o_ccu_len = PCYN_CCU_LEN_16B;
+        32:      assign o_ccu_len = PCYN_CCU_LEN_32B;
+        64:      assign o_ccu_len = PCYN_CCU_LEN_64B;
+        128:     assign o_ccu_len = PCYN_CCU_LEN_128B;
+        default: assign o_ccu_len = PCYN_CCU_LEN_4B;
     endcase
     endgenerate
 

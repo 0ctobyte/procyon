@@ -4,51 +4,55 @@
  * SPDX-License-Identifier: MIT
  */
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_sq_entry #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                            i_flush,
+    input  logic                          i_flush,
 
-    output logic                            o_empty,
-    output logic                            o_retirable,
-    output logic                            o_nonspeculative,
+    output logic                          o_empty,
+    output logic                          o_retirable,
+    output logic                          o_nonspeculative,
 
     // Signals from LSU_ID to allocate new store op in SQ
-    input  logic                            i_alloc_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_alloc_data,
+    input  logic                          i_alloc_en,
+    input  pcyn_op_t                      i_alloc_op,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_alloc_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_alloc_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_alloc_data,
 
     // Send out store to LSU on retirement and to the load queue for detection of mis-speculated loads
-    input  logic                            i_retire_en,
-    output logic [`PCYN_OP_WIDTH-1:0]       o_retire_op,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_retire_tag,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_retire_addr,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_retire_data,
+    input  logic                          i_retire_en,
+    output pcyn_op_t                      o_retire_op,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_retire_tag,
+    output logic [OPTN_ADDR_WIDTH-1:0]    o_retire_addr,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_retire_data,
 
     // Signals from the LSU and MHQ to indicate if the last retiring store needs to be retried later or replayed ASAP
-    input  logic                            i_update_en,
-    input  logic                            i_update_retry,
-    input  logic                            i_update_replay,
-    input  logic                            i_update_mhq_retry,
-    input  logic                            i_update_mhq_replay,
+    input  logic                          i_update_en,
+    input  logic                          i_update_retry,
+    input  logic                          i_update_replay,
+    input  logic                          i_update_mhq_retry,
+    input  logic                          i_update_mhq_replay,
 
     // MHQ fill interface for waking up waiting stores
-    input  logic                            i_mhq_fill_en,
+    input  logic                          i_mhq_fill_en,
 
     // ROB signal that a store has been retired
-    input  logic                            i_rob_retire_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_rob_retire_tag,
-    output logic                            o_rob_retire_ack
+    input  logic                          i_rob_retire_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rob_retire_tag,
+    output logic                          o_rob_retire_ack
 );
+
+    localparam SQ_ENTRY_STATE_WIDTH = 3;
 
     // Each SQ entry is in one of the following states:
     // INVALID:        Entry is empty
@@ -57,14 +61,12 @@ module procyon_lsu_sq_entry #(
     // NONSPECULATIVE: Entry contains a store that is at the head of the ROB and thus is ready to be retired
     // LAUNCHED:       Entry contains a retired store that has been launched into the LSU pipeline
     //                 It must wait in this state until the LSU indicates if it was retired successfully or if it needs to be relaunched
-    localparam SQ_ENTRY_STATE_WIDTH = 3;
-
     typedef enum logic [SQ_ENTRY_STATE_WIDTH-1:0] {
-        SQ_ENTRY_STATE_INVALID        = (SQ_ENTRY_STATE_WIDTH)'('b000),
-        SQ_ENTRY_STATE_VALID          = (SQ_ENTRY_STATE_WIDTH)'('b001),
-        SQ_ENTRY_STATE_MHQ_FILL_WAIT  = (SQ_ENTRY_STATE_WIDTH)'('b100),
-        SQ_ENTRY_STATE_NONSPECULATIVE = (SQ_ENTRY_STATE_WIDTH)'('b101),
-        SQ_ENTRY_STATE_LAUNCHED       = (SQ_ENTRY_STATE_WIDTH)'('b110)
+        SQ_ENTRY_STATE_INVALID        = SQ_ENTRY_STATE_WIDTH'('b000),
+        SQ_ENTRY_STATE_VALID          = SQ_ENTRY_STATE_WIDTH'('b001),
+        SQ_ENTRY_STATE_MHQ_FILL_WAIT  = SQ_ENTRY_STATE_WIDTH'('b100),
+        SQ_ENTRY_STATE_NONSPECULATIVE = SQ_ENTRY_STATE_WIDTH'('b101),
+        SQ_ENTRY_STATE_LAUNCHED       = SQ_ENTRY_STATE_WIDTH'('b110)
     } sq_entry_state_t;
 
     // Each SQ entry contains:
@@ -73,7 +75,7 @@ module procyon_lsu_sq_entry #(
     // data:            Store data updated in ID stage
     // tag:             Destination tag in ROB (used for age comparison for store-to-load forwarding)
     // state:           Current state of the entry
-    logic [`PCYN_OP_WIDTH-1:0] sq_entry_op_r;
+    pcyn_op_t sq_entry_op_r;
     logic [OPTN_ADDR_WIDTH-1:0] sq_entry_addr_r;
     logic [OPTN_DATA_WIDTH-1:0] sq_entry_data_r;
     logic [OPTN_ROB_IDX_WIDTH-1:0] sq_entry_tag_r;
@@ -123,7 +125,7 @@ module procyon_lsu_sq_entry #(
 
     procyon_srff #(SQ_ENTRY_STATE_WIDTH) sq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(sq_entry_state_next), .i_reset(SQ_ENTRY_STATE_INVALID), .o_q(sq_entry_state_r));
 
-    procyon_ff #(`PCYN_OP_WIDTH) sq_entry_op_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_op), .o_q(sq_entry_op_r));
+    procyon_ff #(PCYN_OP_WIDTH) sq_entry_op_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_op), .o_q(sq_entry_op_r));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) sq_entry_tag_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_tag), .o_q(sq_entry_tag_r));
     procyon_ff #(OPTN_ADDR_WIDTH) sq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(sq_entry_addr_r));
     procyon_ff #(OPTN_DATA_WIDTH) sq_entry_data_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_data), .o_q(sq_entry_data_r));
@@ -147,5 +149,3 @@ module procyon_lsu_sq_entry #(
     assign o_rob_retire_ack = rob_retire_en;
 
 endmodule
-
-

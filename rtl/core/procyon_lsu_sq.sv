@@ -10,7 +10,10 @@
 // The purpose of the store queue is to keep track of store ops and commit them to memory in program order
 // and to detect mis-speculated loads in the load queue
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_sq #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -18,48 +21,48 @@ module procyon_lsu_sq #(
     parameter OPTN_SQ_DEPTH      = 8,
     parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                            i_flush,
-    output logic                            o_full,
-    output logic                            o_nonspeculative_pending,
+    input  logic                          i_flush,
+    output logic                          o_full,
+    output logic                          o_nonspeculative_pending,
 
     // Signals from LSU_ID to allocate new store op in SQ
-    input  logic                            i_alloc_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_alloc_data,
+    input  logic                          i_alloc_en,
+    input  pcyn_op_t                      i_alloc_op,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_alloc_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_alloc_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_alloc_data,
 
     // Send out store to LSU on retirement and to the load queue for
     // detection of mis-speculated loads
-    input  logic                            i_sq_retire_stall,
-    output logic                            o_sq_retire_en,
-    output logic [OPTN_SQ_DEPTH-1:0]        o_sq_retire_select,
-    output logic [`PCYN_OP_WIDTH-1:0]       o_sq_retire_op,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_sq_retire_addr,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_sq_retire_tag,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_sq_retire_data,
+    input  logic                          i_sq_retire_stall,
+    output logic                          o_sq_retire_en,
+    output logic [OPTN_SQ_DEPTH-1:0]      o_sq_retire_select,
+    output pcyn_op_t                      o_sq_retire_op,
+    output logic [OPTN_ADDR_WIDTH-1:0]    o_sq_retire_addr,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_sq_retire_tag,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_sq_retire_data,
 
     // Signals from the LSU and MHQ to indicate if the last retiring store needs to be retried later or replayed ASAP
-    input  logic                            i_update_en,
-    input  logic [OPTN_SQ_DEPTH-1:0]        i_update_select,
-    input  logic                            i_update_retry,
-    input  logic                            i_update_replay,
-    input  logic                            i_update_mhq_retry,
-    input  logic                            i_update_mhq_replay,
+    input  logic                          i_update_en,
+    input  logic [OPTN_SQ_DEPTH-1:0]      i_update_select,
+    input  logic                          i_update_retry,
+    input  logic                          i_update_replay,
+    input  logic                          i_update_mhq_retry,
+    input  logic                          i_update_mhq_replay,
 
     // MHQ fill interface for waking up waiting stores
-    input  logic                            i_mhq_fill_en,
+    input  logic                          i_mhq_fill_en,
 
     // ROB signal that a store has been retired
-    input  logic                            i_rob_retire_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_rob_retire_tag,
-    output logic                            o_rob_retire_ack
+    input  logic                          i_rob_retire_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rob_retire_tag,
+    output logic                          o_rob_retire_ack
 );
 
-    localparam SQ_IDX_WIDTH = OPTN_SQ_DEPTH == 1 ? 1 : $clog2(OPTN_SQ_DEPTH);
+    localparam SQ_IDX_WIDTH = `PCYN_C2I(OPTN_SQ_DEPTH);
 
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_empty;
     logic [OPTN_SQ_DEPTH-1:0] sq_entry_retirable;
@@ -67,7 +70,7 @@ module procyon_lsu_sq #(
     logic [OPTN_SQ_DEPTH-1:0] sq_allocate_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_update_select;
     logic [OPTN_SQ_DEPTH-1:0] sq_retire_select;
-    logic [`PCYN_OP_WIDTH-1:0] sq_retire_op [0:OPTN_SQ_DEPTH-1];
+    pcyn_op_t sq_retire_op [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] sq_retire_tag [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_ADDR_WIDTH-1:0] sq_retire_addr [0:OPTN_SQ_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] sq_retire_data [0:OPTN_SQ_DEPTH-1];
@@ -144,7 +147,7 @@ module procyon_lsu_sq #(
     procyon_srff #(1) o_sq_retire_en_srff (.clk(clk), .n_rst(n_rst), .i_en(n_sq_retire_stall), .i_set(sq_retire_en), .i_reset(1'b0), .o_q(o_sq_retire_en));
 
     procyon_ff #(OPTN_SQ_DEPTH) o_sq_retire_select_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_select), .o_q(o_sq_retire_select));
-    procyon_ff #(`PCYN_OP_WIDTH) o_sq_retire_op_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_op[sq_retire_entry]), .o_q(o_sq_retire_op));
+    procyon_ff #(PCYN_OP_WIDTH) o_sq_retire_op_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_op[sq_retire_entry]), .o_q(o_sq_retire_op));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_sq_retire_tag_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_tag[sq_retire_entry]), .o_q(o_sq_retire_tag));
     procyon_ff #(OPTN_DATA_WIDTH) o_sq_retire_data_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_data[sq_retire_entry]), .o_q(o_sq_retire_data));
     procyon_ff #(OPTN_ADDR_WIDTH) o_sq_retire_addr_ff (.clk(clk), .i_en(n_sq_retire_stall), .i_d(sq_retire_addr[sq_retire_entry]), .o_q(o_sq_retire_addr));

@@ -6,49 +6,52 @@
 
 // Instruction fetch unit
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_fetch #(
     parameter OPTN_INSN_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_INSN_FIFO_DEPTH = 8,
     parameter OPTN_IC_CACHE_SIZE   = 1024,
     parameter OPTN_IC_LINE_SIZE    = 32,
-    parameter OPTN_IC_WAY_COUNT    = 1,
-
-    parameter IC_LINE_WIDTH        = OPTN_IC_LINE_SIZE * 8
+    parameter OPTN_IC_WAY_COUNT    = 1
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    input  logic                            i_redirect,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_redirect_addr,
+    input  logic                                    i_redirect,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_redirect_addr,
 
-    input  logic                            i_ifq_full,
+    input  logic                                    i_ifq_full,
 
     // Interface to the IFQ
-    input  logic                            i_ifq_fill_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_fill_addr,
-    input  logic [IC_LINE_WIDTH-1:0]        i_ifq_fill_data,
-    output logic                            o_ifq_alloc_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_alloc_addr,
+    input  logic                                    i_ifq_fill_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_ifq_fill_addr,
+    input  logic [`PCYN_S2W(OPTN_IC_LINE_SIZE)-1:0] i_ifq_fill_data,
+    output logic                                    o_ifq_alloc_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_ifq_alloc_addr,
 
     // Interface to decoder
-    input  logic                            i_decode_stall,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_fetch_pc,
-    output logic [OPTN_INSN_WIDTH-1:0]      o_fetch_insn,
-    output logic                            o_fetch_valid
+    input  logic                                    i_decode_stall,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_fetch_pc,
+    output logic [OPTN_INSN_WIDTH-1:0]              o_fetch_insn,
+    output logic                                    o_fetch_valid
 );
+
+    localparam IC_LINE_WIDTH = `PCYN_S2W(OPTN_IC_LINE_SIZE);
+    localparam FETCH_STATE_WIDTH = 2;
 
     // NEXT_FETCH:  Continue fetching next PC
     // IFQ_ENQUEUE: Enqueue PC in the IFQ
     // IFQ_STALL:   Stall fetch pipeline until IFQ signals a fill
     // FIFO_STALL:  Stall fetch pipeline until the instruction FIFO has room again
-    localparam FETCH_STATE_WIDTH = 2;
-
     typedef enum logic [FETCH_STATE_WIDTH-1:0] {
-        FETCH_STATE_NEXT_FETCH  = (FETCH_STATE_WIDTH)'('b00),
-        FETCH_STATE_IFQ_ENQUEUE = (FETCH_STATE_WIDTH)'('b01),
-        FETCH_STATE_IFQ_STALL   = (FETCH_STATE_WIDTH)'('b10),
-        FETCH_STATE_FIFO_STALL  = (FETCH_STATE_WIDTH)'('b11)
+        FETCH_STATE_NEXT_FETCH  = FETCH_STATE_WIDTH'('b00),
+        FETCH_STATE_IFQ_ENQUEUE = FETCH_STATE_WIDTH'('b01),
+        FETCH_STATE_IFQ_STALL   = FETCH_STATE_WIDTH'('b10),
+        FETCH_STATE_FIFO_STALL  = FETCH_STATE_WIDTH'('b11)
     } fetch_state_t;
 
     fetch_state_t fetch_state_r;

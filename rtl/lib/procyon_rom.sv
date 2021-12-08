@@ -6,16 +6,18 @@
 
 // ROM with initialized memory
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_rom #(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_ROM_DEPTH  = 8,
-    parameter OPTN_ROM_FILE   = "",
-
-    parameter ROM_IDX_WIDTH   = OPTN_ROM_DEPTH == 1 ? 1 : $clog2(OPTN_ROM_DEPTH)
+    parameter OPTN_ROM_FILE   = ""
 )(
     // ROM interface
-    input  logic [ROM_IDX_WIDTH-1:0]   i_rom_addr,
-    output logic [OPTN_DATA_WIDTH-1:0] o_rom_data
+    input  logic [`PCYN_C2I(OPTN_ROM_DEPTH)-1:0] i_rom_addr,
+    output logic [OPTN_DATA_WIDTH-1:0]           o_rom_data
 );
 
     // Memory array

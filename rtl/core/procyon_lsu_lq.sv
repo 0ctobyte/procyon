@@ -11,7 +11,10 @@
 // The purpose of the load queue is to keep track of load ops until they are retired and to detect
 // mis-speculated loads whenever a store op has been retired
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_lq #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -20,54 +23,54 @@ module procyon_lsu_lq #(
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_MHQ_IDX_WIDTH = 2
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                            i_flush,
-    input  logic                            i_sq_nonspeculative_pending,
-    output logic                            o_full,
+    input  logic                          i_flush,
+    input  logic                          i_sq_nonspeculative_pending,
+    output logic                          o_full,
 
     // Signals from LSU_ID to allocate new load op
-    input  logic                            i_alloc_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_alloc_op,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_alloc_tag,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_alloc_addr,
-    output logic [OPTN_LQ_DEPTH-1:0]        o_alloc_lq_select,
+    input  logic                          i_alloc_en,
+    input  pcyn_op_t                      i_alloc_op,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_alloc_tag,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_alloc_addr,
+    output logic [OPTN_LQ_DEPTH-1:0]      o_alloc_lq_select,
 
     // Signals to LSU_EX for replaying loads
-    input  logic                            i_replay_stall,
-    output logic                            o_replay_en,
-    output logic [OPTN_LQ_DEPTH-1:0]        o_replay_select,
-    output logic [`PCYN_OP_WIDTH-1:0]       o_replay_op,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]   o_replay_tag,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_replay_addr,
+    input  logic                          i_replay_stall,
+    output logic                          o_replay_en,
+    output logic [OPTN_LQ_DEPTH-1:0]      o_replay_select,
+    output pcyn_op_t                      o_replay_op,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_replay_tag,
+    output logic [OPTN_ADDR_WIDTH-1:0]    o_replay_addr,
 
     // Signals from LSU_EX and MHQ_LU to update a load when it needs to be retried later or replayed ASAP
-    input  logic                            i_update_en,
-    input  logic [OPTN_LQ_DEPTH-1:0]        i_update_select,
-    input  logic                            i_update_retry,
-    input  logic                            i_update_replay,
-    input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_update_mhq_tag,
-    input  logic                            i_update_mhq_retry,
-    input  logic                            i_update_mhq_replay,
+    input  logic                          i_update_en,
+    input  logic [OPTN_LQ_DEPTH-1:0]      i_update_select,
+    input  logic                          i_update_retry,
+    input  logic                          i_update_replay,
+    input  logic [OPTN_MHQ_IDX_WIDTH-1:0] i_update_mhq_tag,
+    input  logic                          i_update_mhq_retry,
+    input  logic                          i_update_mhq_replay,
 
     // MHQ fill broadcast
-    input  logic                            i_mhq_fill_en,
-    input  logic [OPTN_MHQ_IDX_WIDTH-1:0]   i_mhq_fill_tag,
+    input  logic                          i_mhq_fill_en,
+    input  logic [OPTN_MHQ_IDX_WIDTH-1:0] i_mhq_fill_tag,
 
     // SQ will send address of retiring store for mis-speculation detection
-    input  logic                            i_sq_retire_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_sq_retire_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_sq_retire_op,
+    input  logic                          i_sq_retire_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_sq_retire_addr,
+    input  pcyn_op_t                      i_sq_retire_op,
 
     // ROB signal that a load has been retired
-    input  logic                            i_rob_retire_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]   i_rob_retire_tag,
-    output logic                            o_rob_retire_ack,
-    output logic                            o_rob_retire_misspeculated
+    input  logic                          i_rob_retire_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rob_retire_tag,
+    output logic                          o_rob_retire_ack,
+    output logic                          o_rob_retire_misspeculated
 );
 
-    localparam LQ_IDX_WIDTH = OPTN_LQ_DEPTH == 1 ? 1 : $clog2(OPTN_LQ_DEPTH);
+    localparam LQ_IDX_WIDTH = `PCYN_C2I(OPTN_LQ_DEPTH);
 
     // Override the rob_retire_en signal if there are pending nonspeculative stores (i.e. stores that have not been
     // written to the cache yet)
@@ -79,10 +82,10 @@ module procyon_lsu_lq #(
 
     always_comb begin
         unique case (i_sq_retire_op)
-            `PCYN_OP_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
-            `PCYN_OP_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
-            `PCYN_OP_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
-            default:     sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
+            PCYN_OP_SB: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(1);
+            PCYN_OP_SH: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(2);
+            PCYN_OP_SW: sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
+            default:    sq_retire_addr_end = i_sq_retire_addr + OPTN_ADDR_WIDTH'(4);
         endcase
     end
 
@@ -91,7 +94,7 @@ module procyon_lsu_lq #(
     logic [OPTN_LQ_DEPTH-1:0] lq_allocate_select;
     logic [OPTN_LQ_DEPTH-1:0] lq_replay_select;
     logic [OPTN_LQ_DEPTH-1:0] lq_update_select;
-    logic [`PCYN_OP_WIDTH-1:0] lq_replay_op [0:OPTN_LQ_DEPTH-1];
+    pcyn_op_t lq_replay_op [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_ADDR_WIDTH-1:0] lq_replay_addr [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] lq_replay_tag [0:OPTN_LQ_DEPTH-1];
     logic [OPTN_LQ_DEPTH-1:0] lq_rob_retire_ack;
@@ -173,7 +176,7 @@ module procyon_lsu_lq #(
     procyon_onehot2binary #(OPTN_LQ_DEPTH) lq_replay_entry_onehot2binary (.i_onehot(lq_replay_select), .o_binary(lq_replay_entry));
 
     procyon_ff #(OPTN_LQ_DEPTH) o_replay_select_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_select), .o_q(o_replay_select));
-    procyon_ff #(`PCYN_OP_WIDTH) o_replay_op_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_op[lq_replay_entry]), .o_q(o_replay_op));
+    procyon_ff #(PCYN_OP_WIDTH) o_replay_op_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_op[lq_replay_entry]), .o_q(o_replay_op));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_replay_tag_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_tag[lq_replay_entry]), .o_q(o_replay_tag));
     procyon_ff #(OPTN_ADDR_WIDTH) o_replay_addr_ff (.clk(clk), .i_en(n_replay_stall), .i_d(lq_replay_addr[lq_replay_entry]), .o_q(o_replay_addr));
 

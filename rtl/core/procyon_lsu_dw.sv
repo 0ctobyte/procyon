@@ -6,7 +6,9 @@
 
 // LSU dcache hit check & write data stage
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_lsu_dw #(
     parameter OPTN_DATA_WIDTH      = 32,
@@ -28,8 +30,8 @@ module procyon_lsu_dw #(
     // Inputs from previous pipeline stage
     input  logic                                          i_valid,
     input  logic                                          i_fill_replay,
-    input  logic [`PCYN_OP_WIDTH-1:0]                     i_op,
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]                  i_op_is,
+    input  pcyn_op_t                                      i_op,
+    input  pcyn_op_is_t                                   i_op_is,
     input  logic [OPTN_LQ_DEPTH-1:0]                      i_lq_select,
     input  logic [OPTN_SQ_DEPTH-1:0]                      i_sq_select,
     input  logic [OPTN_ROB_IDX_WIDTH-1:0]                 i_tag,
@@ -45,8 +47,8 @@ module procyon_lsu_dw #(
     output logic                                          o_valid,
     output logic                                          o_mhq_lookup_valid,
     output logic                                          o_fill_replay,
-    output logic [`PCYN_OP_WIDTH-1:0]                     o_op,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]                  o_op_is,
+    output pcyn_op_t                                      o_op,
+    output pcyn_op_is_t                                   o_op_is,
     output logic [OPTN_LQ_DEPTH-1:0]                      o_lq_select,
     output logic [OPTN_SQ_DEPTH-1:0]                      o_sq_select,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]                 o_tag,
@@ -74,8 +76,8 @@ module procyon_lsu_dw #(
     procyon_ff #(OPTN_LQ_DEPTH) o_lq_select_ff (.clk(clk), .i_en(1'b1), .i_d(lq_select), .o_q(o_lq_select));
 
     procyon_ff #(OPTN_SQ_DEPTH) o_sq_select_ff (.clk(clk), .i_en(1'b1), .i_d(i_sq_select), .o_q(o_sq_select));
-    procyon_ff #(`PCYN_OP_WIDTH) o_op_ff (.clk(clk), .i_en(1'b1), .i_d(i_op), .o_q(o_op));
-    procyon_ff #(`PCYN_OP_IS_WIDTH) o_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(i_op_is), .o_q(o_op_is));
+    procyon_ff #(PCYN_OP_WIDTH) o_op_ff (.clk(clk), .i_en(1'b1), .i_d(i_op), .o_q(o_op));
+    procyon_ff #(PCYN_OP_IS_WIDTH) o_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(i_op_is), .o_q(o_op_is));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_tag));
     procyon_ff #(OPTN_ADDR_WIDTH) o_addr_ff (.clk(clk), .i_en(1'b1), .i_d(i_addr), .o_q(o_addr));
     procyon_ff #(OPTN_DATA_WIDTH) o_retire_data_ff (.clk(clk), .i_en(1'b1), .i_d(i_retire_data), .o_q(o_retire_data));

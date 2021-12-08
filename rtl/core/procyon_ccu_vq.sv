@@ -14,47 +14,48 @@
 // Allocate event:
 // - Enqueue evicted cachelines
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ccu_vq #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_VQ_DEPTH     = 4,
-    parameter OPTN_DC_LINE_SIZE = 32,
-
-    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    parameter DATA_SIZE         = OPTN_DATA_WIDTH / 8
+    parameter OPTN_DC_LINE_SIZE = 32
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    output logic                            o_vq_full,
+    output logic                                    o_vq_full,
 
     // Interface to LSU to match lookup address to valid entries and return enqueue tag
-    input  logic                            i_vq_lookup_valid,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_vq_lookup_addr,
-    input  logic [DATA_SIZE-1:0]            i_vq_lookup_byte_sel,
-    output logic                            o_vq_lookup_hit,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_vq_lookup_data,
+    input  logic                                    i_vq_lookup_valid,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_vq_lookup_addr,
+    input  logic [`PCYN_W2S(OPTN_DATA_WIDTH)-1:0]   i_vq_lookup_byte_sel,
+    output logic                                    o_vq_lookup_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]              o_vq_lookup_data,
 
     // Victim enqueue interface
-    input  logic                            i_vq_victim_valid,
+    input  logic                                    i_vq_victim_valid,
 /* verilator lint_off UNUSED */
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_vq_victim_addr,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_vq_victim_addr,
 /* verilator lint_on  UNUSED */
-    input  logic [DC_LINE_WIDTH-1:0]        i_vq_victim_data,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_vq_victim_data,
 
     // CCU interface
-    input  logic                            i_ccu_done,
-    output logic                            o_ccu_en,
-    output logic                            o_ccu_we,
-    output logic [`PCYN_CCU_LEN_WIDTH-1:0]  o_ccu_len,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ccu_addr,
-    output logic [DC_LINE_WIDTH-1:0]        o_ccu_data
+    input  logic                                    i_ccu_done,
+    output logic                                    o_ccu_en,
+    output logic                                    o_ccu_we,
+    output pcyn_ccu_len_t                           o_ccu_len,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_ccu_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_ccu_data
 );
 
-    localparam VQ_IDX_WIDTH    = OPTN_VQ_DEPTH == 1 ? 1 : $clog2(OPTN_VQ_DEPTH);
-    localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
+    localparam VQ_IDX_WIDTH = `PCYN_C2I(OPTN_VQ_DEPTH);
 
     logic [VQ_IDX_WIDTH-1:0] vq_queue_head;
     logic [VQ_IDX_WIDTH-1:0] vq_queue_tail;
@@ -63,17 +64,17 @@ module procyon_ccu_vq #(
     logic vq_queue_empty;
 /* verilator lint_on  UNUSED */
 
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_lookup_addr;
-    assign vq_lookup_addr = i_vq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] vq_lookup_addr;
+    assign vq_lookup_addr = i_vq_lookup_addr[OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH];
 
-    logic [DC_OFFSET_WIDTH-1:0] vq_lookup_offset;
-    assign vq_lookup_offset = i_vq_lookup_addr[DC_OFFSET_WIDTH-1:0];
+    logic [`PCYN_DC_OFFSET_WIDTH-1:0] vq_lookup_offset;
+    assign vq_lookup_offset = i_vq_lookup_addr[`PCYN_DC_OFFSET_WIDTH-1:0];
 
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_victim_addr;
-    assign vq_victim_addr = i_vq_victim_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] vq_victim_addr;
+    assign vq_victim_addr = i_vq_victim_addr[OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH];
 
     logic [OPTN_VQ_DEPTH-1:0] vq_entry_valid;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_entry_addr [0:OPTN_VQ_DEPTH-1];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] vq_entry_addr [0:OPTN_VQ_DEPTH-1];
     logic [DC_LINE_WIDTH-1:0] vq_entry_data [0:OPTN_VQ_DEPTH-1];
 
     logic [OPTN_VQ_DEPTH-1:0] ccu_done;
@@ -153,7 +154,7 @@ module procyon_ccu_vq #(
         vq_lookup_data = '0;
 
         for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
-            if (DC_OFFSET_WIDTH'(i) == vq_lookup_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == vq_lookup_offset) begin
                 for (int j = 0; j < DATA_SIZE; j++) begin
                     if (i_vq_lookup_byte_sel[j]) begin
                         vq_lookup_data[j*8 +: 8] = vq_lookup_cacheline[(i+j)*8 +: 8];
@@ -165,7 +166,7 @@ module procyon_ccu_vq #(
         // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
         // So special case the accesses to the last DATA_SIZE portion of the line by only reading the bytes we can access
         for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
-            if (DC_OFFSET_WIDTH'(i) == vq_lookup_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == vq_lookup_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     if (i_vq_lookup_byte_sel[j]) begin
                         vq_lookup_data[j*8 +: 8] = vq_lookup_cacheline[(i+j)*8 +: 8];
@@ -182,17 +183,17 @@ module procyon_ccu_vq #(
     assign o_ccu_en = vq_entry_valid[vq_queue_head];
     assign o_ccu_we = 1'b1;
     assign o_ccu_data = vq_entry_data[vq_queue_head];
-    assign o_ccu_addr = {vq_entry_addr[vq_queue_head], {(DC_OFFSET_WIDTH){1'b0}}};
+    assign o_ccu_addr = {vq_entry_addr[vq_queue_head], `PCYN_DC_OFFSET_WIDTH'(0)};
 
     generate
     case (OPTN_DC_LINE_SIZE)
-        4:       assign o_ccu_len = `PCYN_CCU_LEN_4B;
-        8:       assign o_ccu_len = `PCYN_CCU_LEN_8B;
-        16:      assign o_ccu_len = `PCYN_CCU_LEN_16B;
-        32:      assign o_ccu_len = `PCYN_CCU_LEN_32B;
-        64:      assign o_ccu_len = `PCYN_CCU_LEN_64B;
-        128:     assign o_ccu_len = `PCYN_CCU_LEN_128B;
-        default: assign o_ccu_len = `PCYN_CCU_LEN_4B;
+        4:       assign o_ccu_len = PCYN_CCU_LEN_4B;
+        8:       assign o_ccu_len = PCYN_CCU_LEN_8B;
+        16:      assign o_ccu_len = PCYN_CCU_LEN_16B;
+        32:      assign o_ccu_len = PCYN_CCU_LEN_32B;
+        64:      assign o_ccu_len = PCYN_CCU_LEN_64B;
+        128:     assign o_ccu_len = PCYN_CCU_LEN_128B;
+        default: assign o_ccu_len = PCYN_CCU_LEN_4B;
     endcase
     endgenerate
 

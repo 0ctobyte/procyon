@@ -16,59 +16,58 @@
 // DW stage - Generate hit signal and cache write signals
 // also output victim data, address and cache state
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_dcache #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,
     parameter OPTN_DC_LINE_SIZE  = 32,
-    parameter OPTN_DC_WAY_COUNT  = 1,
-
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
-    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
+    parameter OPTN_DC_WAY_COUNT  = 1
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    input  logic                            i_dc_wr_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_dc_addr,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_dc_data,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_dc_op,
-    input  logic                            i_dc_valid,
-    input  logic                            i_dc_dirty,
-    input  logic                            i_dc_fill,
-    input  logic [DC_LINE_WIDTH-1:0]        i_dc_fill_data,
+    input  logic                                    i_dc_wr_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]              i_dc_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_dc_data,
+    input  pcyn_op_t                                i_dc_op,
+    input  logic                                    i_dc_valid,
+    input  logic                                    i_dc_dirty,
+    input  logic                                    i_dc_fill,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_dc_fill_data,
 
-    output logic [DATA_SIZE-1:0]            o_dc_dt_byte_sel,
-    output logic                            o_dc_hit,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_dc_data,
-    output logic                            o_dc_victim_valid,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_dc_victim_addr,
-    output logic [DC_LINE_WIDTH-1:0]        o_dc_victim_data
+    output logic [`PCYN_W2S(OPTN_DATA_WIDTH)-1:0]   o_dc_dt_byte_sel,
+    output logic                                    o_dc_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]              o_dc_data,
+    output logic                                    o_dc_victim_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_dc_victim_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_dc_victim_data
 );
 
-    localparam DC_OFFSET_WIDTH = $clog2(OPTN_DC_LINE_SIZE);
-    localparam DC_INDEX_WIDTH  = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT);
-    localparam DC_TAG_WIDTH    = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH;
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
 
     // Crack open address into tag, index & offset
-    logic [DC_TAG_WIDTH-1:0] dc_tag;
-    logic [DC_INDEX_WIDTH-1:0] dc_index;
-    logic [DC_OFFSET_WIDTH-1:0] dc_offset;
+    logic [`PCYN_DC_TAG_WIDTH-1:0] dc_tag;
+    logic [`PCYN_DC_INDEX_WIDTH-1:0] dc_index;
+    logic [`PCYN_DC_OFFSET_WIDTH-1:0] dc_offset;
 
-    assign dc_tag = i_dc_addr[OPTN_ADDR_WIDTH-1:OPTN_ADDR_WIDTH-DC_TAG_WIDTH];
-    assign dc_offset = i_dc_addr[DC_OFFSET_WIDTH-1:0];
+    assign dc_tag = i_dc_addr[OPTN_ADDR_WIDTH-1:OPTN_ADDR_WIDTH-`PCYN_DC_TAG_WIDTH];
+    assign dc_offset = i_dc_addr[`PCYN_DC_OFFSET_WIDTH-1:0];
 
     generate
-    if (DC_INDEX_WIDTH == 1) assign dc_index = '0;
-    else                     assign dc_index = i_dc_addr[DC_INDEX_WIDTH+DC_OFFSET_WIDTH-1:DC_OFFSET_WIDTH];
+    if (`PCYN_DC_INDEX_WIDTH == 1) assign dc_index = '0;
+    else                           assign dc_index = i_dc_addr[`PCYN_DC_INDEX_WIDTH+`PCYN_DC_OFFSET_WIDTH-1:`PCYN_DC_OFFSET_WIDTH];
     endgenerate
 
     logic dcache_dt_wr_en;
-    logic [DC_TAG_WIDTH-1:0] dcache_dt_tag;
-    logic [DC_INDEX_WIDTH-1:0] dcache_dt_index;
-    logic [DC_OFFSET_WIDTH-1:0] dcache_dt_offset;
+    logic [`PCYN_DC_TAG_WIDTH-1:0] dcache_dt_tag;
+    logic [`PCYN_DC_INDEX_WIDTH-1:0] dcache_dt_index;
+    logic [`PCYN_DC_OFFSET_WIDTH-1:0] dcache_dt_offset;
     logic [DATA_SIZE-1:0] dcache_dt_byte_sel;
     logic [OPTN_DATA_WIDTH-1:0] dcache_dt_data;
     logic dcache_dt_valid;
@@ -77,13 +76,13 @@ module procyon_dcache #(
     logic [DC_LINE_WIDTH-1:0] dcache_dt_fill_data;
     logic cache_rd_valid;
     logic cache_rd_dirty;
-    logic [DC_TAG_WIDTH-1:0] cache_rd_tag;
+    logic [`PCYN_DC_TAG_WIDTH-1:0] cache_rd_tag;
     logic [DC_LINE_WIDTH-1:0] cache_rd_data;
     logic cache_wr_en;
-    logic [DC_INDEX_WIDTH-1:0] cache_wr_index;
+    logic [`PCYN_DC_INDEX_WIDTH-1:0] cache_wr_index;
     logic cache_wr_valid;
     logic cache_wr_dirty;
-    logic [DC_TAG_WIDTH-1:0] cache_wr_tag;
+    logic [`PCYN_DC_TAG_WIDTH-1:0] cache_wr_tag;
     logic [DC_LINE_WIDTH-1:0] cache_wr_data;
 
     // Output byte select from DT stage

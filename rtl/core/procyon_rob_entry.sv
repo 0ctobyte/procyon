@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_rob_entry #(
     parameter OPTN_DATA_WIDTH       = 32,
@@ -13,47 +15,53 @@ module procyon_rob_entry #(
     parameter OPTN_ROB_IDX_WIDTH    = 5,
     parameter OPTN_RAT_IDX_WIDTH    = 5
 )(
-    input  logic                              clk,
-    input  logic                              n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                              i_redirect,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rob_tag,
+    input  logic                          i_redirect,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rob_tag,
 
-    output logic                              o_retirable,
-    output logic                              o_lsu_pending,
-    output logic                              o_rob_entry_redirect,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_rob_entry_data,
-    output logic [OPTN_RAT_IDX_WIDTH-1:0]     o_rob_entry_rdst,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]      o_rob_entry_op_is,
-    output logic [OPTN_ADDR_WIDTH-1:0]        o_rob_entry_pc,
+    output logic                          o_retirable,
+    output logic                          o_lsu_pending,
+    output logic                          o_rob_entry_redirect,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_rob_entry_data,
+    output logic [OPTN_RAT_IDX_WIDTH-1:0] o_rob_entry_rdst,
+    output pcyn_op_is_t                   o_rob_entry_op_is,
+    output logic [OPTN_ADDR_WIDTH-1:0]    o_rob_entry_pc,
 
     // Common Data Bus networks
-    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
-    input  logic                              i_cdb_redirect [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag [0:OPTN_CDB_DEPTH-1],
+    input  logic                          i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic                          i_cdb_redirect [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
     // Enqueue to this entry
-    input  logic                              i_dispatch_en,
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_dispatch_op_is,
-    input  logic [OPTN_ADDR_WIDTH-1:0]        i_dispatch_pc,
-    input  logic [OPTN_RAT_IDX_WIDTH-1:0]     i_dispatch_rdst,
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_dispatch_rdst_data,
+    input  logic                          i_dispatch_en,
+    input  pcyn_op_is_t                   i_dispatch_op_is,
+    input  logic [OPTN_ADDR_WIDTH-1:0]    i_dispatch_pc,
+    input  logic [OPTN_RAT_IDX_WIDTH-1:0] i_dispatch_rdst,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_dispatch_rdst_data,
 
     // Retire this entry. For loads/stores, handshake is required between LSU in case of mis-speculated loads and to
     // keep the LQ and SQ in sync with the ROB
-    input  logic                              i_retire_en,
-    input  logic                              i_lsu_retire_lq_ack,
-    input  logic                              i_lsu_retire_sq_ack,
-    input  logic                              i_lsu_retire_misspeculated
+    input  logic                          i_retire_en,
+    input  logic                          i_lsu_retire_lq_ack,
+    input  logic                          i_lsu_retire_sq_ack,
+    input  logic                          i_lsu_retire_misspeculated
 );
+
     localparam ROB_ENTRY_STATE_WIDTH = 2;
 
+    // An ROB entry can be in the following states:
+    // INVALID     - Entry is empty
+    // PENDING     - Waiting for op to complete and write destination register value into entry (if it produces a value)
+    // LSU_PENDING - Load/Stores wait until the LQ/SQ is ready to retire the load/store op
+    // RETIRABLE   - Op is ready to write value into the RAT (if it had produced a value)
     typedef enum logic [ROB_ENTRY_STATE_WIDTH-1:0] {
-        ROB_ENTRY_STATE_INVALID     = (ROB_ENTRY_STATE_WIDTH)'('b00),
-        ROB_ENTRY_STATE_PENDING     = (ROB_ENTRY_STATE_WIDTH)'('b01),
-        ROB_ENTRY_STATE_LSU_PENDING = (ROB_ENTRY_STATE_WIDTH)'('b10),
-        ROB_ENTRY_STATE_RETIRABLE   = (ROB_ENTRY_STATE_WIDTH)'('b11)
+        ROB_ENTRY_STATE_INVALID     = ROB_ENTRY_STATE_WIDTH'('b00),
+        ROB_ENTRY_STATE_PENDING     = ROB_ENTRY_STATE_WIDTH'('b01),
+        ROB_ENTRY_STATE_LSU_PENDING = ROB_ENTRY_STATE_WIDTH'('b10),
+        ROB_ENTRY_STATE_RETIRABLE   = ROB_ENTRY_STATE_WIDTH'('b11)
     } rob_entry_state_t;
 
     // ROB entry consists of the following:
@@ -64,7 +72,7 @@ module procyon_rob_entry #(
     // data:        The data for the destination register
     // state:       State of the ROB entry
     logic rob_entry_redirect_r;
-    logic [`PCYN_OP_IS_WIDTH-1:0] rob_entry_op_is_r;
+    pcyn_op_is_t rob_entry_op_is_r;
     logic [OPTN_ADDR_WIDTH-1:0] rob_entry_pc_r;
     logic [OPTN_RAT_IDX_WIDTH-1:0] rob_entry_rdst_r ;
     logic [OPTN_DATA_WIDTH-1:0] rob_entry_data_r;
@@ -78,8 +86,8 @@ module procyon_rob_entry #(
     logic lsu_retired_ack;
 
     assign rob_entry_lsu_pending = (rob_entry_state_r == ROB_ENTRY_STATE_LSU_PENDING);
-    assign lsu_retired_lq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] & i_lsu_retire_lq_ack;
-    assign lsu_retired_sq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX] & i_lsu_retire_sq_ack;
+    assign lsu_retired_lq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[PCYN_OP_IS_LD_IDX] & i_lsu_retire_lq_ack;
+    assign lsu_retired_sq_ack = rob_entry_lsu_pending & rob_entry_op_is_r[PCYN_OP_IS_ST_IDX] & i_lsu_retire_sq_ack;
     assign lsu_retired_ack = lsu_retired_lq_ack | lsu_retired_sq_ack;
 
     // Check CDB inputs for matching tags and determine which entry can be marked as retirable
@@ -103,8 +111,8 @@ module procyon_rob_entry #(
             rob_entry_retirable = cdb_tag_match | rob_entry_retirable;
 
             // Jump instructions produce a jump address, write it into the PC instead of the data field
-            rob_entry_data_mux = (~rob_entry_op_is_r[`PCYN_OP_IS_JL_IDX] & cdb_tag_match) ? i_cdb_data[cdb_idx] : rob_entry_data_mux;
-            rob_entry_pc_mux = (rob_entry_op_is_r[`PCYN_OP_IS_JL_IDX] & cdb_tag_match) ? i_cdb_data[cdb_idx] : rob_entry_pc_mux;
+            rob_entry_data_mux = (~rob_entry_op_is_r[PCYN_OP_IS_JL_IDX] & cdb_tag_match) ? i_cdb_data[cdb_idx] : rob_entry_data_mux;
+            rob_entry_pc_mux = (rob_entry_op_is_r[PCYN_OP_IS_JL_IDX] & cdb_tag_match) ? i_cdb_data[cdb_idx] : rob_entry_pc_mux;
         end
 
         // Overwrite the data & PC field and clear the redirect bit if an instruction is being enqueued at the entry
@@ -118,7 +126,7 @@ module procyon_rob_entry #(
     procyon_ff #(OPTN_ADDR_WIDTH) rob_entry_pc_r_ff (.clk(clk), .i_en(1'b1), .i_d(rob_entry_pc_mux), .o_q(rob_entry_pc_r));
 
     // These registers only get updated if the entry is getting enqueued
-    procyon_ff #(`PCYN_OP_IS_WIDTH) rob_entry_op_is_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op_is), .o_q(rob_entry_op_is_r));
+    procyon_ff #(PCYN_OP_IS_WIDTH) rob_entry_op_is_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_op_is), .o_q(rob_entry_op_is_r));
     procyon_ff #(OPTN_RAT_IDX_WIDTH) rob_entry_rdst_r_ff (.clk(clk), .i_en(i_dispatch_en), .i_d(i_dispatch_rdst), .o_q(rob_entry_rdst_r));
 
     // ROB entry next state logic
@@ -132,7 +140,7 @@ module procyon_rob_entry #(
 
     always_comb begin
         rob_entry_state_t rob_entry_state_lsu_pending_mux;
-        rob_entry_state_lsu_pending_mux = (rob_entry_op_is_r[`PCYN_OP_IS_LD_IDX] | rob_entry_op_is_r[`PCYN_OP_IS_ST_IDX]) ? ROB_ENTRY_STATE_LSU_PENDING : ROB_ENTRY_STATE_RETIRABLE;
+        rob_entry_state_lsu_pending_mux = (rob_entry_op_is_r[PCYN_OP_IS_LD_IDX] | rob_entry_op_is_r[PCYN_OP_IS_ST_IDX]) ? ROB_ENTRY_STATE_LSU_PENDING : ROB_ENTRY_STATE_RETIRABLE;
 
         unique case (rob_entry_state_r)
             ROB_ENTRY_STATE_INVALID:     rob_entry_state_next = i_dispatch_en ? ROB_ENTRY_STATE_PENDING : ROB_ENTRY_STATE_INVALID;

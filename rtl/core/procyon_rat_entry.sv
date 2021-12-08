@@ -8,25 +8,25 @@ module procyon_rat_entry #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5
 )(
-    input  logic                           clk,
-    input  logic                           n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
     // Flush signal -> Set all ready bits (basically invalidate tags)
-    input  logic                           i_flush,
+    input  logic                          i_flush,
 
     // Output data, tag and ready bits
-    output logic [OPTN_DATA_WIDTH-1:0]     o_rat_entry_data,
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]  o_rat_entry_tag,
-    output logic                           o_rat_entry_rdy,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_rat_entry_data,
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_rat_entry_tag,
+    output logic                          o_rat_entry_rdy,
 
     // Destination register update interface
-    input  logic                           i_rat_retire_en,
-    input  logic [OPTN_DATA_WIDTH-1:0]     i_rat_retire_data,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]  i_rat_retire_tag,
+    input  logic                          i_rat_retire_en,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_rat_retire_data,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rat_retire_tag,
 
     // Tag update interface
-    input  logic                           i_rat_rename_en,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]  i_rat_rename_tag
+    input  logic                          i_rat_rename_en,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rat_rename_tag
 );
 
     // Each Register Alias Table entry will have a data value, tag and ready bit

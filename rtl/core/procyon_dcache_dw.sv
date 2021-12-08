@@ -6,63 +6,65 @@
 
 // Data Cache - Dcache hit check and generate dcache write signals stage
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_dcache_dw #(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_DC_CACHE_SIZE = 1024,
     parameter OPTN_DC_LINE_SIZE  = 32,
-    parameter OPTN_DC_WAY_COUNT  = 1,
-
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
-    parameter DC_OFFSET_WIDTH    = $clog2(OPTN_DC_LINE_SIZE),
-    parameter DC_INDEX_WIDTH     = OPTN_DC_CACHE_SIZE == OPTN_DC_LINE_SIZE ? 1 : $clog2(OPTN_DC_CACHE_SIZE / OPTN_DC_LINE_SIZE / OPTN_DC_WAY_COUNT),
-    parameter DC_TAG_WIDTH       = OPTN_ADDR_WIDTH - (DC_INDEX_WIDTH == 1 ? 0 : DC_INDEX_WIDTH) - DC_OFFSET_WIDTH,
-    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8
+    parameter OPTN_DC_WAY_COUNT  = 1
 )(
-    input  logic                       clk,
-    input  logic                       n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    input  logic                       i_wr_en,
-    input  logic [DC_TAG_WIDTH-1:0]    i_tag,
-    input  logic [DC_INDEX_WIDTH-1:0]  i_index,
-    input  logic [DC_OFFSET_WIDTH-1:0] i_offset,
-    input  logic [DATA_SIZE-1:0]       i_byte_sel,
-    input  logic [OPTN_DATA_WIDTH-1:0] i_data,
-    input  logic                       i_valid,
-    input  logic                       i_dirty,
-    input  logic                       i_fill,
-    input  logic [DC_LINE_WIDTH-1:0]   i_fill_data,
+    input  logic                                    i_wr_en,
+    input  logic [`PCYN_DC_TAG_WIDTH-1:0]           i_tag,
+    input  logic [`PCYN_DC_INDEX_WIDTH-1:0]         i_index,
+    input  logic [`PCYN_DC_OFFSET_WIDTH-1:0]        i_offset,
+    input  logic [`PCYN_W2S(OPTN_DATA_WIDTH)-1:0]   i_byte_sel,
+    input  logic [OPTN_DATA_WIDTH-1:0]              i_data,
+    input  logic                                    i_valid,
+    input  logic                                    i_dirty,
+    input  logic                                    i_fill,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_fill_data,
 
-    input  logic                       i_cache_rd_valid,
-    input  logic                       i_cache_rd_dirty,
-    input  logic [DC_TAG_WIDTH-1:0]    i_cache_rd_tag,
-    input  logic [DC_LINE_WIDTH-1:0]   i_cache_rd_data,
+    input  logic                                    i_cache_rd_valid,
+    input  logic                                    i_cache_rd_dirty,
+    input  logic [`PCYN_DC_TAG_WIDTH-1:0]           i_cache_rd_tag,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_cache_rd_data,
 
-    input  logic                       i_bypass_cache_wr_en,
-    input  logic [DC_INDEX_WIDTH-1:0]  i_bypass_cache_wr_index,
-    input  logic [DC_TAG_WIDTH-1:0]    i_bypass_cache_wr_tag,
-    input  logic [DC_LINE_WIDTH-1:0]   i_bypass_cache_wr_data,
-    input  logic                       i_bypass_cache_wr_valid,
-    input  logic                       i_bypass_cache_wr_dirty,
+    input  logic                                    i_bypass_cache_wr_en,
+    input  logic [`PCYN_DC_INDEX_WIDTH-1:0]         i_bypass_cache_wr_index,
+    input  logic [`PCYN_DC_TAG_WIDTH-1:0]           i_bypass_cache_wr_tag,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] i_bypass_cache_wr_data,
+    input  logic                                    i_bypass_cache_wr_valid,
+    input  logic                                    i_bypass_cache_wr_dirty,
 
-    output logic                       o_cache_wr_en,
-    output logic [DC_INDEX_WIDTH-1:0]  o_cache_wr_index,
-    output logic [DC_TAG_WIDTH-1:0]    o_cache_wr_tag,
-    output logic [DC_LINE_WIDTH-1:0]   o_cache_wr_data,
-    output logic                       o_cache_wr_valid,
-    output logic                       o_cache_wr_dirty,
+    output logic                                    o_cache_wr_en,
+    output logic [`PCYN_DC_INDEX_WIDTH-1:0]         o_cache_wr_index,
+    output logic [`PCYN_DC_TAG_WIDTH-1:0]           o_cache_wr_tag,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_cache_wr_data,
+    output logic                                    o_cache_wr_valid,
+    output logic                                    o_cache_wr_dirty,
 
-    output logic                       o_hit,
-    output logic [OPTN_DATA_WIDTH-1:0] o_data,
-    output logic                       o_victim_valid,
-    output logic [OPTN_ADDR_WIDTH-1:0] o_victim_addr,
-    output logic [DC_LINE_WIDTH-1:0]   o_victim_data
+    output logic                                    o_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]              o_data,
+    output logic                                    o_victim_valid,
+    output logic [OPTN_ADDR_WIDTH-1:0]              o_victim_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0] o_victim_data
 );
+
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
 
     logic bypass;
     logic bypass_hit;
     logic [DC_LINE_WIDTH-1:0] bypass_cache_wr_data;
-    logic [DC_TAG_WIDTH-1:0] bypass_cache_wr_tag;
+    logic [`PCYN_DC_TAG_WIDTH-1:0] bypass_cache_wr_tag;
     logic bypass_cache_wr_valid;
     logic bypass_cache_wr_dirty;
 
@@ -87,7 +89,7 @@ module procyon_dcache_dw #(
         rd_data = '0;
 
         for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
-            if (DC_OFFSET_WIDTH'(i) == i_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < DATA_SIZE; j++) begin
                     if (i_byte_sel[j]) begin
                         rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
@@ -99,7 +101,7 @@ module procyon_dcache_dw #(
         // Accessing bytes at the end of the line is tricky. We can't read or write past the end of the data line
         // So special case the accesses to the last DATA_SIZE portion of the line by only reading the bytes we can access
         for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
-            if (DC_OFFSET_WIDTH'(i) == i_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     if (i_byte_sel[j]) begin
                         rd_data[j*8 +: 8] = bypass_cache_wr_data[(i+j)*8 +: 8];
@@ -116,8 +118,8 @@ module procyon_dcache_dw #(
     assign cache_wr_en = i_fill | (cache_hit & i_wr_en);
     procyon_srff #(1) o_cache_wr_en_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(cache_wr_en), .i_reset(1'b0), .o_q(o_cache_wr_en));
 
-    procyon_ff #(DC_TAG_WIDTH) o_cache_wr_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_cache_wr_tag));
-    procyon_ff #(DC_INDEX_WIDTH) o_cache_wr_index_ff (.clk(clk), .i_en(1'b1), .i_d(i_index), .o_q(o_cache_wr_index));
+    procyon_ff #(`PCYN_DC_TAG_WIDTH) o_cache_wr_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_tag), .o_q(o_cache_wr_tag));
+    procyon_ff #(`PCYN_DC_INDEX_WIDTH) o_cache_wr_index_ff (.clk(clk), .i_en(1'b1), .i_d(i_index), .o_q(o_cache_wr_index));
     procyon_ff #(1) o_cache_wr_valid_ff (.clk(clk), .i_en(1'b1), .i_d(i_valid), .o_q(o_cache_wr_valid));
     procyon_ff #(1) o_cache_wr_dirty_ff (.clk(clk), .i_en(1'b1), .i_d(i_dirty), .o_q(o_cache_wr_dirty));
 
@@ -128,7 +130,7 @@ module procyon_dcache_dw #(
         wr_data = bypass_cache_wr_data;
 
         for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
-            if (DC_OFFSET_WIDTH'(i) == i_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < DATA_SIZE; j++) begin
                     if (i_byte_sel[j]) begin
                         wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
@@ -141,7 +143,7 @@ module procyon_dcache_dw #(
         // So special case the writes to the last DATA_SIZE portion of the line by only writing to the number of bytes
         // remaining in the line rather than the whole DATA_SIZE data
         for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
-            if (DC_OFFSET_WIDTH'(i) == i_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == i_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     if (i_byte_sel[j]) begin
                         wr_data[(i+j)*8 +: 8] = i_data[j*8 +: 8];
@@ -160,8 +162,8 @@ module procyon_dcache_dw #(
     logic [OPTN_ADDR_WIDTH-1:0] victim_addr;
 
     generate
-    if (DC_INDEX_WIDTH == 1) assign victim_addr = {bypass_cache_wr_tag, {(DC_OFFSET_WIDTH){1'b0}}};
-    else                     assign victim_addr = {bypass_cache_wr_tag, i_index, {(DC_OFFSET_WIDTH){1'b0}}};
+    if (`PCYN_DC_INDEX_WIDTH == 1) assign victim_addr = {bypass_cache_wr_tag, `PCYN_DC_OFFSET_WIDTH'(0)};
+    else                           assign victim_addr = {bypass_cache_wr_tag, i_index, `PCYN_DC_OFFSET_WIDTH'(0)};
     endgenerate
 
     procyon_ff #(OPTN_ADDR_WIDTH) o_victim_addr_ff (.clk(clk), .i_en(1'b1), .i_d(victim_addr), .o_q(o_victim_addr));

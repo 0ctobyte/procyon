@@ -7,60 +7,61 @@
 // MHQ lookup stage
 // Lookup MHQ for address matches and generate byte select signals depending on store type
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ccu_mhq_lu #(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,
-    parameter OPTN_DC_LINE_SIZE = 32,
-
-    parameter MHQ_IDX_WIDTH     = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
-    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE)
+    parameter OPTN_DC_LINE_SIZE = 32
 )(
-    input  logic                                     clk,
-    input  logic                                     n_rst,
+    input  logic                                           clk,
+    input  logic                                           n_rst,
 
-    input  logic                                     i_mhq_full,
+    input  logic                                           i_mhq_full,
 
     // Forward address and tag information from currently updating MHQ entry
-    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_update_bypass_select,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_update_bypass_addr,
+    input  logic [OPTN_MHQ_DEPTH-1:0]                      i_mhq_update_bypass_select,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_mhq_update_bypass_addr,
 
     // Lookup interface from LSU
-    input  logic                                     i_mhq_lookup_valid,
-    input  logic                                     i_mhq_lookup_we,
-    input  logic                                     i_mhq_lookup_dc_hit,
-    input  logic [OPTN_ADDR_WIDTH-1:0]               i_mhq_lookup_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]                i_mhq_lookup_op,
-    input  logic [OPTN_DATA_WIDTH-1:0]               i_mhq_lookup_data,
-    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_hit_select,
-    input  logic [OPTN_MHQ_DEPTH-1:0]                i_mhq_lookup_entry_alloc_select,
-    output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_lookup_tag,
-    output logic                                     o_mhq_lookup_retry,
-    output logic                                     o_mhq_lookup_replay,
-    output logic                                     o_mhq_lookup_allocating,
+    input  logic                                           i_mhq_lookup_valid,
+    input  logic                                           i_mhq_lookup_we,
+    input  logic                                           i_mhq_lookup_dc_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:0]                     i_mhq_lookup_addr,
+    input  pcyn_op_t                                       i_mhq_lookup_op,
+    input  logic [OPTN_DATA_WIDTH-1:0]                     i_mhq_lookup_data,
+    input  logic [OPTN_MHQ_DEPTH-1:0]                      i_mhq_lookup_entry_hit_select,
+    input  logic [OPTN_MHQ_DEPTH-1:0]                      i_mhq_lookup_entry_alloc_select,
+    output logic [`PCYN_C2I(OPTN_MHQ_DEPTH)-1:0]           o_mhq_lookup_tag,
+    output logic                                           o_mhq_lookup_retry,
+    output logic                                           o_mhq_lookup_replay,
+    output logic                                           o_mhq_lookup_allocating,
 
     // Outputs to next stage where an entry will get updated
-    output logic [OPTN_MHQ_DEPTH-1:0]                o_mhq_update_select,
-    output logic                                     o_mhq_update_we,
-    output logic [DC_LINE_WIDTH-1:0]                 o_mhq_update_wr_data,
-    output logic [OPTN_DC_LINE_SIZE-1:0]             o_mhq_update_byte_select,
-    output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] o_mhq_update_addr,
+    output logic [OPTN_MHQ_DEPTH-1:0]                      o_mhq_update_select,
+    output logic                                           o_mhq_update_we,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        o_mhq_update_wr_data,
+    output logic [OPTN_DC_LINE_SIZE-1:0]                   o_mhq_update_byte_select,
+    output logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] o_mhq_update_addr,
 
     // MHQ interface to check for fill conflicts
-    input  logic                                     i_ccu_done,
-    input  logic                                     i_mhq_completing,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_completing_addr,
-    input  logic                                     i_mhq_filling,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] i_mhq_filling_addr
+    input  logic                                           i_ccu_done,
+    input  logic                                           i_mhq_completing,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_mhq_completing_addr,
+    input  logic                                           i_mhq_filling,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_mhq_filling_addr
 );
 
-    localparam DATA_SIZE = OPTN_DATA_WIDTH / 8;
+    localparam DATA_SIZE = `PCYN_W2S(OPTN_DATA_WIDTH);
+    localparam MHQ_IDX_WIDTH = `PCYN_C2I(OPTN_MHQ_DEPTH);
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
 
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] mhq_lookup_addr;
-    assign mhq_lookup_addr = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH];
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] mhq_lookup_addr;
+    assign mhq_lookup_addr = i_mhq_lookup_addr[OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH];
 
     logic mhq_lookup_entry_hit;
     logic mhq_update_bypass_hit;
@@ -115,7 +116,7 @@ module procyon_ccu_mhq_lu #(
 
     // Determine if an entry needs to be updated/allocated
     logic mhq_update_en;
-    assign mhq_update_en = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & (i_mhq_lookup_op != `PCYN_OP_FILL) & ~mhq_lookup_retry & ~mhq_lookup_replay;
+    assign mhq_update_en = i_mhq_lookup_valid & ~i_mhq_lookup_dc_hit & (i_mhq_lookup_op != PCYN_OP_FILL) & ~mhq_lookup_retry & ~mhq_lookup_replay;
     assign o_mhq_lookup_allocating = mhq_update_en & n_mhq_lookup_hit;
 
     // Update enable bits for each entry. Only 1 bit should be set or 0 if no update is to take place
@@ -126,18 +127,18 @@ module procyon_ccu_mhq_lu #(
     procyon_ff #(1) o_mhq_update_we_ff (.clk(clk), .i_en(1'b1), .i_d(i_mhq_lookup_we), .o_q(o_mhq_update_we));
 
     // Get the offset in bytes into the cacheline where the store will write data too
-    logic [DC_OFFSET_WIDTH-1:0] mhq_lookup_offset;
-    assign mhq_lookup_offset = i_mhq_lookup_addr[DC_OFFSET_WIDTH-1:0];
+    logic [`PCYN_DC_OFFSET_WIDTH-1:0] mhq_lookup_offset;
+    assign mhq_lookup_offset = i_mhq_lookup_addr[`PCYN_DC_OFFSET_WIDTH-1:0];
 
     // Generate byte select signals based on store type
     logic [OPTN_DC_LINE_SIZE-1:0] mhq_update_byte_select;
 
     always_comb begin
         unique case (i_mhq_lookup_op)
-            `PCYN_OP_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
-            `PCYN_OP_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
-            `PCYN_OP_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
-            default:     mhq_update_byte_select = '0;
+            PCYN_OP_SB: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE-1){1'b0}}, 1'b1});
+            PCYN_OP_SH: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({{(DATA_SIZE/2){1'b0}}, {(DATA_SIZE/2){1'b1}}});
+            PCYN_OP_SW: mhq_update_byte_select = OPTN_DC_LINE_SIZE'({(DATA_SIZE){1'b1}});
+            default:    mhq_update_byte_select = '0;
         endcase
 
         mhq_update_byte_select = mhq_update_byte_select << mhq_lookup_offset;
@@ -152,7 +153,7 @@ module procyon_ccu_mhq_lu #(
         mhq_update_wr_data = '0;
 
         for (int i = 0; i < (OPTN_DC_LINE_SIZE-DATA_SIZE); i++) begin
-            if (DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
                 for (int j = 0; j < DATA_SIZE; j++) begin
                     mhq_update_wr_data[(i+j)*8 +: 8] = i_mhq_lookup_data[j*8 +: 8];
                 end
@@ -163,7 +164,7 @@ module procyon_ccu_mhq_lu #(
         // So special case the writes to the last DATA_SIZE portion of the line by only writing to the number of bytes
         // remaining in the line rather than the whole DATA_SIZE data
         for (int i = (OPTN_DC_LINE_SIZE-DATA_SIZE); i < OPTN_DC_LINE_SIZE; i++) begin
-            if (DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
+            if (`PCYN_DC_OFFSET_WIDTH'(i) == mhq_lookup_offset) begin
                 for (int j = 0; j < (OPTN_DC_LINE_SIZE-i); j++) begin
                     mhq_update_wr_data[(i+j)*8 +: 8] = i_mhq_lookup_data[j*8 +: 8];
                 end
@@ -172,6 +173,6 @@ module procyon_ccu_mhq_lu #(
     end
 
     procyon_ff #(DC_LINE_WIDTH) o_mhq_update_wr_data_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_update_wr_data), .o_q(o_mhq_update_wr_data));
-    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) o_mhq_update_addr_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_addr), .o_q(o_mhq_update_addr));
+    procyon_ff #(OPTN_ADDR_WIDTH-`PCYN_DC_OFFSET_WIDTH) o_mhq_update_addr_ff (.clk(clk), .i_en(1'b1), .i_d(mhq_lookup_addr), .o_q(o_mhq_update_addr));
 
 endmodule

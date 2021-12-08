@@ -14,7 +14,10 @@
 // * Dispatches to ROB with new op, pc and rdst
 // * Dispatches to reservation station with new op
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_decode #(
     parameter OPTN_DATA_WIDTH       = 32,
@@ -52,19 +55,19 @@ module procyon_decode #(
 
     // Reservation Station reserve interface
     output logic                             o_rs_reserve_en,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]     o_rs_reserve_op_is,
+    output pcyn_op_is_t                      o_rs_reserve_op_is,
 
     // ROB reserve interface
     output logic                             o_rob_reserve_en,
 
     // ROB dispatch interface
-    output logic [`PCYN_OP_IS_WIDTH-1:0]     o_rob_dispatch_op_is,
+    output pcyn_op_is_t                      o_rob_dispatch_op_is,
     output logic [OPTN_ADDR_WIDTH-1:0]       o_rob_dispatch_pc,
     output logic [OPTN_RAT_IDX_WIDTH-1:0]    o_rob_dispatch_rdst,
     output logic [OPTN_DATA_WIDTH-1:0]       o_rob_dispatch_rdst_data,
 
     // Reservation Station dispatch interface
-    output logic [`PCYN_OP_WIDTH-1:0]        o_rs_dispatch_op,
+    output pcyn_op_t                         o_rs_dispatch_op,
     output logic [OPTN_DATA_WIDTH-1:0]       o_rs_dispatch_imm,
     output logic [OPTN_ROB_IDX_WIDTH-1:0]    o_rs_dispatch_dst_tag,
     output logic                             o_rs_dispatch_src_rdy [0:1],
@@ -87,18 +90,18 @@ module procyon_decode #(
     // dispatch_rdst_data: The data to write to the destination register. This is only used by JAL and JALR where pc+4 is stored in the link register
     // lookup_rdy_ovrd:    Indicates whether we need to wait for a source register or not. Some instructions only need 1 source register.
     // lookup_data_ovrd:   Use the data in this signal instead of the ones in the ROB or Register Alias Table. Used to pass immediates via the source data field.
-    logic [`PCYN_OP_WIDTH-1:0] dispatch_op;
+    pcyn_op_t dispatch_op;
     logic [OPTN_ADDR_WIDTH-1:0] dispatch_pc;
     logic [OPTN_DATA_WIDTH-1:0] dispatch_imm;
     logic [OPTN_RAT_IDX_WIDTH-1:0] dispatch_rdst;
     logic [OPTN_DATA_WIDTH-1:0] dispatch_rdst_data;
-    logic [`PCYN_OP_IS_WIDTH-1:0] dispatch_op_is;
+    pcyn_op_is_t dispatch_op_is;
     logic [OPTN_RAT_IDX_WIDTH-1:0] lookup_rsrc [0:1];
     logic [1:0] lookup_rdy_ovrd;
     logic [OPTN_DATA_WIDTH-1:0] lookup_data_ovrd [0:1];
 
     always_comb begin
-        logic [`PCYN_RV_OPCODE_WIDTH-1:0] opcode;
+        pcyn_rv_opcode_t opcode;
         logic [OPTN_RAT_IDX_WIDTH-1:0] rdst;
         logic [2:0] funct3;
         logic [6:0] funct7;
@@ -123,7 +126,7 @@ module procyon_decode #(
         lookup_rsrc[0] = i_fetch_insn[19:15];
         lookup_rsrc[1] = i_fetch_insn[24:20];
         rdst = i_fetch_insn[11:7];
-        opcode = i_fetch_insn[6:0];
+        opcode = pcyn_rv_opcode_t'(i_fetch_insn[6:0]);
         funct3 = i_fetch_insn[14:12];
         funct7 = i_fetch_insn[31:25];
 
@@ -134,19 +137,19 @@ module procyon_decode #(
         pc_plus_4 = i_fetch_pc + OPTN_DATA_WIDTH'(4);
 
         unique case (opcode)
-            `PCYN_RV_OPCODE_OPIMM: begin
+            PCYN_RV_OPCODE_OPIMM: begin
                 unique case (funct3)
-                    3'b000:  dispatch_op = `PCYN_OP_ADD;
-                    3'b001:  dispatch_op = funct7_is_0 ? `PCYN_OP_SLL : `PCYN_OP_UNDEFINED;
-                    3'b010:  dispatch_op = `PCYN_OP_LT;
-                    3'b011:  dispatch_op = `PCYN_OP_LTU;
-                    3'b100:  dispatch_op = `PCYN_OP_XOR;
-                    3'b101:  dispatch_op = funct7_is_0 ? `PCYN_OP_SRL : (funct7_is_32 ? `PCYN_OP_SRA : `PCYN_OP_UNDEFINED);
-                    3'b110:  dispatch_op = `PCYN_OP_OR;
-                    3'b111:  dispatch_op = `PCYN_OP_AND;
-                    default: dispatch_op = `PCYN_OP_UNDEFINED;
+                    3'b000:  dispatch_op = PCYN_OP_ADD;
+                    3'b001:  dispatch_op = funct7_is_0 ? PCYN_OP_SLL : PCYN_OP_UNDEFINED;
+                    3'b010:  dispatch_op = PCYN_OP_LT;
+                    3'b011:  dispatch_op = PCYN_OP_LTU;
+                    3'b100:  dispatch_op = PCYN_OP_XOR;
+                    3'b101:  dispatch_op = funct7_is_0 ? PCYN_OP_SRL : (funct7_is_32 ? PCYN_OP_SRA : PCYN_OP_UNDEFINED);
+                    3'b110:  dispatch_op = PCYN_OP_OR;
+                    3'b111:  dispatch_op = PCYN_OP_AND;
+                    default: dispatch_op = PCYN_OP_UNDEFINED;
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_OP;
+                dispatch_op_is = PCYN_OP_IS_OP;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_i;
                 dispatch_rdst = rdst;
@@ -154,9 +157,9 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b10;
                 lookup_data_ovrd = '{'0, imm_i};
             end
-            `PCYN_RV_OPCODE_LUI: begin
-                dispatch_op = `PCYN_OP_ADD;
-                dispatch_op_is = `PCYN_OP_IS_OP;
+            PCYN_RV_OPCODE_LUI: begin
+                dispatch_op = PCYN_OP_ADD;
+                dispatch_op_is = PCYN_OP_IS_OP;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_u;
                 dispatch_rdst = rdst;
@@ -164,9 +167,9 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b11;
                 lookup_data_ovrd = '{'0, imm_u};
             end
-            `PCYN_RV_OPCODE_AUIPC: begin
-                dispatch_op = `PCYN_OP_ADD;
-                dispatch_op_is = `PCYN_OP_IS_OP;
+            PCYN_RV_OPCODE_AUIPC: begin
+                dispatch_op = PCYN_OP_ADD;
+                dispatch_op_is = PCYN_OP_IS_OP;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_u;
                 dispatch_rdst = rdst;
@@ -174,33 +177,33 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b11;
                 lookup_data_ovrd = '{i_fetch_pc, imm_u};
             end
-            `PCYN_RV_OPCODE_OP: begin
+            PCYN_RV_OPCODE_OP: begin
                 unique case (funct7_mux_sel)
                     2'b01: begin
                         unique case (funct3)
-                            3'b000:  dispatch_op = `PCYN_OP_ADD;
-                            3'b001:  dispatch_op = `PCYN_OP_SLL;
-                            3'b010:  dispatch_op = `PCYN_OP_LT;
-                            3'b011:  dispatch_op = `PCYN_OP_LTU;
-                            3'b100:  dispatch_op = `PCYN_OP_XOR;
-                            3'b101:  dispatch_op = `PCYN_OP_SRL;
-                            3'b110:  dispatch_op = `PCYN_OP_OR;
-                            3'b111:  dispatch_op = `PCYN_OP_AND;
-                            default: dispatch_op = `PCYN_OP_UNDEFINED;
+                            3'b000:  dispatch_op = PCYN_OP_ADD;
+                            3'b001:  dispatch_op = PCYN_OP_SLL;
+                            3'b010:  dispatch_op = PCYN_OP_LT;
+                            3'b011:  dispatch_op = PCYN_OP_LTU;
+                            3'b100:  dispatch_op = PCYN_OP_XOR;
+                            3'b101:  dispatch_op = PCYN_OP_SRL;
+                            3'b110:  dispatch_op = PCYN_OP_OR;
+                            3'b111:  dispatch_op = PCYN_OP_AND;
+                            default: dispatch_op = PCYN_OP_UNDEFINED;
                         endcase
                     end
                     2'b10: begin
                         unique case (funct3)
-                            3'b000:  dispatch_op = `PCYN_OP_SUB;
-                            3'b101:  dispatch_op = `PCYN_OP_SRA;
-                            default: dispatch_op = `PCYN_OP_UNDEFINED;
+                            3'b000:  dispatch_op = PCYN_OP_SUB;
+                            3'b101:  dispatch_op = PCYN_OP_SRA;
+                            default: dispatch_op = PCYN_OP_UNDEFINED;
                         endcase
                     end
                     default begin
-                        dispatch_op = `PCYN_OP_UNDEFINED;
+                        dispatch_op = PCYN_OP_UNDEFINED;
                     end
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_OP;
+                dispatch_op_is = PCYN_OP_IS_OP;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_i;
                 dispatch_rdst = rdst;
@@ -208,9 +211,9 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b00;
                 lookup_data_ovrd = '{'0, '0};
             end
-            `PCYN_RV_OPCODE_JAL: begin
-                dispatch_op = `PCYN_OP_ADD;
-                dispatch_op_is = `PCYN_OP_IS_JL;
+            PCYN_RV_OPCODE_JAL: begin
+                dispatch_op = PCYN_OP_ADD;
+                dispatch_op_is = PCYN_OP_IS_JL;
                 dispatch_pc = jmp_pc;
                 dispatch_imm = imm_j;
                 dispatch_rdst = rdst;
@@ -218,12 +221,12 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b11;
                 lookup_data_ovrd = '{i_fetch_pc, imm_j};
             end
-            `PCYN_RV_OPCODE_JALR: begin
+            PCYN_RV_OPCODE_JALR: begin
                 unique case (funct3)
-                    3'b000:  dispatch_op = `PCYN_OP_ADD;
-                    default: dispatch_op = `PCYN_OP_UNDEFINED;
+                    3'b000:  dispatch_op = PCYN_OP_ADD;
+                    default: dispatch_op = PCYN_OP_UNDEFINED;
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_JL;
+                dispatch_op_is = PCYN_OP_IS_JL;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_i;
                 dispatch_rdst = rdst;
@@ -231,17 +234,17 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b10;
                 lookup_data_ovrd = '{'0, imm_i};
             end
-            `PCYN_RV_OPCODE_BRANCH: begin
+            PCYN_RV_OPCODE_BRANCH: begin
                 unique case (funct3)
-                    3'b000:  dispatch_op = `PCYN_OP_EQ;
-                    3'b001:  dispatch_op = `PCYN_OP_NE;
-                    3'b100:  dispatch_op = `PCYN_OP_LT;
-                    3'b101:  dispatch_op = `PCYN_OP_GE;
-                    3'b110:  dispatch_op = `PCYN_OP_LTU;
-                    3'b111:  dispatch_op = `PCYN_OP_GEU;
-                    default: dispatch_op = `PCYN_OP_UNDEFINED;
+                    3'b000:  dispatch_op = PCYN_OP_EQ;
+                    3'b001:  dispatch_op = PCYN_OP_NE;
+                    3'b100:  dispatch_op = PCYN_OP_LT;
+                    3'b101:  dispatch_op = PCYN_OP_GE;
+                    3'b110:  dispatch_op = PCYN_OP_LTU;
+                    3'b111:  dispatch_op = PCYN_OP_GEU;
+                    default: dispatch_op = PCYN_OP_UNDEFINED;
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_BR;
+                dispatch_op_is = PCYN_OP_IS_BR;
                 dispatch_pc = jmp_pc;
                 dispatch_imm = imm_b;
                 dispatch_rdst = '0;
@@ -249,16 +252,16 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b00;
                 lookup_data_ovrd = '{'0, '0};
             end
-            `PCYN_RV_OPCODE_LOAD: begin
+            PCYN_RV_OPCODE_LOAD: begin
                 unique case (funct3)
-                    3'b000:  dispatch_op = `PCYN_OP_LB;
-                    3'b001:  dispatch_op = `PCYN_OP_LH;
-                    3'b010:  dispatch_op = `PCYN_OP_LW;
-                    3'b100:  dispatch_op = `PCYN_OP_LBU;
-                    3'b101:  dispatch_op = `PCYN_OP_LHU;
-                    default: dispatch_op = `PCYN_OP_UNDEFINED;
+                    3'b000:  dispatch_op = PCYN_OP_LB;
+                    3'b001:  dispatch_op = PCYN_OP_LH;
+                    3'b010:  dispatch_op = PCYN_OP_LW;
+                    3'b100:  dispatch_op = PCYN_OP_LBU;
+                    3'b101:  dispatch_op = PCYN_OP_LHU;
+                    default: dispatch_op = PCYN_OP_UNDEFINED;
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_LD;
+                dispatch_op_is = PCYN_OP_IS_LD;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_i;
                 dispatch_rdst = rdst;
@@ -266,14 +269,14 @@ module procyon_decode #(
                 lookup_rdy_ovrd = 2'b10;
                 lookup_data_ovrd = '{'0, imm_i};
             end
-            `PCYN_RV_OPCODE_STORE: begin
+            PCYN_RV_OPCODE_STORE: begin
                 unique case (funct3)
-                    3'b000:  dispatch_op = `PCYN_OP_SB;
-                    3'b001:  dispatch_op = `PCYN_OP_SH;
-                    3'b010:  dispatch_op = `PCYN_OP_SW;
-                    default: dispatch_op = `PCYN_OP_UNDEFINED;
+                    3'b000:  dispatch_op = PCYN_OP_SB;
+                    3'b001:  dispatch_op = PCYN_OP_SH;
+                    3'b010:  dispatch_op = PCYN_OP_SW;
+                    default: dispatch_op = PCYN_OP_UNDEFINED;
                 endcase
-                dispatch_op_is = `PCYN_OP_IS_ST;
+                dispatch_op_is = PCYN_OP_IS_ST;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_s;
                 dispatch_rdst = '0;
@@ -282,8 +285,8 @@ module procyon_decode #(
                 lookup_data_ovrd = '{'0, '0};
             end
             default: begin
-                dispatch_op = `PCYN_OP_UNDEFINED;
-                dispatch_op_is = `PCYN_OP_IS_OP;
+                dispatch_op = PCYN_OP_UNDEFINED;
+                dispatch_op_is = PCYN_OP_IS_OP;
                 dispatch_pc = i_fetch_pc;
                 dispatch_imm = imm_i;
                 dispatch_rdst = '0;
@@ -294,7 +297,7 @@ module procyon_decode #(
         endcase
 
         // FIXME ignoring undefined ops for now
-        if (dispatch_op == `PCYN_OP_UNDEFINED) begin
+        if (dispatch_op == PCYN_OP_UNDEFINED) begin
             lookup_rdy_ovrd = 2'b11;
             dispatch_rdst = '0;
         end
@@ -312,12 +315,12 @@ module procyon_decode #(
     assign o_rat_rename_rdst = dispatch_rdst;
 
     // Register dispatch signals to ROB and RS for the next cycle
-    procyon_ff #(`PCYN_OP_IS_WIDTH) o_rob_dispatch_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_op_is), .o_q(o_rob_dispatch_op_is));
+    procyon_ff #(PCYN_OP_IS_WIDTH) o_rob_dispatch_op_is_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_op_is), .o_q(o_rob_dispatch_op_is));
     procyon_ff #(OPTN_ADDR_WIDTH) o_rob_dispatch_pc_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_pc), .o_q(o_rob_dispatch_pc));
     procyon_ff #(OPTN_RAT_IDX_WIDTH) o_rob_dispatch_rdst_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_rdst), .o_q(o_rob_dispatch_rdst));
     procyon_ff #(OPTN_DATA_WIDTH) o_rob_dispatch_rdst_data_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_rdst_data), .o_q(o_rob_dispatch_rdst_data));
 
-    procyon_ff #(`PCYN_OP_WIDTH) o_rs_dispatch_op_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_op), .o_q(o_rs_dispatch_op));
+    procyon_ff #(PCYN_OP_WIDTH) o_rs_dispatch_op_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_op), .o_q(o_rs_dispatch_op));
     procyon_ff #(OPTN_DATA_WIDTH) o_rs_dispatch_imm_ff (.clk(clk), .i_en(1'b1), .i_d(dispatch_imm), .o_q(o_rs_dispatch_imm));
     procyon_ff #(OPTN_ROB_IDX_WIDTH) o_rs_dispatch_dst_tag_ff (.clk(clk), .i_en(1'b1), .i_d(i_rob_dst_tag), .o_q(o_rs_dispatch_dst_tag));
 

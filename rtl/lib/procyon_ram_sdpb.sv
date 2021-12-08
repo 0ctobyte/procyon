@@ -6,23 +6,25 @@
 
 // Simple Dual Port RAM with bypassing
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_ram_sdpb #(
     parameter OPTN_DATA_WIDTH = 8,
-    parameter OPTN_RAM_DEPTH  = 8,
-
-    parameter RAM_IDX_WIDTH   = OPTN_RAM_DEPTH == 1 ? 1 : $clog2(OPTN_RAM_DEPTH)
+    parameter OPTN_RAM_DEPTH  = 8
 )(
-    input  logic                       clk,
+    input  logic                                 clk,
 
     // RAM read interface
-    input  logic                       i_ram_rd_en,
-    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_rd_addr,
-    output logic [OPTN_DATA_WIDTH-1:0] o_ram_rd_data,
+    input  logic                                 i_ram_rd_en,
+    input  logic [`PCYN_C2I(OPTN_RAM_DEPTH)-1:0] i_ram_rd_addr,
+    output logic [OPTN_DATA_WIDTH-1:0]           o_ram_rd_data,
 
     // RAM write interface
-    input  logic                       i_ram_wr_en,
-    input  logic [RAM_IDX_WIDTH-1:0]   i_ram_wr_addr,
-    input  logic [OPTN_DATA_WIDTH-1:0] i_ram_wr_data
+    input  logic                                 i_ram_wr_en,
+    input  logic [`PCYN_C2I(OPTN_RAM_DEPTH)-1:0] i_ram_wr_addr,
+    input  logic [OPTN_DATA_WIDTH-1:0]           i_ram_wr_data
 );
 
     logic [OPTN_DATA_WIDTH-1:0] ram [0:OPTN_RAM_DEPTH-1];

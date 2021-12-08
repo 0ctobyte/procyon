@@ -8,7 +8,10 @@
 // Routes reservation station enqueue signals to the right reservation station
 // Also bypasses source data from CDB on enqueue cycle
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_rs_switch #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -16,40 +19,40 @@ module procyon_rs_switch #(
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_CDB_DEPTH     = 2
 )(
-    input  logic                              clk,
-    input  logic                              n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag [0:OPTN_CDB_DEPTH-1],
+    input  logic                          i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
-    input  logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] i_rs_fu_type [0:OPTN_CDB_DEPTH-1],
+    input  pcyn_rs_fu_type_t              i_rs_fu_type [0:OPTN_CDB_DEPTH-1],
 
-    input  logic                              i_rs_reserve_en,
+    input  logic                          i_rs_reserve_en,
 /* verilator lint_off UNUSED */
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_rs_reserve_op_is,
+    input  pcyn_op_is_t                   i_rs_reserve_op_is,
 /* verilator lint_on  UNUSED */
-    output logic [OPTN_CDB_DEPTH-1:0]         o_rs_reserve_en,
+    output logic [OPTN_CDB_DEPTH-1:0]     o_rs_reserve_en,
 
-    input  logic                              i_rs_src_rdy [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_src_data [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_src_tag [0:1],
-    output logic                              o_rs_src_rdy [0:1],
-    output logic [OPTN_DATA_WIDTH-1:0]        o_rs_src_data [0:1],
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_rs_src_tag [0:1],
+    input  logic                          i_rs_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rs_src_tag [0:1],
+    output logic                          o_rs_src_rdy [0:1],
+    output logic [OPTN_DATA_WIDTH-1:0]    o_rs_src_data [0:1],
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_rs_src_tag [0:1],
 
-    input  logic [OPTN_CDB_DEPTH-1:0]         i_rs_stall,
-    output logic                              o_rs_stall
+    input  logic [OPTN_CDB_DEPTH-1:0]     i_rs_stall,
+    output logic                          o_rs_stall
 );
 
-    localparam CDB_IDX_WIDTH = OPTN_CDB_DEPTH == 1 ? 1 : $clog2(OPTN_CDB_DEPTH);
+    localparam CDB_IDX_WIDTH = `PCYN_C2I(OPTN_CDB_DEPTH);
 
     // Transpose the i_rs_fu_type array to allow indexing the array by FU type rather then RS #. This way we'll
     // get a sequence of bits, one for each RS, indicating if that FU type is attached to that RS.
-    logic [OPTN_CDB_DEPTH-1:0] rs_fu_type [`PCYN_RS_FU_TYPE_WIDTH-1:0];
+    logic [OPTN_CDB_DEPTH-1:0] rs_fu_type [PCYN_RS_FU_TYPE_WIDTH-1:0];
 
     always_comb begin
-        for (int i = 0; i < `PCYN_RS_FU_TYPE_WIDTH; i++) begin
+        for (int i = 0; i < PCYN_RS_FU_TYPE_WIDTH; i++) begin
             for (int j = 0; j < OPTN_CDB_DEPTH; j++) begin
                 rs_fu_type[i][j] = i_rs_fu_type[j][i];
             end
@@ -57,8 +60,8 @@ module procyon_rs_switch #(
     end
 
     // Figure out what kind of RS this op needs to be sent to
-    logic [`PCYN_RS_FU_TYPE_IDX_WIDTH-1:0] rs_fu_type_idx;
-    assign rs_fu_type_idx = (i_rs_reserve_op_is[`PCYN_OP_IS_ST_IDX] | i_rs_reserve_op_is[`PCYN_OP_IS_LD_IDX]) ? `PCYN_RS_FU_TYPE_IDX_LSU : `PCYN_RS_FU_TYPE_IDX_IEU;
+    logic [PCYN_RS_FU_TYPE_IDX_WIDTH-1:0] rs_fu_type_idx;
+    assign rs_fu_type_idx = (i_rs_reserve_op_is[PCYN_OP_IS_ST_IDX] | i_rs_reserve_op_is[PCYN_OP_IS_LD_IDX]) ? PCYN_RS_FU_TYPE_IDX_LSU : PCYN_RS_FU_TYPE_IDX_IEU;
 
     // Get a vector of RS's that support this type of op
     logic [OPTN_CDB_DEPTH-1:0] rs_supported;

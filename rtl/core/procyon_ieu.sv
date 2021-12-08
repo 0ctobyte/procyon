@@ -6,7 +6,9 @@
 
 // Integer Execution Unit
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ieu #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -26,9 +28,9 @@ module procyon_ieu #(
 
     // Reservation station interface
     input  logic                          i_fu_valid,
-    input  logic [`PCYN_OP_WIDTH-1:0]     i_fu_op,
+    input  pcyn_op_t                      i_fu_op,
 /* verilator lint_off UNUSED */
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]  i_fu_op_is,
+    input  pcyn_op_is_t                   i_fu_op_is,
     input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_imm,
 /* verilator lint_on  UNUSED */
     input  logic [OPTN_DATA_WIDTH-1:0]    i_fu_src [0:1],
@@ -50,7 +52,7 @@ module procyon_ieu #(
     always_comb begin
         logic [OPTN_DATA_WIDTH*2-1:0] e_src;
         logic signed [OPTN_DATA_WIDTH-1:0] s_src [0:1];
-        logic [`PCYN_OP_SHAMT_WIDTH-1:0] shamt;
+        pcyn_op_shamt_t shamt;
 
         // Extended src[0] for arithmetic right shifts
         e_src = {{(OPTN_DATA_WIDTH){i_fu_src[0][OPTN_DATA_WIDTH-1]}}, i_fu_src[0]};
@@ -60,33 +62,33 @@ module procyon_ieu #(
         s_src[1] = i_fu_src[1];
 
         // Shift amount
-        shamt = i_fu_src[1][`PCYN_OP_SHAMT_WIDTH-1:0];
+        shamt = i_fu_src[1][PCYN_OP_SHAMT_WIDTH-1:0];
 
         unique case (i_fu_op)
-            `PCYN_OP_ADD: result = i_fu_src[0] + i_fu_src[1];
-            `PCYN_OP_SUB: result = i_fu_src[0] - i_fu_src[1];
-            `PCYN_OP_AND: result = i_fu_src[0] & i_fu_src[1];
-            `PCYN_OP_OR:  result = i_fu_src[0] | i_fu_src[1];
-            `PCYN_OP_XOR: result = i_fu_src[0] ^ i_fu_src[1];
-            `PCYN_OP_SLL: result = i_fu_src[0] << shamt;
-            `PCYN_OP_SRL: result = i_fu_src[0] >> shamt;
+            PCYN_OP_ADD: result = i_fu_src[0] + i_fu_src[1];
+            PCYN_OP_SUB: result = i_fu_src[0] - i_fu_src[1];
+            PCYN_OP_AND: result = i_fu_src[0] & i_fu_src[1];
+            PCYN_OP_OR:  result = i_fu_src[0] | i_fu_src[1];
+            PCYN_OP_XOR: result = i_fu_src[0] ^ i_fu_src[1];
+            PCYN_OP_SLL: result = i_fu_src[0] << shamt;
+            PCYN_OP_SRL: result = i_fu_src[0] >> shamt;
 /* verilator lint_off WIDTH */
-            `PCYN_OP_SRA: result = OPTN_DATA_WIDTH'(e_src >> shamt);
-            `PCYN_OP_EQ:  result = i_fu_src[0] == i_fu_src[1];
-            `PCYN_OP_NE:  result = i_fu_src[0] != i_fu_src[1];
-            `PCYN_OP_LT:  result = s_src[0] < s_src[1];
-            `PCYN_OP_LTU: result = i_fu_src[0] < i_fu_src[1];
-            `PCYN_OP_GE:  result = s_src[0] >= s_src[1];
-            `PCYN_OP_GEU: result = i_fu_src[0] >= i_fu_src[1];
+            PCYN_OP_SRA: result = OPTN_DATA_WIDTH'(e_src >> shamt);
+            PCYN_OP_EQ:  result = i_fu_src[0] == i_fu_src[1];
+            PCYN_OP_NE:  result = i_fu_src[0] != i_fu_src[1];
+            PCYN_OP_LT:  result = s_src[0] < s_src[1];
+            PCYN_OP_LTU: result = i_fu_src[0] < i_fu_src[1];
+            PCYN_OP_GE:  result = s_src[0] >= s_src[1];
+            PCYN_OP_GEU: result = i_fu_src[0] >= i_fu_src[1];
 /* verilator lint_on  WIDTH */
-            default:      result = '0;
+            default:     result = '0;
         endcase
     end
 
     procyon_ff #(OPTN_DATA_WIDTH) o_data_ff (.clk(clk), .i_en(1'b1), .i_d(result), .o_q(o_cdb_data));
 
     logic redirect;
-    assign redirect = i_fu_op_is[`PCYN_OP_IS_JL_IDX] | (i_fu_op_is[`PCYN_OP_IS_BR_IDX] & result[0]);
+    assign redirect = i_fu_op_is[PCYN_OP_IS_JL_IDX] | (i_fu_op_is[PCYN_OP_IS_BR_IDX] & result[0]);
     procyon_ff #(1) o_redirect_ff (.clk(clk), .i_en(1'b1), .i_d(redirect), .o_q(o_cdb_redirect));
 
 endmodule

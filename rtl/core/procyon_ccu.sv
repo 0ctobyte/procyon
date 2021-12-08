@@ -7,7 +7,10 @@
 // Core Communications Unit
 // This module is responsible for arbitrating between the MHQ, fetch and victim requests within the CPU and controlling the BIU
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_ccu #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -18,77 +21,76 @@ module procyon_ccu #(
     parameter OPTN_IC_LINE_SIZE  = 32,
     parameter OPTN_DC_LINE_SIZE  = 32,
     parameter OPTN_WB_ADDR_WIDTH = 32,
-    parameter OPTN_WB_DATA_WIDTH = 16,
-
-    parameter MHQ_IDX_WIDTH      = OPTN_MHQ_DEPTH == 1 ? 1 : $clog2(OPTN_MHQ_DEPTH),
-    parameter DC_LINE_WIDTH      = OPTN_DC_LINE_SIZE * 8,
-    parameter IC_LINE_WIDTH      = OPTN_IC_LINE_SIZE * 8,
-    parameter DATA_SIZE          = OPTN_DATA_WIDTH / 8,
-    parameter WB_DATA_SIZE       = OPTN_WB_DATA_WIDTH / 8
+    parameter OPTN_WB_DATA_WIDTH = 32
 )(
-    input  logic                            clk,
-    input  logic                            n_rst,
+    input  logic                                     clk,
+    input  logic                                     n_rst,
 
-    output logic                            o_ifq_full,
+    output logic                                     o_ifq_full,
 
     // VQ lookup interface
-    input  logic                            i_vq_lookup_valid,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_vq_lookup_addr,
-    input  logic [DATA_SIZE-1:0]            i_vq_lookup_byte_sel,
-    output logic                            o_vq_lookup_hit,
-    output logic [OPTN_DATA_WIDTH-1:0]      o_vq_lookup_data,
+    input  logic                                     i_vq_lookup_valid,
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_vq_lookup_addr,
+    input  logic [`PCYN_W2S(OPTN_DATA_WIDTH)-1:0]    i_vq_lookup_byte_sel,
+    output logic                                     o_vq_lookup_hit,
+    output logic [OPTN_DATA_WIDTH-1:0]               o_vq_lookup_data,
 
     // Victim cacheline
-    input  logic                            i_victim_valid,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_victim_addr,
-    input  logic [DC_LINE_WIDTH-1:0]        i_victim_data,
+    input  logic                                     i_victim_valid,
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_victim_addr,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]  i_victim_data,
 
     // MHQ address/tag lookup interface
-    input  logic                            i_mhq_lookup_valid,
-    input  logic                            i_mhq_lookup_dc_hit,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_mhq_lookup_addr,
-    input  logic [`PCYN_OP_WIDTH-1:0]       i_mhq_lookup_op,
-    input  logic [OPTN_DATA_WIDTH-1:0]      i_mhq_lookup_data,
-    input  logic                            i_mhq_lookup_we,
-    output logic                            o_mhq_lookup_retry,
-    output logic                            o_mhq_lookup_replay,
-    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_lookup_tag,
+    input  logic                                     i_mhq_lookup_valid,
+    input  logic                                     i_mhq_lookup_dc_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_mhq_lookup_addr,
+    input  pcyn_op_t                                 i_mhq_lookup_op,
+    input  logic [OPTN_DATA_WIDTH-1:0]               i_mhq_lookup_data,
+    input  logic                                     i_mhq_lookup_we,
+    output logic                                     o_mhq_lookup_retry,
+    output logic                                     o_mhq_lookup_replay,
+    output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_lookup_tag,
 
     // DCache fill interface
-    output logic                            o_mhq_fill_en,
-    output logic [MHQ_IDX_WIDTH-1:0]        o_mhq_fill_tag,
-    output logic                            o_mhq_fill_dirty,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_mhq_fill_addr,
-    output logic [DC_LINE_WIDTH-1:0]        o_mhq_fill_data,
+    output logic                                     o_mhq_fill_en,
+    output logic [MHQ_IDX_WIDTH-1:0]                 o_mhq_fill_tag,
+    output logic                                     o_mhq_fill_dirty,
+    output logic [OPTN_ADDR_WIDTH-1:0]               o_mhq_fill_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]  o_mhq_fill_data,
 
     // IFQ enqueue interface
-    input  logic                            i_ifq_alloc_en,
-    input  logic [OPTN_ADDR_WIDTH-1:0]      i_ifq_alloc_addr,
+    input  logic                                     i_ifq_alloc_en,
+    input  logic [OPTN_ADDR_WIDTH-1:0]               i_ifq_alloc_addr,
 
     // ICache fill interface
-    output logic                            o_ifq_fill_en,
-    output logic [OPTN_ADDR_WIDTH-1:0]      o_ifq_fill_addr,
-    output logic [IC_LINE_WIDTH-1:0]        o_ifq_fill_data,
+    output logic                                     o_ifq_fill_en,
+    output logic [OPTN_ADDR_WIDTH-1:0]               o_ifq_fill_addr,
+    output logic [`PCYN_S2W(OPTN_IC_LINE_SIZE)-1:0]  o_ifq_fill_data,
 
     // Wishbone bus interface
-    input  logic                            i_wb_clk,
-    input  logic                            i_wb_rst,
-    input  logic                            i_wb_ack,
-    input  logic [OPTN_WB_DATA_WIDTH-1:0]   i_wb_data,
-    output logic                            o_wb_cyc,
-    output logic                            o_wb_stb,
-    output logic                            o_wb_we,
-    output logic [`WB_CTI_WIDTH-1:0]        o_wb_cti,
-    output logic [`WB_BTE_WIDTH-1:0]        o_wb_bte,
-    output logic [WB_DATA_SIZE-1:0]         o_wb_sel,
-    output logic [OPTN_WB_ADDR_WIDTH-1:0]   o_wb_addr,
-    output logic [OPTN_WB_DATA_WIDTH-1:0]   o_wb_data
+    input  logic                                     i_wb_clk,
+    input  logic                                     i_wb_rst,
+    input  logic                                     i_wb_ack,
+    input  logic [OPTN_WB_DATA_WIDTH-1:0]            i_wb_data,
+    output logic                                     o_wb_cyc,
+    output logic                                     o_wb_stb,
+    output logic                                     o_wb_we,
+    output wb_cti_t                                  o_wb_cti,
+    output wb_bte_t                                  o_wb_bte,
+    output logic [`PCYN_W2S(OPTN_WB_DATA_WIDTH)-1:0] o_wb_sel,
+    output logic [OPTN_WB_ADDR_WIDTH-1:0]            o_wb_addr,
+    output logic [OPTN_WB_DATA_WIDTH-1:0]            o_wb_data
 );
 
-    localparam CCU_LINE_SIZE    = (OPTN_DC_LINE_SIZE > OPTN_IC_LINE_SIZE) ? OPTN_DC_LINE_SIZE : OPTN_IC_LINE_SIZE;
-    localparam CCU_LINE_WIDTH   = CCU_LINE_SIZE * 8;
-    localparam CCU_ARB_DEPTH    = 3;
-    localparam CCU_VQ_PRIORITY  = 0;
+    localparam MHQ_IDX_WIDTH = `PCYN_C2I(OPTN_MHQ_DEPTH);
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam IC_LINE_WIDTH = `PCYN_S2W(OPTN_IC_LINE_SIZE);
+    localparam DATA_SIZE =`PCYN_W2S(OPTN_DATA_WIDTH);
+    localparam WB_DATA_SIZE = `PCYN_W2S(OPTN_WB_DATA_WIDTH);
+    localparam CCU_LINE_SIZE = (OPTN_DC_LINE_SIZE > OPTN_IC_LINE_SIZE) ? OPTN_DC_LINE_SIZE : OPTN_IC_LINE_SIZE;
+    localparam CCU_LINE_WIDTH = `PCYN_S2W(CCU_LINE_SIZE);
+    localparam CCU_ARB_DEPTH = 3;
+    localparam CCU_VQ_PRIORITY = 0;
     localparam CCU_MHQ_PRIORITY = 1;
     localparam CCU_IFQ_PRIORITY = 2;
 
@@ -97,15 +99,15 @@ module procyon_ccu #(
     logic [OPTN_ADDR_WIDTH-1:0] ccu_arb_addr [0:CCU_ARB_DEPTH-1];
     logic [CCU_LINE_WIDTH-1:0] ccu_arb_data_w [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_we;
-    logic [`PCYN_CCU_LEN_WIDTH-1:0] ccu_arb_len [0:CCU_ARB_DEPTH-1];
+    pcyn_ccu_len_t ccu_arb_len [0:CCU_ARB_DEPTH-1];
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_done;
     logic [CCU_LINE_WIDTH-1:0] ccu_arb_data_r;
 /* verilator lint_off UNUSED */
     logic [CCU_ARB_DEPTH-1:0] ccu_arb_grant;
 /* verilator lint_on  UNUSED */
     logic biu_en;
-    logic [`PCYN_BIU_FUNC_WIDTH-1:0] biu_func;
-    logic [`PCYN_BIU_LEN_WIDTH-1:0] biu_len;
+    pcyn_biu_func_t biu_func;
+    pcyn_biu_len_t biu_len;
     logic [CCU_LINE_SIZE-1:0] biu_sel;
     logic [OPTN_ADDR_WIDTH-1:0] biu_addr;
     logic [CCU_LINE_WIDTH-1:0] biu_data_w;

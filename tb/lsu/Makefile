@@ -13,9 +13,9 @@ DUT := dut
 DUT_SRC := ../common/$(DUT).sv
 SYSC_CFLAGS := -CFLAGS -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
 SYSC_SRCS := ../common/sc_main.cpp ../common/utils.cpp
-VSRCS := $(wildcard ../../rtl/*/*.sv)
+VSRCS := ../../rtl/lib/procyon_lib_pkg.sv ../../rtl/system/procyon_system_pkg.sv ../../rtl/core/procyon_core_pkg.sv $(filter-out %_pkg.sv, $(wildcard ../../rtl/*/*.sv))
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
-VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --sc --exe
+VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --top-module $(DUT) --sc --exe
 VDUT := V$(DUT)
 LINK_FILE := link.ld
 CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)
@@ -41,7 +41,7 @@ $(OBJ_DIR)/$(VDUT): $(OBJ_DIR)/$(VDUT).mk
 	$(MAKE) -C $(OBJ_DIR) -f $(VDUT).mk $(VDUT)
 
 $(OBJ_DIR)/$(VDUT).mk: $(SYSC_SRCS) $(VSRCS) $(DUT_SRC)
-	$(VERILATOR) --threads $(THREADS) $(SYSC_CFLAGS) $(VINCLUDE) $(VFLAGS) $(DUT_SRC) $(SYSC_SRCS) --prefix $(VDUT)
+	$(VERILATOR) --threads $(THREADS) $(SYSC_CFLAGS) $(VINCLUDE) $(VFLAGS) $(VSRCS) $(DUT_SRC) $(SYSC_SRCS) --prefix $(VDUT)
 
 $(TESTS_DIR)/%: %.S
 	$(MKDIR) -p $(TESTS_DIR)

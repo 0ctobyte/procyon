@@ -4,41 +4,44 @@
  * SPDX-License-Identifier: MIT
  */
 
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
+
 module procyon_ccu_vq_entry #(
     parameter OPTN_ADDR_WIDTH   = 32,
-    parameter OPTN_DC_LINE_SIZE = 32,
-
-    parameter DC_LINE_WIDTH     = OPTN_DC_LINE_SIZE * 8,
-    parameter DC_OFFSET_WIDTH   = $clog2(OPTN_DC_LINE_SIZE)
+    parameter OPTN_DC_LINE_SIZE = 32
 )(
-    input  logic                                      clk,
-    input  logic                                      n_rst,
+    input  logic                                           clk,
+    input  logic                                           n_rst,
 
-    output logic                                      o_vq_entry_valid,
-    output logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH]  o_vq_entry_addr,
-    output logic [DC_LINE_WIDTH-1:0]                  o_vq_entry_data,
+    output logic                                           o_vq_entry_valid,
+    output logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] o_vq_entry_addr,
+    output logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        o_vq_entry_data,
 
     // LSU lookup interface, check for address match
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH]  i_lookup_addr,
-    output logic                                      o_lookup_hit,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_lookup_addr,
+    output logic                                           o_lookup_hit,
 
     // Allocate to this entry
-    input  logic                                      i_alloc_en,
-    input  logic [DC_LINE_WIDTH-1:0]                  i_alloc_data,
-    input  logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH]  i_alloc_addr,
+    input  logic                                           i_alloc_en,
+    input  logic [`PCYN_S2W(OPTN_DC_LINE_SIZE)-1:0]        i_alloc_data,
+    input  logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] i_alloc_addr,
 
     // CCU interface
-    input  logic                                      i_ccu_done
+    input  logic                                           i_ccu_done
 );
+
+    localparam DC_LINE_WIDTH = `PCYN_S2W(OPTN_DC_LINE_SIZE);
+    localparam VQ_ENTRY_STATE_WIDTH = 1;
 
     // Each entry in the VQ can be in one of the following states
     // INVALID:       Entry is empty
     // VALID:         Entry is occupied
-    localparam VQ_ENTRY_STATE_WIDTH = 1;
-
     typedef enum logic [VQ_ENTRY_STATE_WIDTH-1:0] {
-        VQ_ENTRY_STATE_INVALID  = (VQ_ENTRY_STATE_WIDTH)'('b0),
-        VQ_ENTRY_STATE_VALID    = (VQ_ENTRY_STATE_WIDTH)'('b1)
+        VQ_ENTRY_STATE_INVALID  = VQ_ENTRY_STATE_WIDTH'('b0),
+        VQ_ENTRY_STATE_VALID    = VQ_ENTRY_STATE_WIDTH'('b1)
     } vq_entry_state_t;
 
     // Each entry in the VQ contains the following
@@ -46,7 +49,7 @@ module procyon_ccu_vq_entry #(
     // addr:           Address of the victimized cacheline
     // data:           The actual cacheline data
     vq_entry_state_t vq_entry_state_r;
-    logic [OPTN_ADDR_WIDTH-1:DC_OFFSET_WIDTH] vq_entry_addr_r;
+    logic [OPTN_ADDR_WIDTH-1:`PCYN_DC_OFFSET_WIDTH] vq_entry_addr_r;
     logic [DC_LINE_WIDTH-1:0] vq_entry_data_r;
 
     // VQ entry FSM
@@ -63,7 +66,7 @@ module procyon_ccu_vq_entry #(
     end
 
     procyon_srff #(VQ_ENTRY_STATE_WIDTH) vq_entry_state_r_srff (.clk(clk), .n_rst(n_rst), .i_en(1'b1), .i_set(vq_entry_state_next), .i_reset(VQ_ENTRY_STATE_INVALID), .o_q(vq_entry_state_r));
-    procyon_ff #(OPTN_ADDR_WIDTH-DC_OFFSET_WIDTH) vq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(vq_entry_addr_r));
+    procyon_ff #(OPTN_ADDR_WIDTH-`PCYN_DC_OFFSET_WIDTH) vq_entry_addr_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_addr), .o_q(vq_entry_addr_r));
     procyon_ff #(DC_LINE_WIDTH) vq_entry_data_r_ff (.clk(clk), .i_en(i_alloc_en), .i_d(i_alloc_data), .o_q(vq_entry_data_r));
 
     // Check if the lookup address matches this entry's address

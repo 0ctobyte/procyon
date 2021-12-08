@@ -10,7 +10,10 @@
 // if other instructions are dispatched/issued. The reservation station will also listen in on all CDB busses and pick
 // up source data for both sources if the CDBs broadcast matching tags that the source is waiting on
 
-`include "procyon_constants.svh"
+/* verilator lint_off IMPORTSTAR */
+import procyon_lib_pkg::*;
+import procyon_core_pkg::*;
+/* verilator lint_on  IMPORTSTAR */
 
 module procyon_rs #(
     parameter OPTN_DATA_WIDTH    = 32,
@@ -20,49 +23,49 @@ module procyon_rs #(
     parameter OPTN_RS_DEPTH      = 16,
     parameter OPTN_RS_FU_TYPE    = 0
 )(
-    input  logic                              clk,
-    input  logic                              n_rst,
+    input  logic                          clk,
+    input  logic                          n_rst,
 
-    input  logic                              i_flush,
+    input  logic                          i_flush,
 
     // One-hot vector indicating what functional unit is attached to this reservation station
-    output logic [`PCYN_RS_FU_TYPE_WIDTH-1:0] o_rs_fu_type,
+    output pcyn_rs_fu_type_t              o_rs_fu_type,
 
     // Common Data Bus networks
-    input  logic                              i_cdb_en [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_cdb_data [0:OPTN_CDB_DEPTH-1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_cdb_tag [0:OPTN_CDB_DEPTH-1],
+    input  logic                          i_cdb_en [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_cdb_data [0:OPTN_CDB_DEPTH-1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_cdb_tag [0:OPTN_CDB_DEPTH-1],
 
     // Dispatch interface
-    input  logic                              i_rs_reserve_en,
-    input  logic [`PCYN_OP_WIDTH-1:0]         i_rs_dispatch_op,
-    input  logic [`PCYN_OP_IS_WIDTH-1:0]      i_rs_dispatch_op_is,
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_dispatch_imm,
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dispatch_dst_tag,
-    input  logic                              i_rs_dispatch_src_rdy [0:1],
-    input  logic [OPTN_DATA_WIDTH-1:0]        i_rs_dispatch_src_data [0:1],
-    input  logic [OPTN_ROB_IDX_WIDTH-1:0]     i_rs_dispatch_src_tag [0:1],
-    output logic                              o_rs_stall,
+    input  logic                          i_rs_reserve_en,
+    input  pcyn_op_t                      i_rs_dispatch_op,
+    input  pcyn_op_is_t                   i_rs_dispatch_op_is,
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_dispatch_imm,
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rs_dispatch_dst_tag,
+    input  logic                          i_rs_dispatch_src_rdy [0:1],
+    input  logic [OPTN_DATA_WIDTH-1:0]    i_rs_dispatch_src_data [0:1],
+    input  logic [OPTN_ROB_IDX_WIDTH-1:0] i_rs_dispatch_src_tag [0:1],
+    output logic                          o_rs_stall,
 
     // Functional Unit interface
-    input  logic                              i_fu_stall,
-    output logic                              o_fu_valid,
-    output logic [`PCYN_OP_WIDTH-1:0]         o_fu_op,
-    output logic [`PCYN_OP_IS_WIDTH-1:0]      o_fu_op_is,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_imm,
-    output logic [OPTN_DATA_WIDTH-1:0]        o_fu_src [0:1],
-    output logic [OPTN_ROB_IDX_WIDTH-1:0]     o_fu_tag
+    input  logic                          i_fu_stall,
+    output logic                          o_fu_valid,
+    output pcyn_op_t                      o_fu_op,
+    output pcyn_op_is_t                   o_fu_op_is,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_fu_imm,
+    output logic [OPTN_DATA_WIDTH-1:0]    o_fu_src [0:1],
+    output logic [OPTN_ROB_IDX_WIDTH-1:0] o_fu_tag
 );
 
-    localparam RS_IDX_WIDTH = OPTN_RS_DEPTH == 1 ? 1 : $clog2(OPTN_RS_DEPTH);
+    localparam RS_IDX_WIDTH = `PCYN_C2I(OPTN_RS_DEPTH);
 
-    assign o_rs_fu_type = OPTN_RS_FU_TYPE;
+    assign o_rs_fu_type = pcyn_rs_fu_type_t'(OPTN_RS_FU_TYPE);
 
     logic [OPTN_RS_DEPTH-1:0] rs_entry_ready;
     logic [OPTN_RS_DEPTH-1:0] rs_entry_empty;
     logic [RS_IDX_WIDTH-1:0] rs_entry_age [0:OPTN_RS_DEPTH-1];
-    logic [`PCYN_OP_WIDTH-1:0] rs_entry_op [0:OPTN_RS_DEPTH-1];
-    logic [`PCYN_OP_IS_WIDTH-1:0] rs_entry_op_is [0:OPTN_RS_DEPTH-1];
+    pcyn_op_t rs_entry_op [0:OPTN_RS_DEPTH-1];
+    pcyn_op_is_t rs_entry_op_is [0:OPTN_RS_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_imm [0:OPTN_RS_DEPTH-1];
     logic [OPTN_DATA_WIDTH-1:0] rs_entry_src_data [0:OPTN_RS_DEPTH-1] [0:1];
     logic [OPTN_ROB_IDX_WIDTH-1:0] rs_entry_tag [0:OPTN_RS_DEPTH-1];
@@ -171,8 +174,8 @@ module procyon_rs #(
 
     assign o_fu_valid = fu_valid_r;
 
-    procyon_ff #(`PCYN_OP_WIDTH) o_fu_op_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op[rs_issue_entry]), .o_q(o_fu_op));
-    procyon_ff #(`PCYN_OP_IS_WIDTH) o_fu_op_is_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op_is[rs_issue_entry]), .o_q(o_fu_op_is));
+    procyon_ff #(PCYN_OP_WIDTH) o_fu_op_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op[rs_issue_entry]), .o_q(o_fu_op));
+    procyon_ff #(PCYN_OP_IS_WIDTH) o_fu_op_is_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_op_is[rs_issue_entry]), .o_q(o_fu_op_is));
     procyon_ff #(OPTN_DATA_WIDTH) o_fu_imm_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_imm[rs_issue_entry]), .o_q(o_fu_imm));
     procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_0_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][0]), .o_q(o_fu_src[0]));
     procyon_ff #(OPTN_DATA_WIDTH) o_fu_src_1_ff (.clk(clk), .i_en(n_fu_stall), .i_d(rs_entry_src_data[rs_issue_entry][1]), .o_q(o_fu_src[1]));
