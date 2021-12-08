@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-`ifndef _PROCYON_LIB_PKG_SVH_
-`define _PROCYON_LIB_PKG_SVH_
-
 package procyon_lib_pkg;
     // Size to width
     `define PCYN_S2W(size) ((size) * 8)
@@ -64,5 +61,3 @@ package procyon_lib_pkg;
         WB_BTE_16BEAT = WB_BTE_WIDTH'('b11)
     } wb_bte_t;
 endpackage: procyon_lib_pkg
-
-`endif // _PROCYON_LIB_PKG_SVH_

@@ -4,9 +4,6 @@
  * SPDS-License-Identifier: MIT
  */
 
-`ifndef _PROCYON_CORE_PKG_SVH_
-`define _PROCYON_CORE_PKG_SVH_
-
 package procyon_core_pkg;
     import procyon_lib_pkg::*;
 
@@ -114,5 +111,3 @@ package procyon_core_pkg;
     } pcyn_ccu_len_t;
     localparam pcyn_ccu_len_t PCYN_CCU_LEN_MAX = PCYN_CCU_LEN_128B;
 endpackage: procyon_core_pkg
-
-`endif // _PROCYON_CORE_PKG_SVH_
