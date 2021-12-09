@@ -23,10 +23,10 @@ module procyon_lsu #(
     parameter OPTN_ROB_IDX_WIDTH = 5,
     parameter OPTN_MHQ_IDX_WIDTH = 2
 )(
-    input  logic                                   clk,
-    input  logic                                   n_rst,
+    input  logic                                    clk,
+    input  logic                                    n_rst,
 
-    input  logic                                   i_flush,
+    input  logic                                    i_flush,
 
     // Common Data Bus
     output logic                                    o_cdb_en,
