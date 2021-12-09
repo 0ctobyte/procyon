@@ -62,6 +62,7 @@ module procyon #(
     output logic [OPTN_WB_ADDR_WIDTH-1:0]            o_wb_addr,
     output logic [OPTN_WB_DATA_WIDTH-1:0]            o_wb_data
 );
+
     localparam CDB_DEPTH = 1 + OPTN_NUM_IEU;
     localparam RAT_IDX_WIDTH = `PCYN_C2I(OPTN_RAT_DEPTH);
     localparam ROB_IDX_WIDTH = `PCYN_C2I(OPTN_ROB_DEPTH);
