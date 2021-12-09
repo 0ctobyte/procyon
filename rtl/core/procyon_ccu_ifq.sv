@@ -30,7 +30,7 @@ module procyon_ccu_ifq #(
     input  logic [OPTN_ADDR_WIDTH-1:0]              i_ifq_alloc_addr,
 /* verilator lint_on  UNUSED */
 
-    // ICache fille interface
+    // ICache fill interface
     output logic                                    o_ifq_fill_en,
     output logic [OPTN_ADDR_WIDTH-1:0]              o_ifq_fill_addr,
     output logic [`PCYN_S2W(OPTN_IC_LINE_SIZE)-1:0] o_ifq_fill_data,
