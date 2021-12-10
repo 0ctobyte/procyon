@@ -102,7 +102,7 @@ module procyon_ccu_mhq_lu
 
     // mhq_lookup_replay is asserted if the CCU signals it is done on the same cycle with the same address as the
     // lookup OR if the MHQ signals that it is about to launch a fill to the LSU on the same cycle with the same
-    // address as the lookup OR if the MHQ has launched the fill to the LSU on the same cycle as this lookup with the 
+    // address as the lookup OR if the MHQ has launched the fill to the LSU on the same cycle as this lookup with the
     // same address (fill data is propagated through three cycles, the first coming from the CCU and the second
     // from the MHQ head entry and then to the LSU on the 3rd cycle). The same cycle fill case causes a fill
     // conflict where the lookup will return an MHQ tag and enqueue on that entry when it should be invalidated by the
