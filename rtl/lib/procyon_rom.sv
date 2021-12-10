@@ -6,11 +6,9 @@
 
 // ROM with initialized memory
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_rom #(
+module procyon_rom
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_ROM_DEPTH  = 8,
     parameter OPTN_ROM_FILE   = ""
