@@ -10,12 +10,9 @@
 // if other instructions are dispatched/issued. The reservation station will also listen in on all CDB busses and pick
 // up source data for both sources if the CDBs broadcast matching tags that the source is waiting on
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_rs #(
+module procyon_rs
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5,

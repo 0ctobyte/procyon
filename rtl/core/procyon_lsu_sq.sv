@@ -10,12 +10,9 @@
 // The purpose of the store queue is to keep track of store ops and commit them to memory in program order
 // and to detect mis-speculated loads in the load queue
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_lsu_sq #(
+module procyon_lsu_sq
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_SQ_DEPTH      = 8,

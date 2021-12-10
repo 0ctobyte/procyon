@@ -16,12 +16,9 @@
 // Update Stage:
 // - Enqueue or merges if necessary and writes store retire data into the MHQ entry
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu_mhq #(
+module procyon_ccu_mhq
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,

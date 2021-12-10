@@ -14,12 +14,9 @@
 // Allocate event:
 // - Enqueue evicted cachelines
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu_vq #(
+module procyon_ccu_vq
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_VQ_DEPTH     = 4,

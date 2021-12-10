@@ -7,11 +7,9 @@
 // Dual Port RAM
 // 1 asynchronous read port and 1 synchronous write port
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ram_dp #(
+module procyon_ram_dp
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8
 )(

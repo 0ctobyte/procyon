@@ -6,11 +6,9 @@
 
 // Generic queue control module to keep track of full/empty status and manage head/tail pointers
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_queue_ctrl #(
+module procyon_queue_ctrl
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_QUEUE_DEPTH = 8
 )(
     input  logic                             clk,

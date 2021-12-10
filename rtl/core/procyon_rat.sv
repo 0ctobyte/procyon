@@ -6,11 +6,9 @@
 
 // Register Alias Table with tag information for register renaming
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_rat #(
+module procyon_rat
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_RAT_DEPTH     = 32,
     parameter OPTN_ROB_IDX_WIDTH = 5

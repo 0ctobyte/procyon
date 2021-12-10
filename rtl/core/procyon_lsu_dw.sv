@@ -6,11 +6,9 @@
 
 // LSU dcache hit check & write data stage
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_lsu_dw #(
+module procyon_lsu_dw
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_LQ_DEPTH        = 8,

@@ -7,12 +7,9 @@
 // Core Communications Unit
 // This module is responsible for arbitrating between the MHQ, fetch and victim requests within the CPU and controlling the BIU
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu #(
+module procyon_ccu
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_VQ_DEPTH      = 4,

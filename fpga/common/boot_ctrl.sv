@@ -4,11 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module boot_ctrl #(
+module boot_ctrl
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_WB_DATA_WIDTH = 32,
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_HEX_SIZE      = 32,

@@ -33,11 +33,9 @@
 // o_wb_addr  -> ADR_O()
 // o_wb_data  -> DAT_O()
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_biu_controller_wb #(
+module procyon_biu_controller_wb
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_BIU_DATA_SIZE = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,

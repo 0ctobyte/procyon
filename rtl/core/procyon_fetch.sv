@@ -6,11 +6,9 @@
 
 // Instruction fetch unit
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_fetch #(
+module procyon_fetch
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_INSN_WIDTH      = 32,
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_INSN_FIFO_DEPTH = 8,

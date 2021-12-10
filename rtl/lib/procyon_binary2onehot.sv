@@ -6,11 +6,9 @@
 
 // Convert a binary number to a one-hot vector
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_binary2onehot #(
+module procyon_binary2onehot
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_ONEHOT_WIDTH = 8
 )(
     input  logic [`PCYN_C2I(OPTN_ONEHOT_WIDTH)-1:0] i_binary,

@@ -7,12 +7,9 @@
 // SRAM controller with a wishbone interface
 // Controls the IS61WV102416BLL SRAM chip
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_system_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module sram_top #(
+module sram_top
+    import procyon_lib_pkg::*, procyon_system_pkg::*;
+#(
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,
     parameter OPTN_BASE_ADDR     = 0

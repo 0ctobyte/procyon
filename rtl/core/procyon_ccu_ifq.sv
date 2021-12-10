@@ -9,12 +9,9 @@
 // Fetch unit will indicate what address to allocate in the queue and the IFQ will respond some cycles later with a
 // fill with the cacheline data
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu_ifq #(
+module procyon_ccu_ifq
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_IFQ_DEPTH     = 1,
     parameter OPTN_IC_LINE_SIZE  = 32

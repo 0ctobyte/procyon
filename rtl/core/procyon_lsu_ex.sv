@@ -6,12 +6,9 @@
 
 // LSU execute pipeline stage
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_core_pkg::*;
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_lsu_ex #(
+module procyon_lsu_ex
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
     parameter OPTN_SQ_DEPTH      = 8,

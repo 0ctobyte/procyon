@@ -9,12 +9,9 @@
 // Every cycle a ready entry from the head of the FIFO is committed to the register file
 // This enforces instructions to complete in program order
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_rob #(
+module procyon_rob
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_CDB_DEPTH        = 2,

@@ -6,11 +6,9 @@
 
 // Simple Dual Port RAM with bypassing
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ram_sdpb #(
+module procyon_ram_sdpb
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_RAM_DEPTH  = 8
 )(

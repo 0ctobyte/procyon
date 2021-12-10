@@ -33,11 +33,9 @@
 // o_wb_ack   -> ACK_O
 // o_wb_data  -> DAT_O()
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_biu_responder_wb #(
+module procyon_biu_responder_wb
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_WB_DATA_WIDTH = 16,
     parameter OPTN_WB_ADDR_WIDTH = 32,

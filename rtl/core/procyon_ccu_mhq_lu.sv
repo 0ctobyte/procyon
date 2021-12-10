@@ -7,12 +7,9 @@
 // MHQ lookup stage
 // Lookup MHQ for address matches and generate byte select signals depending on store type
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu_mhq_lu #(
+module procyon_ccu_mhq_lu
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH   = 32,
     parameter OPTN_ADDR_WIDTH   = 32,
     parameter OPTN_MHQ_DEPTH    = 4,

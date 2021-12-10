@@ -6,11 +6,9 @@
 
 // Synchronous FIFO
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_sync_fifo #(
+module procyon_sync_fifo
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH = 8,
     parameter OPTN_FIFO_DEPTH = 8
 )(

@@ -7,12 +7,9 @@
 // SRAM controller
 // Controls the IS61WV102416BLL SRAM chip
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_system_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module sram_ctrl #(
+module sram_ctrl
+    import procyon_lib_pkg::*, procyon_system_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH = 16,
     parameter OPTN_ADDR_WIDTH = 32
 )(

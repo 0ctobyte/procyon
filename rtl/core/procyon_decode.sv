@@ -14,12 +14,9 @@
 // * Dispatches to ROB with new op, pc and rdst
 // * Dispatches to reservation station with new op
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_decode #(
+module procyon_decode
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH       = 32,
     parameter OPTN_ADDR_WIDTH       = 32,
     parameter OPTN_RAT_IDX_WIDTH    = 5,

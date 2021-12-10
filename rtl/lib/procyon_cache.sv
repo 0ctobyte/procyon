@@ -6,11 +6,9 @@
 
 // Basic direct-mapped cache
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_cache #(
+module procyon_cache
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_ADDR_WIDTH      = 32,
     parameter OPTN_CACHE_SIZE      = 1024,
     parameter OPTN_CACHE_LINE_SIZE = 32

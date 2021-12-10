@@ -7,12 +7,9 @@
 // Core Communications Unit Arbiter
 // This module will select requests to forward to the BIU using priority arbitration
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_ccu_arb #(
+module procyon_ccu_arb
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_CCU_ARB_DEPTH = 1,
     parameter OPTN_CCU_LINE_SIZE = 32

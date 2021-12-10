@@ -9,12 +9,9 @@
 // IT stage - Read out data/tag RAM and cache state
 // IR stage - Generate hit signal and read data word
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_icache #(
+module procyon_icache
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_INSN_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_IC_CACHE_SIZE = 1024,

@@ -6,11 +6,9 @@
 
 // Convert a one-hot vector into a binary number corresponding to the bit position of the one-hot bit
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_onehot2binary #(
+module procyon_onehot2binary
+    import procyon_lib_pkg::*;
+#(
     parameter OPTN_ONEHOT_WIDTH = 8
 )(
     input  logic [OPTN_ONEHOT_WIDTH-1:0]            i_onehot,

@@ -7,12 +7,9 @@
 // Load/Store Unit
 // Encapsulates the AM, DT, DW, EX pipeline stages and the Load Queue and Store Queue and D$
 
-/* verilator lint_off IMPORTSTAR */
-import procyon_lib_pkg::*;
-import procyon_core_pkg::*;
-/* verilator lint_on  IMPORTSTAR */
-
-module procyon_lsu #(
+module procyon_lsu
+    import procyon_lib_pkg::*, procyon_core_pkg::*;
+#(
     parameter OPTN_DATA_WIDTH    = 32,
     parameter OPTN_ADDR_WIDTH    = 32,
     parameter OPTN_LQ_DEPTH      = 8,
