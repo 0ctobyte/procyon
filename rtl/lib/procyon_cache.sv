@@ -60,7 +60,7 @@ module procyon_cache
     generate
     for (cache_state_idx = 0; cache_state_idx < `PCYN_CACHE_INDEX_COUNT; cache_state_idx++) begin : GEN_DIRTY_VALID_CACHE_STATE_FF
         logic cache_state_wr_en;
-        assign cache_state_wr_en = i_cache_wr_en && (i_cache_wr_index == cache_state_idx);
+        assign cache_state_wr_en = i_cache_wr_en & (i_cache_wr_index == cache_state_idx);
 
         // Update the valid bit on a fill
         procyon_srff #(1) cache_state_valid_r_srff (.clk(clk), .n_rst(n_rst), .i_en(cache_state_wr_en), .i_set(i_cache_wr_valid), .i_reset(1'b0), .o_q(cache_state_valid_r[cache_state_idx]));

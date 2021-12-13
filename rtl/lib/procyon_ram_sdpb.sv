@@ -32,7 +32,7 @@ module procyon_ram_sdpb
 
     // Synchronous read; bypass write data on same cycle to the same address
     logic ram_rd_bypass_sel;
-    assign ram_rd_bypass_sel = (i_ram_rd_addr == i_ram_wr_addr) && i_ram_wr_en;
+    assign ram_rd_bypass_sel = (i_ram_rd_addr == i_ram_wr_addr) & i_ram_wr_en;
     always_ff @(posedge clk) if (i_ram_rd_en) o_ram_rd_data <= ram_rd_bypass_sel ? i_ram_wr_data : ram[i_ram_rd_addr];
 
 endmodule

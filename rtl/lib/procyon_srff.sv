@@ -19,7 +19,7 @@ module procyon_srff #(
 );
 
     always_ff @(posedge clk) begin
-        if (~n_rst)    o_q <= i_reset;
+        if (!n_rst)    o_q <= i_reset;
         else if (i_en) o_q <= i_set;
     end
 
