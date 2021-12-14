@@ -6,16 +6,15 @@ OBJCOPY := riscv64-unknown-elf-objcopy
 OBJDUMP := riscv64-unknown-elf-objdump
 
 THREADS ?= 4
-IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
 DUT_SRC := ../common/$(DUT).sv
-SYSC_CFLAGS := -CFLAGS -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+SYSC_CFLAGS := -CFLAGS -I../../common
 SYSC_SRCS := ../common/sc_main.cpp ../common/utils.cpp
 VSRCS := ../../rtl/lib/procyon_lib_pkg.sv ../../rtl/system/procyon_system_pkg.sv ../../rtl/core/procyon_core_pkg.sv $(filter-out %_pkg.sv, $(wildcard ../../rtl/*/*.sv))
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
-VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -Wall -Wno-fatal --trace --top-module $(DUT) --sc --exe
+VFLAGS := -Wall -Wno-fatal --trace --top-module $(DUT) --sc --exe
 VDUT := V$(DUT)
 LINK_FILE := link.ld
 CFLAGS := -march=rv32g -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles  -T$(LINK_FILE)

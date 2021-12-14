@@ -30,7 +30,7 @@ IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
-SYSC_CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+SYSC_CFLAGS := -CFLAGS -I../../../tb/common -I../../common
 SYSC_SRCS := ../common/sc_main.cpp ../../tb/common/utils.cpp
 VSRCS := ../../rtl/lib/procyon_lib_pkg.sv ../../rtl/system/procyon_system_pkg.sv ../../rtl/core/procyon_core_pkg.sv $(filter-out %_pkg.sv, $(wildcard ../../rtl/*/*.sv ../common/*.sv))
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common

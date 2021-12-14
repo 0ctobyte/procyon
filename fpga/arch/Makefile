@@ -28,7 +28,7 @@ IC_LINE_SIZE ?= 32
 
 OBJ_DIR := obj_dir
 DUT := dut
-CFLAGS := -CFLAGS -I../../../tb/common -I../../common -CFLAGS -DIC_LINE_SIZE=$(IC_LINE_SIZE)
+CFLAGS := -CFLAGS -I../../../tb/common -I../../common
 VINCLUDE := -I../../rtl/core -I../../rtl/lib -I../../rtl/system -I../common
 VFLAGS := -GOPTN_IC_LINE_SIZE=$(IC_LINE_SIZE) -GOPTN_HEX_FILE=\"$(HEX_FILE)\" -Wall -Wno-fatal --trace --top-module $(DUT) --sc --exe
 VDUT := V$(DUT)
