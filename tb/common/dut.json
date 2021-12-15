@@ -1,0 +1,99 @@
+{
+    "OPTN_DATA_WIDTH": {
+        "range": [
+            32
+        ]
+    },
+    "OPTN_INSN_WIDTH": {
+        "range": [
+            32
+        ]
+    },
+    "OPTN_ADDR_WIDTH": {
+        "range": [
+            32
+        ]
+    },
+    "OPTN_RAT_DEPTH": {
+        "range": [
+            32
+        ]
+    },
+    "OPTN_NUM_IEU": {
+        "range": "list(range(1, 2))"
+    },
+    "OPTN_INSN_FIFO_DEPTH": {
+        "range": "list(range(1, 16))"
+    },
+    "OPTN_ROB_DEPTH": {
+        "range": "list(range(1, 128))"
+    },
+    "OPTN_RS_IEU_DEPTH": {
+        "range": "list(range(1, 64))"
+    },
+    "OPTN_RS_LSU_DEPTH": {
+        "range": "list(range(1, 64))"
+    },
+    "OPTN_LQ_DEPTH": {
+        "range": "list(range(1, 64))"
+    },
+    "OPTN_SQ_DEPTH": {
+        "range": "list(range(1, 64))"
+    },
+    "OPTN_VQ_DEPTH": {
+        "range": "list(range(1, 32))"
+    },
+    "OPTN_MHQ_DEPTH": {
+        "range": "list(range(1, 32))"
+    },
+    "OPTN_IFQ_DEPTH": {
+        "range": "list(range(1, 8))"
+    },
+    "OPTN_IC_CACHE_SIZE": {
+        "range": "[1 << e for e in range(4, 14)]"
+    },
+    "OPTN_IC_LINE_SIZE": {
+        "range": "[1 << e for e in range(4, 7)]",
+        "constraints": [
+            {
+                "parameter_dep": "OPTN_IC_CACHE_SIZE",
+                "function": "lambda val, dep : val <= dep"
+            }
+        ]
+    },
+    "OPTN_IC_WAY_COUNT": {
+        "range": [
+            1
+        ]
+    },
+    "OPTN_DC_CACHE_SIZE": {
+        "range": "[1 << e for e in range(3, 14)]"
+    },
+    "OPTN_DC_LINE_SIZE": {
+        "range": "[1 << e for e in range(3, 7)]",
+        "constraints": [
+            {
+                "parameter_dep": "OPTN_DC_CACHE_SIZE",
+                "function": "lambda val, dep : val <= dep"
+            }
+        ]
+    },
+    "OPTN_DC_WAY_COUNT": {
+        "range": [
+            1
+        ]
+    },
+    "OPTN_WB_DATA_WIDTH": {
+        "range": "[1 << e for e in range(4, 6)]"
+    },
+    "OPTN_WB_ADDR_WIDTH": {
+        "range": [
+            32
+        ]
+    },
+    "OPTN_WB_SRAM_BASE_ADDR": {
+        "range": [
+            0
+        ]
+    }
+}
