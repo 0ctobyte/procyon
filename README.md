@@ -21,13 +21,15 @@ In the `tb` directory there are some tests:
 * `arch`: RISCV CPU architectural tests
 * `lsu`: Tests that stress the LSU in various ways
 
-Running `make` in each directory will build and run the simulation. For `arch` this will run a suite of rv32ui architectural tests. The architectural tests' source code can be found at [riscv-tests](https://github.com/0ctobyte/riscv-tests) which is a submodule in this repo. The `riscv-tests` repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `arch` directory:
+Running `make` in each directory will build and run the simulation. Verilator is used to convert the SystemVerilog code to SystemC code and SystemC is used to run the simulation. For `arch` this will run a suite of rv32ui architectural tests across multiple models of the Procyon core. Each model will have it's top level parameters randomized. The architectural tests' source code can be found at [riscv-tests](https://github.com/0ctobyte/riscv-tests) which is a submodule in this repo. The `riscv-tests` repo is a fork of the official [riscv-tests](https://github.com/riscv/riscv-tests) repo with some special tweaks to get the tests running on procyon. It's also possible to run an arbitrary free-standing bare-metal binary. From the `arch` directory:
 
 `make build-only`
 
 `obj_dir/Vdut <binary>`
 
 The above will also work from any of the other directories in the `tb` directory.
+
+The number of models with randomized parameters to simulate can be specified with a make variable, like so: `make NUM_MODELS=50`. The simulations will produce a VCD file which can be viewed by any waveform viewer. One such open source waveform viewer is [gtkwave](https://github.com/gtkwave/gtkwave).
 
 # FPGA Build
 
@@ -37,7 +39,7 @@ The Procyon core and system is functional on the FPGA with the following blocks:
 
 * `procyon`: The actual RISCV core
 * `procyon_rom`: The `bootrom`. It will hold the bare-metal program instructions that the core will execute.
-* `boot_ctrl`: Copies the binary loaded into the `bootrom` to the SRAM before de-asserting reset to the Procyon core and switching the Wishbone bux mux to pass through the signals from the Procyon core.
+* `boot_ctrl`: Copies the binary loaded into the `bootrom` to the SRAM before de-asserting reset to the Procyon core and switching the Wishbone bus mux to pass through the signals from the Procyon core.
 * `sram_top`: SRAM controller module used to interface with the IS61WV102416BLL SRAM chip on the DE2-115 board. It includes a Wishbone responder interface to the Wishbone bus.
 
 A python script, `hexify-bin.py`, is provided to convert an elf or binary file to hex format: `hexify-bin.py <binary/ELF> <out_dir>`. This is done by the Makefile automatically.
