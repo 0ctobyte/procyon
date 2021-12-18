@@ -28,8 +28,17 @@ int sc_main(int argc, char** argv) {
         std::cerr << "ERROR: No binary or hex file specified" << std::endl;
     }
 
+    std::string rom_file(argv[1]);
+    size_t start_pos = rom_file.find_last_of("/");
+
+    if (start_pos == std::string::npos) {
+        start_pos = 0;
+    }
+
+    std::string rom_name = rom_file.substr(start_pos+1);
+
     std::string top_name("top");
-    sc_trace_file *tf = sc_create_vcd_trace_file("sysc");
+    sc_trace_file *tf = sc_create_vcd_trace_file((std::string("sysc_") + rom_name).c_str());
 
     sc_clock clk("clk", sc_time(1, SC_NS));
     sc_signal<bool> n_rst(0);
@@ -74,7 +83,6 @@ int sc_main(int argc, char** argv) {
     dut.o_sim_tp(sim_tp);
     dut.o_sim_retire(sim_retire);
 
-    std::string rom_file(argv[1]);
     std::string suffix_str("hex");
     if (ends_with(rom_file, suffix_str)) {
         sram.load_hex(rom_file);
@@ -84,7 +92,7 @@ int sc_main(int argc, char** argv) {
 
     VerilatedVcdSc tfp;
     dut.trace(&tfp, 100);
-    tfp.open("dut.vcd");
+    tfp.open((std::string("dut_") + rom_name + std::string(".vcd")).c_str());
 
     uint64_t retired_insns = 0, cycles = 0;
     while (sim_tp != PASS && sim_tp != FAIL && sc_get_status() != SC_STOPPED) {

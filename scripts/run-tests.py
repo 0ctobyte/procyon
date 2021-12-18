@@ -37,7 +37,7 @@ def run_tests(sim_bin, test_list):
         test_result = [test]
 
         try:
-            result = subprocess.run([sim_bin, test_path], capture_output=True, text=True, timeout=args.timeout)
+            result = subprocess.run([os.path.abspath(sim_bin), test_path], cwd=os.path.dirname(sim_bin), capture_output=True, text=True, timeout=args.timeout)
         except subprocess.TimeoutExpired:
             t1 = timeit.default_timer()
             test_results += [test_result + ["HANG", "--", "--", "--", str(t1 - t0), sim_bin]]
