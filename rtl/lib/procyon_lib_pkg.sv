@@ -61,3 +61,4 @@ package procyon_lib_pkg;
         WB_BTE_16BEAT = WB_BTE_WIDTH'('b11)
     } wb_bte_t;
 endpackage: procyon_lib_pkg
+

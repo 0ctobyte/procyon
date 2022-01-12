@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+timeunit 1ns;
+timeprecision 1ns;
+
 module dut
     import procyon_lib_pkg::*, procyon_system_pkg::*;
 #(
@@ -48,9 +51,6 @@ module dut
     output logic [OPTN_DATA_WIDTH-1:0] o_sim_tp,
     output logic                       o_sim_retire
 );
-
-    timeunit 1ns;
-    timeprecision 1ns;
 
     localparam RAT_IDX_WIDTH = `PCYN_C2I(OPTN_RAT_DEPTH);
     localparam WB_DATA_SIZE = `PCYN_W2S(OPTN_WB_DATA_WIDTH);

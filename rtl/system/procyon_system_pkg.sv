@@ -16,3 +16,4 @@ package procyon_system_pkg;
     typedef logic [SRAM_DATA_WIDTH-1:0] sram_data_t;
     typedef logic [SRAM_DATA_SIZE-1:0] sram_data_select_t;
 endpackage: procyon_system_pkg
+
