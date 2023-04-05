@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-timeunit 1ns;
-timeprecision 1ns;
-
 module dut
     import procyon_lib_pkg::*, procyon_system_pkg::*;
 #(
